@@ -1,0 +1,133 @@
+# Roadmap
+
+**Project:** Listarr
+**Milestone:** v1.0 - Automated Media Discovery
+**Created:** 2026-01-12
+
+## Objective
+
+Build automated media discovery and import that just works - fresh content flows into Radarr/Sonarr automatically based on TMDB lists, running reliably 24/7 without intervention.
+
+## Phases
+
+### Phase 1: List Management System
+
+**Goal:** Create UI and backend for managing TMDB lists with full CRUD operations
+
+**Deliverable:** Users can create, view, edit, delete, and enable/disable lists through the web interface
+
+**Verification:**
+- Create a new TMDB trending list through the UI
+- Edit the list configuration
+- Disable and re-enable the list
+- Delete the list
+- All operations persist correctly in the database
+
+---
+
+### Phase 2: TMDB List Generation
+
+**Goal:** Implement TMDB list generation from multiple sources (trending, popular, discovery filters)
+
+**Deliverable:** System can fetch and process movies/TV shows from TMDB API based on configured list settings
+
+**Verification:**
+- Generate a trending movies list and verify items are fetched from TMDB
+- Generate a popular TV shows list and verify results
+- Create a discovery list with custom filters (genre, year, rating) and verify filtering works
+- All list types return valid TMDB data
+
+---
+
+### Phase 3: TMDB Caching Layer
+
+**Goal:** Implement smart caching to respect TMDB API rate limits and improve performance
+
+**Deliverable:** TMDB API responses are cached with appropriate TTLs, preventing rate limit violations
+
+**Verification:**
+- Fetch the same list twice within cache window and verify only one API call is made
+- Wait for cache expiration and verify fresh data is fetched
+- Check logs to confirm cache hit/miss behavior
+- Verify rate limiting protection prevents API overuse
+
+---
+
+### Phase 4: Import Automation Engine
+
+**Goal:** Build reliable import system that sends TMDB items to Radarr/Sonarr with proper error handling
+
+**Deliverable:** System can import movies to Radarr and TV shows to Sonarr with configured quality profiles and root folders, handling errors gracefully
+
+**Verification:**
+- Import a movie to Radarr and verify it appears with correct quality profile
+- Import a TV show to Sonarr and verify it appears with correct settings
+- Test import of already-existing item and verify graceful handling
+- Test import with invalid settings and verify error reporting
+- Check error logs for proper error capture
+
+---
+
+### Phase 5: Job Execution Framework
+
+**Goal:** Create background job processing system with execution tracking and history
+
+**Deliverable:** Jobs can be queued, executed, tracked, and their history (success/failure) is recorded and displayed
+
+**Verification:**
+- Queue a list import job and verify it executes
+- View job execution history in the dashboard
+- Verify failed jobs are logged with error details
+- Check that job status updates correctly (pending → running → completed/failed)
+- Confirm job history persists across application restarts
+
+---
+
+### Phase 6: Scheduler System
+
+**Goal:** Implement cron-based scheduler for automated list refresh on schedule
+
+**Deliverable:** Lists can be configured with cron schedules and execute automatically without manual intervention
+
+**Verification:**
+- Configure a list to run every 5 minutes
+- Wait and verify the job executes automatically at the scheduled time
+- Check job history shows scheduled executions
+- Disable the list and verify scheduled jobs stop
+- Re-enable and verify scheduling resumes
+
+---
+
+### Phase 7: Manual Trigger UI
+
+**Goal:** Add manual trigger capability to run any list on-demand from the UI
+
+**Deliverable:** Users can click a button to immediately execute any list import job
+
+**Verification:**
+- Click "Run Now" button on a list and verify job executes immediately
+- Verify UI shows job status (running → completed)
+- Check that manually triggered jobs appear in job history
+- Test triggering multiple lists simultaneously
+- Verify UI prevents duplicate triggers while job is running
+
+---
+
+## Milestone Complete When
+
+All phases delivered and verified:
+- ✅ List management UI fully functional
+- ✅ TMDB list generation working for all source types
+- ✅ TMDB caching respects rate limits
+- ✅ Import automation reliably sends items to Radarr/Sonarr
+- ✅ Job execution framework tracks all operations
+- ✅ Scheduler runs lists automatically on cron schedules
+- ✅ Manual triggers allow on-demand execution
+
+**Success criteria:** User can configure a trending movies list, schedule it to run daily, and verify that new movies automatically appear in Radarr without any manual intervention.
+
+---
+
+*Roadmap created: 2026-01-12*
+*Phases: 7*
+*Depth: Standard (3-5 plans per phase)*
