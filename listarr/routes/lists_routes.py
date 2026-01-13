@@ -36,3 +36,42 @@ def create_list():
         flash("Please correct the errors in the form.", "error")
 
     return redirect(url_for("main.lists_page"))
+
+@bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
+def edit_list(list_id):
+    list_obj = List.query.get_or_404(list_id)
+    form = ListForm(obj=list_obj)
+
+    if request.method == "POST" and form.validate_on_submit():
+        try:
+            list_obj.name = form.name.data
+            list_obj.target_service = form.target_service.data
+            list_obj.tmdb_list_type = form.tmdb_list_type.data
+            list_obj.is_active = form.is_active.data
+            list_obj.filters_json = form.filters_json.data or "{}"
+
+            db.session.commit()
+            flash(f"List '{list_obj.name}' updated successfully!", "success")
+            return redirect(url_for("main.lists_page"))
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating list: {e}", exc_info=True)
+            flash("Error updating list. Please try again.", "error")
+
+    return render_template("edit_list.html", form=form, list=list_obj)
+
+@bp.route("/lists/delete/<int:list_id>", methods=["POST"])
+def delete_list(list_id):
+    list_obj = List.query.get_or_404(list_id)
+
+    try:
+        list_name = list_obj.name
+        db.session.delete(list_obj)
+        db.session.commit()
+        flash(f"List '{list_name}' deleted successfully!", "success")
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting list: {e}", exc_info=True)
+        flash("Error deleting list. Please try again.", "error")
+
+    return redirect(url_for("main.lists_page"))
