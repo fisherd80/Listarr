@@ -1,5 +1,10 @@
-{% extends "base.html" %} {% block title %}Lists - Listarr{% endblock %} {%
-block content %}
+{% extends "base.html" %} {% block title %}Lists - Listarr{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/lists.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
 
 <div class="space-y-6">
   <!-- Page Header -->
@@ -79,11 +84,11 @@ block content %}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               {% if list.is_active %}
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              <span data-status-badge class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                 Active
               </span>
               {% else %}
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+              <span data-status-badge class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
                 Inactive
               </span>
               {% endif %}
@@ -92,6 +97,13 @@ block content %}
               {{ list.created_at.strftime('%Y-%m-%d %H:%M') if list.created_at else 'N/A' }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <button
+                type="button"
+                data-toggle-list="{{ list.id }}"
+                class="text-yellow-600 hover:text-yellow-900 dark:hover:text-yellow-400 mr-3"
+              >
+                {% if list.is_active %}Disable{% else %}Enable{% endif %}
+              </button>
               <a
                 href="{{ url_for('main.edit_list', list_id=list.id) }}"
                 class="text-primary hover:text-indigo-900 dark:hover:text-indigo-300 mr-3"

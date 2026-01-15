@@ -1,4 +1,4 @@
-from flask import render_template, flash, request, redirect, url_for, current_app
+from flask import render_template, flash, request, redirect, url_for, current_app, jsonify
 from datetime import datetime, timezone
 from listarr.routes import bp
 from listarr.models.lists_model import List
@@ -75,3 +75,28 @@ def delete_list(list_id):
         flash("Error deleting list. Please try again.", "error")
 
     return redirect(url_for("main.lists_page"))
+
+@bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
+def toggle_list(list_id):
+    list_obj = List.query.get_or_404(list_id)
+
+    try:
+        # Toggle the is_active field
+        list_obj.is_active = not list_obj.is_active
+        db.session.commit()
+
+        status_text = "enabled" if list_obj.is_active else "disabled"
+        flash(f"List '{list_obj.name}' {status_text}!", "success")
+
+        return jsonify({
+            "success": True,
+            "is_active": list_obj.is_active,
+            "message": f"List {status_text}"
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling list: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": "Error toggling list. Please try again."
+        }), 500
