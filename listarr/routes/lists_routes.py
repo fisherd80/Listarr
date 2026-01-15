@@ -86,7 +86,6 @@ def toggle_list(list_id):
         db.session.commit()
 
         status_text = "enabled" if list_obj.is_active else "disabled"
-        flash(f"List '{list_obj.name}' {status_text}!", "success")
 
         return jsonify({
             "success": True,
