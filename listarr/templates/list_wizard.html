@@ -504,10 +504,80 @@
 
       <!-- Step 4: Schedule -->
       <div id="step-4" class="step-content hidden">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Set Schedule</h2>
-        <p class="text-gray-500 dark:text-gray-400">Choose how often this list should refresh and import new items.</p>
-        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p class="text-sm text-gray-600 dark:text-gray-300">Schedule configuration content will be implemented in 02-05</p>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Schedule</h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">Set how often this list should run. Leave as "Manual only" for on-demand execution.</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Schedule Form Fields -->
+          <div class="space-y-6">
+            <!-- List Name -->
+            <div>
+              <label for="schedule-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                List Name <span class="text-red-500">*</span>
+              </label>
+              <input type="text" id="schedule-name" required
+                placeholder="My Trending Movies"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
+              <p id="schedule-name-error" class="hidden mt-1 text-xs text-red-500">Name is required</p>
+            </div>
+
+            <!-- Schedule Dropdown -->
+            <div>
+              <label for="schedule-cron" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Run Schedule
+              </label>
+              <select id="schedule-cron"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+                <option value="">Manual only</option>
+                <option value="0 * * * *">Every hour</option>
+                <option value="0 */6 * * *">Every 6 hours</option>
+                <option value="0 0 * * *">Daily (midnight)</option>
+                <option value="0 0 * * 0">Weekly (Sunday midnight)</option>
+              </select>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                When to automatically refresh and import from this list
+              </p>
+            </div>
+
+            <!-- Enabled Checkbox -->
+            <div>
+              <label class="flex items-center">
+                <input type="checkbox" id="schedule-enabled" checked
+                  class="rounded text-primary focus:ring-primary h-4 w-4" />
+                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</span>
+              </label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+                Start running this list immediately after creation
+              </p>
+            </div>
+          </div>
+
+          <!-- Summary Section -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Summary</h3>
+            <div id="creation-summary" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Type:</span>
+                <span id="summary-type" class="text-gray-900 dark:text-gray-100 font-medium">-</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Service:</span>
+                <span id="summary-service" class="text-gray-900 dark:text-gray-100 font-medium">-</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Filters:</span>
+                <span id="summary-filters" class="text-gray-900 dark:text-gray-100 font-medium text-right">-</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Import to:</span>
+                <span id="summary-import" class="text-gray-900 dark:text-gray-100 font-medium truncate ml-2 text-right">Default settings</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Schedule:</span>
+                <span id="summary-schedule" class="text-gray-900 dark:text-gray-100 font-medium">Manual only</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

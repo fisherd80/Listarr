@@ -41,6 +41,11 @@ const wizardState = {
         monitored: null,           // null = use default
         search_on_add: null,
     },
+    schedule: {
+        name: "",
+        cron: null,      // null = manual only
+        is_active: true,
+    },
     // Cached data from defaults endpoint
     _importDefaults: null,
     _importOptions: null,
@@ -88,6 +93,9 @@ function initWizard() {
 
     // Set up import settings change handlers
     initImportSettings();
+
+    // Set up schedule change handlers
+    initSchedule();
 
     // Initialize UI to step 1
     goToStep(1);
@@ -424,6 +432,11 @@ function goToStep(stepNumber) {
     if (stepNumber === 3 && wizardState.service) {
         fetchImportDefaults();
     }
+
+    // Populate schedule form when entering step 4
+    if (stepNumber === 4) {
+        populateStep4();
+    }
 }
 
 /**
@@ -467,8 +480,7 @@ function validateCurrentStep() {
         case 3:
             return validateStep3();
         case 4:
-            // Schedule validation will be added in 02-05
-            return true;
+            return validateStep4();
         default:
             return true;
     }
@@ -912,6 +924,274 @@ function handleSearchOnAddChange() {
 function validateStep3() {
     // All import settings are optional - validation always passes
     return true;
+}
+
+// ============================================
+// Step 4: Schedule Functions
+// ============================================
+
+/**
+ * Initialize schedule form handlers
+ */
+function initSchedule() {
+    // Name input
+    const nameInput = document.getElementById("schedule-name");
+    if (nameInput) {
+        nameInput.addEventListener("input", handleScheduleNameChange);
+    }
+
+    // Cron select
+    const cronSelect = document.getElementById("schedule-cron");
+    if (cronSelect) {
+        cronSelect.addEventListener("change", handleScheduleCronChange);
+    }
+
+    // Enabled checkbox
+    const enabledCheckbox = document.getElementById("schedule-enabled");
+    if (enabledCheckbox) {
+        enabledCheckbox.addEventListener("change", handleScheduleEnabledChange);
+    }
+}
+
+/**
+ * Handle schedule name input change
+ */
+function handleScheduleNameChange() {
+    const nameInput = document.getElementById("schedule-name");
+    if (!nameInput) return;
+
+    wizardState.schedule.name = nameInput.value.trim();
+
+    // Update validation UI
+    const errorEl = document.getElementById("schedule-name-error");
+    if (wizardState.schedule.name) {
+        nameInput.classList.remove("border-red-500");
+        if (errorEl) errorEl.classList.add("hidden");
+    }
+
+    // Update Next button state
+    updateNextButtonState();
+}
+
+/**
+ * Handle schedule cron select change
+ */
+function handleScheduleCronChange() {
+    const cronSelect = document.getElementById("schedule-cron");
+    if (!cronSelect) return;
+
+    const value = cronSelect.value;
+    wizardState.schedule.cron = value || null;
+
+    // Update summary
+    updateSummarySchedule();
+}
+
+/**
+ * Handle schedule enabled checkbox change
+ */
+function handleScheduleEnabledChange() {
+    const enabledCheckbox = document.getElementById("schedule-enabled");
+    if (!enabledCheckbox) return;
+
+    wizardState.schedule.is_active = enabledCheckbox.checked;
+}
+
+/**
+ * Validate Step 4 - Schedule
+ * Name is required
+ * @returns {boolean}
+ */
+function validateStep4() {
+    const nameInput = document.getElementById("schedule-name");
+    const errorEl = document.getElementById("schedule-name-error");
+    const name = wizardState.schedule.name;
+
+    if (!name) {
+        // Show error
+        if (nameInput) {
+            nameInput.classList.add("border-red-500");
+        }
+        if (errorEl) {
+            errorEl.classList.remove("hidden");
+        }
+        return false;
+    }
+
+    // Clear error
+    if (nameInput) {
+        nameInput.classList.remove("border-red-500");
+    }
+    if (errorEl) {
+        errorEl.classList.add("hidden");
+    }
+
+    return true;
+}
+
+/**
+ * Pre-populate Step 4 fields when entering the step
+ */
+function populateStep4() {
+    const nameInput = document.getElementById("schedule-name");
+    const cronSelect = document.getElementById("schedule-cron");
+    const enabledCheckbox = document.getElementById("schedule-enabled");
+
+    // Pre-fill name from preset if applicable and name is empty
+    if (!wizardState.schedule.name && wizardState.isPreset && wizardState.preset) {
+        const presetNames = {
+            "trending_movies": "Trending Movies",
+            "trending_tv": "Trending TV Shows",
+            "popular_movies": "Popular Movies",
+            "popular_tv": "Popular TV Shows",
+        };
+        wizardState.schedule.name = presetNames[wizardState.preset] || "";
+    }
+
+    // Populate form fields
+    if (nameInput && wizardState.schedule.name) {
+        nameInput.value = wizardState.schedule.name;
+    }
+    if (cronSelect) {
+        cronSelect.value = wizardState.schedule.cron || "";
+    }
+    if (enabledCheckbox) {
+        enabledCheckbox.checked = wizardState.schedule.is_active;
+    }
+
+    // Update summary section
+    updateSummary();
+}
+
+/**
+ * Update the entire summary section
+ */
+function updateSummary() {
+    updateSummaryType();
+    updateSummaryService();
+    updateSummaryFilters();
+    updateSummaryImport();
+    updateSummarySchedule();
+}
+
+/**
+ * Update summary type display
+ */
+function updateSummaryType() {
+    const el = document.getElementById("summary-type");
+    if (!el) return;
+
+    if (wizardState.isPreset && wizardState.preset) {
+        const presetLabels = {
+            "trending_movies": "Preset: Trending Movies",
+            "trending_tv": "Preset: Trending TV",
+            "popular_movies": "Preset: Popular Movies",
+            "popular_tv": "Preset: Popular TV",
+        };
+        el.textContent = presetLabels[wizardState.preset] || "Preset";
+    } else {
+        el.textContent = wizardState.service === "radarr" ? "Movies (Custom)" : "TV Shows (Custom)";
+    }
+}
+
+/**
+ * Update summary service display
+ */
+function updateSummaryService() {
+    const el = document.getElementById("summary-service");
+    if (!el) return;
+
+    if (wizardState.service === "radarr") {
+        el.textContent = "Radarr";
+    } else if (wizardState.service === "sonarr") {
+        el.textContent = "Sonarr";
+    } else {
+        el.textContent = "-";
+    }
+}
+
+/**
+ * Update summary filters display
+ */
+function updateSummaryFilters() {
+    const el = document.getElementById("summary-filters");
+    if (!el) return;
+
+    if (wizardState.isPreset) {
+        el.textContent = "Preset filters";
+        return;
+    }
+
+    // Build filter description
+    const parts = [];
+
+    if (wizardState.filters.genre_ids && wizardState.filters.genre_ids.length > 0) {
+        const genreNames = wizardState.filters.genre_ids.map(id => TMDB_GENRES[id] || id);
+        parts.push(genreNames.join(", "));
+    }
+
+    if (wizardState.filters.year_min || wizardState.filters.year_max) {
+        const yearMin = wizardState.filters.year_min || "Any";
+        const yearMax = wizardState.filters.year_max || "Any";
+        parts.push(`${yearMin}-${yearMax}`);
+    }
+
+    if (wizardState.filters.rating_min) {
+        parts.push(`${wizardState.filters.rating_min}+ rating`);
+    }
+
+    el.textContent = parts.length > 0 ? parts.join(", ") : "No filters (all results)";
+}
+
+/**
+ * Update summary import display
+ */
+function updateSummaryImport() {
+    const el = document.getElementById("summary-import");
+    if (!el) return;
+
+    const overrides = [];
+
+    // Check for any non-default import settings
+    if (wizardState.importSettings.quality_profile_id !== null) {
+        // Find the profile name
+        const profiles = wizardState._importOptions?.quality_profiles || [];
+        const profile = profiles.find(p => p.id === wizardState.importSettings.quality_profile_id);
+        if (profile) {
+            overrides.push(profile.name);
+        }
+    }
+
+    if (wizardState.importSettings.root_folder !== null) {
+        // Shorten path for display
+        const path = wizardState.importSettings.root_folder;
+        const shortPath = path.split(/[/\\]/).pop() || path;
+        overrides.push(shortPath);
+    }
+
+    if (overrides.length > 0) {
+        el.textContent = overrides.join(", ");
+    } else {
+        el.textContent = "Default settings";
+    }
+}
+
+/**
+ * Update summary schedule display
+ */
+function updateSummarySchedule() {
+    const el = document.getElementById("summary-schedule");
+    if (!el) return;
+
+    const cronSelect = document.getElementById("schedule-cron");
+    if (!cronSelect) {
+        el.textContent = wizardState.schedule.cron ? "Scheduled" : "Manual only";
+        return;
+    }
+
+    // Get the selected option text
+    const selectedOption = cronSelect.options[cronSelect.selectedIndex];
+    el.textContent = selectedOption ? selectedOption.text : "Manual only";
 }
 
 // ============================================
