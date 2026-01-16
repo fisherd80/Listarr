@@ -5,6 +5,16 @@
  * and state management for the list creation flow.
  */
 
+// TMDB Genre IDs (same for movies and TV)
+const TMDB_GENRES = {
+    28: "Action",
+    35: "Comedy",
+    18: "Drama",
+    27: "Horror",
+    878: "Sci-Fi",
+    53: "Thriller",
+};
+
 // Wizard state management
 const wizardState = {
     currentStep: 1,
@@ -13,7 +23,13 @@ const wizardState = {
     service: null,     // radarr or sonarr
     isPreset: false,   // true if using a preset template
     listId: null,      // for edit mode (future use)
-    // Form data will be added in later plans
+    filters: {
+        genre_ids: [],
+        year_min: null,
+        year_max: null,
+        rating_min: null,
+        limit: 20,
+    },
 };
 
 /**
@@ -50,8 +66,83 @@ function initWizard() {
         btnBack.addEventListener("click", prevStep);
     }
 
+    // Set up type card click handlers (for custom lists)
+    initTypeCards();
+
     // Initialize UI to step 1
     goToStep(1);
+
+    // Update Next button state based on initial validation
+    updateNextButtonState();
+}
+
+/**
+ * Initialize type selection card click handlers
+ */
+function initTypeCards() {
+    const typeCards = document.querySelectorAll(".type-card");
+
+    typeCards.forEach(card => {
+        card.addEventListener("click", () => {
+            const service = card.dataset.service;
+            selectType(service);
+        });
+    });
+}
+
+/**
+ * Handle type card selection
+ * @param {string} service - The service to select (radarr or sonarr)
+ */
+function selectType(service) {
+    wizardState.service = service;
+
+    // Update hidden field
+    const serviceField = document.getElementById("wizard-service");
+    if (serviceField) {
+        serviceField.value = service;
+    }
+
+    // Update card styling
+    const typeCards = document.querySelectorAll(".type-card");
+    typeCards.forEach(card => {
+        if (card.dataset.service === service) {
+            // Selected state
+            card.classList.remove("border-gray-200", "dark:border-gray-600");
+            card.classList.add("border-primary", "bg-primary/5", "dark:bg-primary/10");
+        } else {
+            // Unselected state
+            card.classList.remove("border-primary", "bg-primary/5", "dark:bg-primary/10");
+            card.classList.add("border-gray-200", "dark:border-gray-600");
+        }
+    });
+
+    // Hide selection hint
+    const hint = document.getElementById("type-selection-hint");
+    if (hint) {
+        hint.classList.add("hidden");
+    }
+
+    // Update Next button state
+    updateNextButtonState();
+}
+
+/**
+ * Update Next button enabled/disabled state based on current step validation
+ */
+function updateNextButtonState() {
+    const btnNext = document.getElementById("btn-next");
+    if (!btnNext) return;
+
+    const isValid = validateCurrentStep();
+
+    if (isValid) {
+        btnNext.disabled = false;
+        btnNext.classList.remove("opacity-50", "cursor-not-allowed");
+    } else {
+        btnNext.disabled = true;
+        btnNext.classList.add("opacity-50", "cursor-not-allowed");
+    }
 }
 
 /**
@@ -84,6 +175,9 @@ function goToStep(stepNumber) {
 
     // Update navigation buttons
     updateNavButtons();
+
+    // Update Next button state based on validation
+    updateNextButtonState();
 }
 
 /**
@@ -119,8 +213,46 @@ function prevStep() {
  * @returns {boolean} - true if validation passes
  */
 function validateCurrentStep() {
-    // Placeholder - actual validation will be added in later plans
-    // For now, always allow navigation
+    switch (wizardState.currentStep) {
+        case 1:
+            return validateStep1();
+        case 2:
+            return validateStep2();
+        case 3:
+            // Import settings validation will be added in 02-04
+            return true;
+        case 4:
+            // Schedule validation will be added in 02-05
+            return true;
+        default:
+            return true;
+    }
+}
+
+/**
+ * Validate Step 1 - Type Selection
+ * For presets: Always valid (service is pre-set)
+ * For custom: Service must be selected
+ * @returns {boolean}
+ */
+function validateStep1() {
+    // Presets have service pre-set, always valid
+    if (wizardState.isPreset) {
+        return true;
+    }
+    // Custom lists require service selection
+    return wizardState.service !== null && wizardState.service !== "";
+}
+
+/**
+ * Validate Step 2 - Filters
+ * For presets: Always valid (filters are pre-configured)
+ * For custom: Allow empty filters (will fetch all), always valid
+ * @returns {boolean}
+ */
+function validateStep2() {
+    // Both preset and custom are always valid for step 2
+    // Presets have read-only filters, custom allows empty filters
     return true;
 }
 
