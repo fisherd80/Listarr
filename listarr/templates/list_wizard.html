@@ -372,10 +372,133 @@
 
       <!-- Step 3: Import Settings -->
       <div id="step-3" class="step-content hidden">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Import Settings</h2>
-        <p class="text-gray-500 dark:text-gray-400">Configure quality profile, root folder, and other import options.</p>
-        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p class="text-sm text-gray-600 dark:text-gray-300">Import settings content will be implemented in 02-04</p>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Import Settings</h2>
+          <!-- Service Badge -->
+          <span id="import-settings-service-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+            <!-- Will be populated by JavaScript -->
+          </span>
+        </div>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">
+          Configure how items will be imported. Leave unchanged to use your default settings.
+        </p>
+
+        <!-- Loading State -->
+        <div id="import-settings-loading" class="hidden flex items-center justify-center py-12">
+          <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="ml-3 text-gray-500 dark:text-gray-400">Loading import settings...</span>
+        </div>
+
+        <!-- Error State -->
+        <div id="import-settings-error" class="hidden">
+          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div class="flex items-start">
+              <svg class="w-5 h-5 text-yellow-500 dark:text-yellow-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <p id="import-settings-error-message" class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                  Service not configured
+                </p>
+                <p class="text-sm text-yellow-600 dark:text-yellow-300 mt-1">
+                  You can continue, but import will fail until the service is configured in Settings.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Import Settings Form -->
+        <div id="import-settings-form" class="hidden space-y-6">
+          <!-- Quality Profile -->
+          <div>
+            <label for="import-quality-profile" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Quality Profile
+            </label>
+            <select id="import-quality-profile"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+              <option value="">Use Default</option>
+              <!-- Options populated by JavaScript -->
+            </select>
+            <p id="import-quality-profile-default" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <!-- Default value shown here -->
+            </p>
+          </div>
+
+          <!-- Root Folder -->
+          <div>
+            <label for="import-root-folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Root Folder
+            </label>
+            <select id="import-root-folder"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+              <option value="">Use Default</option>
+              <!-- Options populated by JavaScript -->
+            </select>
+            <p id="import-root-folder-default" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <!-- Default value shown here -->
+            </p>
+          </div>
+
+          <!-- Tags -->
+          <div>
+            <label for="import-tag" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tag
+            </label>
+            <select id="import-tag"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+              <option value="">None</option>
+              <!-- Options populated by JavaScript -->
+            </select>
+            <p id="import-tag-default" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <!-- Default value shown here -->
+            </p>
+          </div>
+
+          <!-- Monitored & Search on Add -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Monitored -->
+            <div>
+              <label class="flex items-center">
+                <input type="checkbox" id="import-monitored"
+                  class="rounded text-primary focus:ring-primary h-4 w-4" />
+                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Monitored</span>
+              </label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+                Items will be monitored for downloads
+              </p>
+            </div>
+
+            <!-- Search on Add -->
+            <div>
+              <label class="flex items-center">
+                <input type="checkbox" id="import-search-on-add"
+                  class="rounded text-primary focus:ring-primary h-4 w-4" />
+                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Search on Add</span>
+              </label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+                Start searching for downloads immediately
+              </p>
+            </div>
+          </div>
+
+          <!-- Info Box -->
+          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div class="flex items-start">
+              <svg class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p class="text-sm text-blue-800 dark:text-blue-200">
+                  Settings left as "Use Default" will automatically use your service defaults at import time.
+                  This allows changes to your default settings to apply to existing lists.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

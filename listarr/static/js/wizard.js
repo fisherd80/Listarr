@@ -34,6 +34,16 @@ const wizardState = {
         rating_min: null,
         limit: 20,
     },
+    importSettings: {
+        quality_profile_id: null,  // null = use default
+        root_folder: null,
+        tag_id: null,
+        monitored: null,           // null = use default
+        search_on_add: null,
+    },
+    // Cached data from defaults endpoint
+    _importDefaults: null,
+    _importOptions: null,
 };
 
 /**
@@ -75,6 +85,9 @@ function initWizard() {
 
     // Set up filter change handlers (for custom lists)
     initFilters();
+
+    // Set up import settings change handlers
+    initImportSettings();
 
     // Initialize UI to step 1
     goToStep(1);
@@ -406,6 +419,11 @@ function goToStep(stepNumber) {
     if (stepNumber === 2 && wizardState.service) {
         fetchPreview();
     }
+
+    // Trigger import defaults fetch when entering step 3
+    if (stepNumber === 3 && wizardState.service) {
+        fetchImportDefaults();
+    }
 }
 
 /**
@@ -447,8 +465,7 @@ function validateCurrentStep() {
         case 2:
             return validateStep2();
         case 3:
-            // Import settings validation will be added in 02-04
-            return true;
+            return validateStep3();
         case 4:
             // Schedule validation will be added in 02-05
             return true;
@@ -562,6 +579,335 @@ function updateNavButtons() {
         }
     }
 }
+
+// ============================================
+// Step 3: Import Settings Functions
+// ============================================
+
+/**
+ * Initialize import settings change handlers
+ */
+function initImportSettings() {
+    // Quality Profile
+    const qualitySelect = document.getElementById("import-quality-profile");
+    if (qualitySelect) {
+        qualitySelect.addEventListener("change", handleQualityProfileChange);
+    }
+
+    // Root Folder
+    const rootFolderSelect = document.getElementById("import-root-folder");
+    if (rootFolderSelect) {
+        rootFolderSelect.addEventListener("change", handleRootFolderChange);
+    }
+
+    // Tag
+    const tagSelect = document.getElementById("import-tag");
+    if (tagSelect) {
+        tagSelect.addEventListener("change", handleTagChange);
+    }
+
+    // Monitored
+    const monitoredCheckbox = document.getElementById("import-monitored");
+    if (monitoredCheckbox) {
+        monitoredCheckbox.addEventListener("change", handleMonitoredChange);
+    }
+
+    // Search on Add
+    const searchOnAddCheckbox = document.getElementById("import-search-on-add");
+    if (searchOnAddCheckbox) {
+        searchOnAddCheckbox.addEventListener("change", handleSearchOnAddChange);
+    }
+}
+
+/**
+ * Fetch import defaults and options from the server
+ */
+async function fetchImportDefaults() {
+    // If already cached for this service, use cached data
+    if (wizardState._importDefaults && wizardState._importOptions) {
+        populateImportSettings(wizardState._importDefaults, wizardState._importOptions);
+        return;
+    }
+
+    const loadingEl = document.getElementById("import-settings-loading");
+    const errorEl = document.getElementById("import-settings-error");
+    const formEl = document.getElementById("import-settings-form");
+
+    // Show loading state
+    if (loadingEl) loadingEl.classList.remove("hidden");
+    if (errorEl) errorEl.classList.add("hidden");
+    if (formEl) formEl.classList.add("hidden");
+
+    // Update service badge
+    updateImportSettingsServiceBadge();
+
+    try {
+        const response = await fetch(`/lists/wizard/defaults/${wizardState.service}`);
+        const data = await response.json();
+
+        // Hide loading
+        if (loadingEl) loadingEl.classList.add("hidden");
+
+        if (!data.configured) {
+            // Show error - service not configured
+            const errorMsgEl = document.getElementById("import-settings-error-message");
+            if (errorMsgEl) {
+                errorMsgEl.textContent = data.error || `${wizardState.service.charAt(0).toUpperCase() + wizardState.service.slice(1)} not configured`;
+            }
+            if (errorEl) errorEl.classList.remove("hidden");
+            return;
+        }
+
+        if (data.error) {
+            // Partial error - service configured but API fetch failed
+            const errorMsgEl = document.getElementById("import-settings-error-message");
+            if (errorMsgEl) {
+                errorMsgEl.textContent = data.error;
+            }
+            if (errorEl) errorEl.classList.remove("hidden");
+            // Still show the form with whatever data we have
+        }
+
+        // Cache the data
+        wizardState._importDefaults = data.defaults;
+        wizardState._importOptions = data.options;
+
+        // Populate the form
+        populateImportSettings(data.defaults, data.options);
+        if (formEl) formEl.classList.remove("hidden");
+
+    } catch (error) {
+        console.error("Import defaults fetch error:", error);
+        if (loadingEl) loadingEl.classList.add("hidden");
+        const errorMsgEl = document.getElementById("import-settings-error-message");
+        if (errorMsgEl) {
+            errorMsgEl.textContent = "Network error - please try again";
+        }
+        if (errorEl) errorEl.classList.remove("hidden");
+    }
+}
+
+/**
+ * Update the service badge in Step 3
+ */
+function updateImportSettingsServiceBadge() {
+    const badge = document.getElementById("import-settings-service-badge");
+    if (!badge || !wizardState.service) return;
+
+    if (wizardState.service === "radarr") {
+        badge.className = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+        badge.innerHTML = `
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+            </svg>
+            Radarr
+        `;
+    } else {
+        badge.className = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+        badge.innerHTML = `
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Sonarr
+        `;
+    }
+}
+
+/**
+ * Populate import settings form with defaults and options
+ * @param {Object} defaults - Default values from MediaImportSettings
+ * @param {Object} options - Available options (profiles, folders, tags)
+ */
+function populateImportSettings(defaults, options) {
+    // Quality Profile dropdown
+    const qualitySelect = document.getElementById("import-quality-profile");
+    if (qualitySelect && options.quality_profiles) {
+        // Clear existing options (except "Use Default")
+        qualitySelect.innerHTML = '<option value="">Use Default</option>';
+
+        // Add options
+        options.quality_profiles.forEach(profile => {
+            const option = document.createElement("option");
+            option.value = profile.id;
+            option.textContent = profile.name;
+            qualitySelect.appendChild(option);
+        });
+
+        // Show default value
+        const defaultDisplay = document.getElementById("import-quality-profile-default");
+        if (defaultDisplay && defaults.quality_profile_id) {
+            const defaultProfile = options.quality_profiles.find(p => p.id === defaults.quality_profile_id);
+            if (defaultProfile) {
+                defaultDisplay.textContent = `Default: ${defaultProfile.name}`;
+            }
+        }
+    }
+
+    // Root Folder dropdown
+    const rootFolderSelect = document.getElementById("import-root-folder");
+    if (rootFolderSelect && options.root_folders) {
+        // Clear existing options (except "Use Default")
+        rootFolderSelect.innerHTML = '<option value="">Use Default</option>';
+
+        // Add options
+        options.root_folders.forEach(folder => {
+            const option = document.createElement("option");
+            option.value = folder.path;
+            option.textContent = folder.path;
+            rootFolderSelect.appendChild(option);
+        });
+
+        // Show default value
+        const defaultDisplay = document.getElementById("import-root-folder-default");
+        if (defaultDisplay && defaults.root_folder) {
+            defaultDisplay.textContent = `Default: ${defaults.root_folder}`;
+        }
+    }
+
+    // Tag dropdown
+    const tagSelect = document.getElementById("import-tag");
+    if (tagSelect && options.tags) {
+        // Clear existing options (except "None")
+        tagSelect.innerHTML = '<option value="">None</option>';
+
+        // Add options
+        options.tags.forEach(tag => {
+            const option = document.createElement("option");
+            option.value = tag.id;
+            option.textContent = tag.label;
+            tagSelect.appendChild(option);
+        });
+
+        // Show default value
+        const defaultDisplay = document.getElementById("import-tag-default");
+        if (defaultDisplay && defaults.tag_id) {
+            const defaultTag = options.tags.find(t => t.id === defaults.tag_id);
+            if (defaultTag) {
+                defaultDisplay.textContent = `Default: ${defaultTag.label}`;
+            }
+        }
+    }
+
+    // Monitored checkbox
+    const monitoredCheckbox = document.getElementById("import-monitored");
+    if (monitoredCheckbox) {
+        // Pre-check based on defaults (or true if no defaults)
+        monitoredCheckbox.checked = defaults.monitored !== false;
+    }
+
+    // Search on Add checkbox
+    const searchOnAddCheckbox = document.getElementById("import-search-on-add");
+    if (searchOnAddCheckbox) {
+        // Pre-check based on defaults (or true if no defaults)
+        searchOnAddCheckbox.checked = defaults.search_on_add !== false;
+    }
+}
+
+/**
+ * Handle Quality Profile selection change
+ */
+function handleQualityProfileChange() {
+    const select = document.getElementById("import-quality-profile");
+    if (!select) return;
+
+    const value = select.value;
+    const defaults = wizardState._importDefaults;
+
+    // If value is empty or matches default, store null (use default)
+    if (!value || (defaults && parseInt(value) === defaults.quality_profile_id)) {
+        wizardState.importSettings.quality_profile_id = null;
+    } else {
+        wizardState.importSettings.quality_profile_id = parseInt(value);
+    }
+}
+
+/**
+ * Handle Root Folder selection change
+ */
+function handleRootFolderChange() {
+    const select = document.getElementById("import-root-folder");
+    if (!select) return;
+
+    const value = select.value;
+    const defaults = wizardState._importDefaults;
+
+    // If value is empty or matches default, store null (use default)
+    if (!value || (defaults && value === defaults.root_folder)) {
+        wizardState.importSettings.root_folder = null;
+    } else {
+        wizardState.importSettings.root_folder = value;
+    }
+}
+
+/**
+ * Handle Tag selection change
+ */
+function handleTagChange() {
+    const select = document.getElementById("import-tag");
+    if (!select) return;
+
+    const value = select.value;
+    const defaults = wizardState._importDefaults;
+
+    // If value is empty or matches default, store null (use default)
+    if (!value || (defaults && parseInt(value) === defaults.tag_id)) {
+        wizardState.importSettings.tag_id = null;
+    } else {
+        wizardState.importSettings.tag_id = parseInt(value);
+    }
+}
+
+/**
+ * Handle Monitored checkbox change
+ */
+function handleMonitoredChange() {
+    const checkbox = document.getElementById("import-monitored");
+    if (!checkbox) return;
+
+    const value = checkbox.checked;
+    const defaults = wizardState._importDefaults;
+    const defaultValue = defaults ? defaults.monitored : true;
+
+    // If value matches default, store null (use default)
+    if (value === defaultValue) {
+        wizardState.importSettings.monitored = null;
+    } else {
+        wizardState.importSettings.monitored = value;
+    }
+}
+
+/**
+ * Handle Search on Add checkbox change
+ */
+function handleSearchOnAddChange() {
+    const checkbox = document.getElementById("import-search-on-add");
+    if (!checkbox) return;
+
+    const value = checkbox.checked;
+    const defaults = wizardState._importDefaults;
+    const defaultValue = defaults ? defaults.search_on_add : true;
+
+    // If value matches default, store null (use default)
+    if (value === defaultValue) {
+        wizardState.importSettings.search_on_add = null;
+    } else {
+        wizardState.importSettings.search_on_add = value;
+    }
+}
+
+/**
+ * Validate Step 3 - Import Settings
+ * All fields are optional - always valid
+ * @returns {boolean}
+ */
+function validateStep3() {
+    // All import settings are optional - validation always passes
+    return true;
+}
+
+// ============================================
+// Form Submission
+// ============================================
 
 /**
  * Submit the wizard form (placeholder for now)
