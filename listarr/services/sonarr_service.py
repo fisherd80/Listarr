@@ -130,6 +130,30 @@ def get_series_count(base_url: str, api_key: str):
         return 0
 
 
+def get_tags(base_url: str, api_key: str):
+    """
+    Fetches tags from Sonarr.
+
+    Args:
+        base_url (str): Base URL of Sonarr (e.g., "http://localhost:8989/").
+        api_key (str): Sonarr API key from Settings > General.
+
+    Returns:
+        list: List of tag dicts with 'id' and 'label' keys, or empty list on error.
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    try:
+        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
+        tags = sonarr.get_tag()
+        return [{"id": t["id"], "label": t["label"]} for t in tags]
+    except Exception as e:
+        logger.error(f"Error fetching tags: {e}", exc_info=True)
+        return []
+
+
 def get_missing_series_count(base_url: str, api_key: str):
     """
     Fetches the count of series with missing episodes from Sonarr.

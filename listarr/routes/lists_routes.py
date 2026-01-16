@@ -268,3 +268,88 @@ def wizard_preview():
         })
 
     return jsonify({"items": preview_items})
+
+
+@bp.route("/lists/wizard/defaults/<service>")
+def wizard_defaults(service):
+    """
+    Get import settings defaults and available options for a service.
+
+    Returns JSON with:
+        - configured: bool - whether service is configured
+        - defaults: dict - current MediaImportSettings defaults for this service
+        - options: dict - available quality profiles, root folders, and tags
+
+    Args:
+        service: string (radarr or sonarr)
+    """
+    from listarr.models.service_config_model import MediaImportSettings
+
+    # Validate service
+    if service not in ["radarr", "sonarr"]:
+        return jsonify({"error": "Invalid service"}), 400
+
+    service_upper = service.upper()
+
+    # Get service config (API key, URL)
+    config = ServiceConfig.query.filter_by(service=service_upper).first()
+    if not config or not config.api_key_encrypted:
+        return jsonify({"error": f"{service.title()} not configured", "configured": False})
+
+    # Get current defaults from MediaImportSettings
+    import_settings = MediaImportSettings.query.filter_by(service=service_upper).first()
+
+    # Decrypt API key and get base URL
+    try:
+        api_key = decrypt_data(config.api_key_encrypted)
+    except Exception as e:
+        current_app.logger.error(f"Error decrypting {service} API key: {e}", exc_info=True)
+        return jsonify({"error": f"Failed to decrypt {service.title()} API key", "configured": False})
+
+    base_url = config.base_url
+
+    # Get available options from service API
+    try:
+        if service == "radarr":
+            from listarr.services.radarr_service import get_quality_profiles, get_root_folders, get_tags
+        else:
+            from listarr.services.sonarr_service import get_quality_profiles, get_root_folders, get_tags
+
+        quality_profiles = get_quality_profiles(base_url, api_key)
+        root_folders = get_root_folders(base_url, api_key)
+        tags = get_tags(base_url, api_key)
+    except Exception as e:
+        current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
+        # Return partial data - service is configured but options fetch failed
+        return jsonify({
+            "configured": True,
+            "error": f"Failed to fetch options from {service.title()}",
+            "defaults": {
+                "root_folder": import_settings.root_folder if import_settings else None,
+                "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+                "monitored": import_settings.monitored if import_settings else True,
+                "search_on_add": import_settings.search_on_add if import_settings else True,
+                "tag_id": import_settings.default_tag_id if import_settings else None,
+            },
+            "options": {
+                "quality_profiles": [],
+                "root_folders": [],
+                "tags": [],
+            }
+        })
+
+    return jsonify({
+        "configured": True,
+        "defaults": {
+            "root_folder": import_settings.root_folder if import_settings else None,
+            "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+            "monitored": import_settings.monitored if import_settings else True,
+            "search_on_add": import_settings.search_on_add if import_settings else True,
+            "tag_id": import_settings.default_tag_id if import_settings else None,
+        },
+        "options": {
+            "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
+            "root_folders": [{"path": f["path"], "id": f.get("id")} for f in root_folders],
+            "tags": [{"id": t["id"], "label": t["label"]} for t in tags],
+        }
+    })
