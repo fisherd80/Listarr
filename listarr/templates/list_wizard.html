@@ -18,11 +18,13 @@
           </svg>
         </a>
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-          Create List
+          {% if edit_mode %}Edit List{% else %}Create List{% endif %}
         </h1>
       </div>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 ml-8">
-        {% if is_preset %}
+        {% if edit_mode %}
+        Modify your list settings
+        {% elif is_preset %}
         Configure your {{ preset.replace('_', ' ').title() }} list
         {% else %}
         Build a custom TMDB list with your own filters
@@ -607,5 +609,12 @@
 <input type="hidden" id="wizard-service" value="{{ service or '' }}" />
 <input type="hidden" id="wizard-is-preset" value="{{ 'true' if is_preset else 'false' }}" />
 <input type="hidden" id="wizard-list-id" value="{{ list_id or '' }}" />
+<input type="hidden" id="wizard-edit-mode" value="{{ 'true' if edit_mode else 'false' }}" />
+
+{% if existing_list %}
+<script type="application/json" id="wizard-existing-list">
+{{ existing_list | tojson | safe }}
+</script>
+{% endif %}
 
 {% endblock %}

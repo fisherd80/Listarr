@@ -26,7 +26,8 @@ const wizardState = {
     preset: null,      // from URL or null for custom
     service: null,     // radarr or sonarr
     isPreset: false,   // true if using a preset template
-    listId: null,      // for edit mode (future use)
+    listId: null,      // for edit mode
+    editMode: false,   // true if editing existing list
     filters: {
         genre_ids: [],
         year_min: null,
@@ -60,6 +61,7 @@ function initWizard() {
     const serviceField = document.getElementById("wizard-service");
     const isPresetField = document.getElementById("wizard-is-preset");
     const listIdField = document.getElementById("wizard-list-id");
+    const editModeField = document.getElementById("wizard-edit-mode");
 
     if (presetField && presetField.value) {
         wizardState.preset = presetField.value;
@@ -72,6 +74,14 @@ function initWizard() {
     }
     if (listIdField && listIdField.value) {
         wizardState.listId = parseInt(listIdField.value, 10);
+    }
+    if (editModeField) {
+        wizardState.editMode = editModeField.value === "true";
+    }
+
+    // Load existing list data if in edit mode
+    if (wizardState.editMode) {
+        loadExistingListData();
     }
 
     // Set up event listeners
@@ -100,8 +110,60 @@ function initWizard() {
     // Initialize UI to step 1
     goToStep(1);
 
+    // In edit mode for custom lists, select the type card
+    if (wizardState.editMode && !wizardState.isPreset && wizardState.service) {
+        selectType(wizardState.service);
+    }
+
     // Update Next button state based on initial validation
     updateNextButtonState();
+}
+
+/**
+ * Load existing list data into wizardState for edit mode
+ */
+function loadExistingListData() {
+    const existingListEl = document.getElementById("wizard-existing-list");
+    if (!existingListEl) return;
+
+    try {
+        const existingList = JSON.parse(existingListEl.textContent);
+
+        // Populate wizardState from existing list
+        wizardState.listId = existingList.id;
+        wizardState.service = existingList.service;
+        wizardState.preset = existingList.preset;
+        wizardState.isPreset = existingList.is_preset;
+
+        // Populate filters
+        if (existingList.filters) {
+            wizardState.filters.genre_ids = existingList.filters.genre_ids || [];
+            wizardState.filters.year_min = existingList.filters.year_min;
+            wizardState.filters.year_max = existingList.filters.year_max;
+            wizardState.filters.rating_min = existingList.filters.rating_min;
+        }
+        wizardState.filters.limit = existingList.limit || 20;
+
+        // Populate import settings
+        if (existingList.import_settings) {
+            wizardState.importSettings.quality_profile_id = existingList.import_settings.quality_profile_id;
+            wizardState.importSettings.root_folder = existingList.import_settings.root_folder;
+            wizardState.importSettings.tag_id = existingList.import_settings.tag_id;
+            wizardState.importSettings.monitored = existingList.import_settings.monitored;
+            wizardState.importSettings.search_on_add = existingList.import_settings.search_on_add;
+        }
+
+        // Populate schedule
+        wizardState.schedule.name = existingList.name || "";
+        if (existingList.schedule) {
+            wizardState.schedule.cron = existingList.schedule.cron;
+            wizardState.schedule.is_active = existingList.schedule.is_active !== false;
+        }
+
+        console.log("Loaded existing list data:", existingList);
+    } catch (error) {
+        console.error("Error loading existing list data:", error);
+    }
 }
 
 /**
@@ -425,6 +487,10 @@ function goToStep(stepNumber) {
 
     // Trigger preview fetch when entering step 2 (for both preset and custom lists)
     if (stepNumber === 2 && wizardState.service) {
+        // Pre-fill filter form fields in edit mode
+        if (wizardState.editMode) {
+            populateStep2EditMode();
+        }
         fetchPreview();
     }
 
@@ -436,6 +502,48 @@ function goToStep(stepNumber) {
     // Populate schedule form when entering step 4
     if (stepNumber === 4) {
         populateStep4();
+    }
+}
+
+/**
+ * Pre-populate Step 2 filter form fields in edit mode
+ */
+function populateStep2EditMode() {
+    // Only for custom lists (presets have read-only filters)
+    if (wizardState.isPreset) return;
+
+    // Genre checkboxes
+    const genreCheckboxes = document.querySelectorAll(".genre-checkbox");
+    genreCheckboxes.forEach(checkbox => {
+        const genreId = parseInt(checkbox.dataset.genreId, 10);
+        checkbox.checked = wizardState.filters.genre_ids.includes(genreId);
+    });
+
+    // Year inputs
+    const yearMinInput = document.getElementById("filter-year-min");
+    const yearMaxInput = document.getElementById("filter-year-max");
+    if (yearMinInput && wizardState.filters.year_min) {
+        yearMinInput.value = wizardState.filters.year_min;
+    }
+    if (yearMaxInput && wizardState.filters.year_max) {
+        yearMaxInput.value = wizardState.filters.year_max;
+    }
+
+    // Rating slider
+    const ratingInput = document.getElementById("filter-rating-min");
+    const ratingValue = document.getElementById("rating-value");
+    if (ratingInput) {
+        const rating = wizardState.filters.rating_min || 0;
+        ratingInput.value = rating;
+        if (ratingValue) {
+            ratingValue.textContent = rating > 0 ? rating.toFixed(1) : "Any";
+        }
+    }
+
+    // Limit select
+    const limitSelect = document.getElementById("filter-limit");
+    if (limitSelect && wizardState.filters.limit) {
+        limitSelect.value = wizardState.filters.limit;
     }
 }
 
@@ -585,7 +693,7 @@ function updateNavButtons() {
     // Change Next button text on final step
     if (btnNext) {
         if (wizardState.currentStep === wizardState.totalSteps) {
-            btnNext.textContent = "Create List";
+            btnNext.textContent = wizardState.editMode ? "Save Changes" : "Create List";
         } else {
             btnNext.textContent = "Next";
         }
@@ -821,6 +929,68 @@ function populateImportSettings(defaults, options) {
     if (searchOnAddCheckbox) {
         // Pre-check based on defaults (or true if no defaults)
         searchOnAddCheckbox.checked = defaults.search_on_add !== false;
+    }
+
+    // In edit mode, apply existing list override values
+    if (wizardState.editMode) {
+        populateStep3EditMode(options);
+    }
+}
+
+/**
+ * Pre-populate Step 3 import settings form fields in edit mode
+ * @param {Object} options - Available options (profiles, folders, tags)
+ */
+function populateStep3EditMode(options) {
+    // Quality Profile
+    if (wizardState.importSettings.quality_profile_id !== null) {
+        const qualitySelect = document.getElementById("import-quality-profile");
+        if (qualitySelect) {
+            qualitySelect.value = wizardState.importSettings.quality_profile_id;
+        }
+    }
+
+    // Root Folder
+    if (wizardState.importSettings.root_folder !== null) {
+        const rootFolderSelect = document.getElementById("import-root-folder");
+        if (rootFolderSelect) {
+            // Try to match by value (path or ID)
+            const rootFolder = wizardState.importSettings.root_folder;
+            // Check if it's a path that exists in options
+            const matchByPath = options.root_folders?.find(f => f.path === rootFolder);
+            const matchById = options.root_folders?.find(f => f.id === rootFolder);
+            if (matchByPath) {
+                rootFolderSelect.value = matchByPath.path;
+            } else if (matchById) {
+                rootFolderSelect.value = matchById.path;
+            } else {
+                rootFolderSelect.value = rootFolder;
+            }
+        }
+    }
+
+    // Tag
+    if (wizardState.importSettings.tag_id !== null) {
+        const tagSelect = document.getElementById("import-tag");
+        if (tagSelect) {
+            tagSelect.value = wizardState.importSettings.tag_id;
+        }
+    }
+
+    // Monitored (only override if explicitly set)
+    if (wizardState.importSettings.monitored !== null) {
+        const monitoredCheckbox = document.getElementById("import-monitored");
+        if (monitoredCheckbox) {
+            monitoredCheckbox.checked = wizardState.importSettings.monitored;
+        }
+    }
+
+    // Search on Add (only override if explicitly set)
+    if (wizardState.importSettings.search_on_add !== null) {
+        const searchOnAddCheckbox = document.getElementById("import-search-on-add");
+        if (searchOnAddCheckbox) {
+            searchOnAddCheckbox.checked = wizardState.importSettings.search_on_add;
+        }
     }
 }
 

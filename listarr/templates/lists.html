@@ -145,7 +145,7 @@
                 {% if list.is_active %}Disable{% else %}Enable{% endif %}
               </button>
               <a
-                href="{{ url_for('main.edit_list', list_id=list.id) }}"
+                href="{{ url_for('main.list_wizard', list_id=list.id) }}"
                 class="text-primary hover:text-indigo-900 dark:hover:text-indigo-300 mr-3"
               >
                 Edit

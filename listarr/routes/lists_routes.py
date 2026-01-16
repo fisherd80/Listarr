@@ -94,13 +94,54 @@ def list_wizard():
     Query parameters:
         preset: string (trending_movies, trending_tv, popular_movies, popular_tv, custom, or None)
         service: string (radarr, sonarr, or None)
-        list_id: int (for edit mode - future use)
+        list_id: int (for edit mode)
     """
     preset = request.args.get("preset")
     service = request.args.get("service")
     list_id = request.args.get("list_id", type=int)
 
-    # Determine wizard mode based on preset
+    # Edit mode - load existing list
+    if list_id:
+        list_obj = List.query.get_or_404(list_id)
+
+        # Determine if it's a preset or custom list
+        is_preset = list_obj.tmdb_list_type not in ["discovery", "custom"]
+        preset_value = list_obj.tmdb_list_type if is_preset else None
+
+        # Build existing list data for JavaScript
+        existing_list = {
+            "id": list_obj.id,
+            "name": list_obj.name,
+            "service": list_obj.target_service.lower(),
+            "preset": preset_value,
+            "tmdb_list_type": list_obj.tmdb_list_type,
+            "is_preset": is_preset,
+            "filters": list_obj.filters_json or {},
+            "limit": list_obj.limit or 20,
+            "import_settings": {
+                "quality_profile_id": list_obj.override_quality_profile,
+                "root_folder": list_obj.override_root_folder,
+                "tag_id": list_obj.override_tag_id,
+                "monitored": True if list_obj.override_monitored == 1 else (False if list_obj.override_monitored == 0 else None),
+                "search_on_add": True if list_obj.override_search_on_add == 1 else (False if list_obj.override_search_on_add == 0 else None),
+            },
+            "schedule": {
+                "cron": list_obj.schedule_cron,
+                "is_active": list_obj.is_active,
+            },
+        }
+
+        return render_template(
+            "list_wizard.html",
+            preset=preset_value,
+            service=list_obj.target_service.lower(),
+            is_preset=is_preset,
+            list_id=list_id,
+            edit_mode=True,
+            existing_list=existing_list,
+        )
+
+    # Create mode - determine wizard mode based on preset
     is_preset = False
 
     if preset in ["trending_movies", "popular_movies"]:
@@ -122,6 +163,8 @@ def list_wizard():
         service=service,
         is_preset=is_preset,
         list_id=list_id,
+        edit_mode=False,
+        existing_list=None,
     )
 
 
