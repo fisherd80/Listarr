@@ -76,6 +76,15 @@ def delete_list(list_id):
 
     return redirect(url_for("main.lists_page"))
 
+@bp.route("/lists/wizard")
+def list_wizard():
+    """Wizard route for creating lists via presets or custom configuration."""
+    preset = request.args.get("preset")
+    service = request.args.get("service")
+    # Placeholder - will be expanded in 02-02
+    return f"Wizard placeholder: preset={preset}, service={service}"
+
+
 @bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
 def toggle_list(list_id):
     list_obj = List.query.get_or_404(list_id)
