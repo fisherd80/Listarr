@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Create List - Listarr{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/wizard.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="flex items-center space-x-3">
+        <a href="{{ url_for('main.lists_page') }}" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </a>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Create List
+        </h1>
+      </div>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 ml-8">
+        {% if is_preset %}
+        Configure your {{ preset.replace('_', ' ').title() }} list
+        {% else %}
+        Build a custom TMDB list with your own filters
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Wizard Card -->
+  <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+    <!-- Stepper -->
+    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between">
+        <!-- Step indicators -->
+        <div class="flex items-center flex-1">
+          <!-- Step 1: Type -->
+          <div class="flex items-center">
+            <div id="step-indicator-1" class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-medium">
+              1
+            </div>
+            <span id="step-label-1" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-100">Type</span>
+          </div>
+
+          <!-- Connector 1-2 -->
+          <div id="connector-1" class="flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600"></div>
+
+          <!-- Step 2: Filters -->
+          <div class="flex items-center">
+            <div id="step-indicator-2" class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium">
+              2
+            </div>
+            <span id="step-label-2" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">Filters</span>
+          </div>
+
+          <!-- Connector 2-3 -->
+          <div id="connector-2" class="flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600"></div>
+
+          <!-- Step 3: Import Settings -->
+          <div class="flex items-center">
+            <div id="step-indicator-3" class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium">
+              3
+            </div>
+            <span id="step-label-3" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">Import Settings</span>
+          </div>
+
+          <!-- Connector 3-4 -->
+          <div id="connector-3" class="flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600"></div>
+
+          <!-- Step 4: Schedule -->
+          <div class="flex items-center">
+            <div id="step-indicator-4" class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium">
+              4
+            </div>
+            <span id="step-label-4" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">Schedule</span>
+          </div>
+        </div>
+
+        <!-- Step counter -->
+        <div class="ml-6 text-sm text-gray-500 dark:text-gray-400">
+          Step <span id="current-step-number">1</span> of 4
+        </div>
+      </div>
+    </div>
+
+    <!-- Step Content Area -->
+    <div class="p-6">
+      <!-- Step 1: Type -->
+      <div id="step-1" class="step-content">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Select List Type</h2>
+        <p class="text-gray-500 dark:text-gray-400">Choose whether this list is for movies (Radarr) or TV shows (Sonarr).</p>
+        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <p class="text-sm text-gray-600 dark:text-gray-300">Type selection content will be implemented in 02-03</p>
+        </div>
+      </div>
+
+      <!-- Step 2: Filters -->
+      <div id="step-2" class="step-content hidden">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Configure Filters</h2>
+        <p class="text-gray-500 dark:text-gray-400">
+          {% if is_preset %}
+          Review the preset filters for this list type.
+          {% else %}
+          Set up genre, year range, and rating filters with live preview.
+          {% endif %}
+        </p>
+        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <p class="text-sm text-gray-600 dark:text-gray-300">Filter configuration content will be implemented in 02-03</p>
+        </div>
+      </div>
+
+      <!-- Step 3: Import Settings -->
+      <div id="step-3" class="step-content hidden">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Import Settings</h2>
+        <p class="text-gray-500 dark:text-gray-400">Configure quality profile, root folder, and other import options.</p>
+        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <p class="text-sm text-gray-600 dark:text-gray-300">Import settings content will be implemented in 02-04</p>
+        </div>
+      </div>
+
+      <!-- Step 4: Schedule -->
+      <div id="step-4" class="step-content hidden">
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Set Schedule</h2>
+        <p class="text-gray-500 dark:text-gray-400">Choose how often this list should refresh and import new items.</p>
+        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <p class="text-sm text-gray-600 dark:text-gray-300">Schedule configuration content will be implemented in 02-05</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+      <button
+        type="button"
+        id="btn-back"
+        class="hidden px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+      >
+        Back
+      </button>
+      <button
+        type="button"
+        id="btn-next"
+        class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-indigo-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden fields for wizard state -->
+<input type="hidden" id="wizard-preset" value="{{ preset or '' }}" />
+<input type="hidden" id="wizard-service" value="{{ service or '' }}" />
+<input type="hidden" id="wizard-is-preset" value="{{ 'true' if is_preset else 'false' }}" />
+<input type="hidden" id="wizard-list-id" value="{{ list_id or '' }}" />
+
+{% endblock %}
