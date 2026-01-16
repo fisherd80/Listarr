@@ -760,7 +760,16 @@ function populateImportSettings(defaults, options) {
         // Show default value
         const defaultDisplay = document.getElementById("import-root-folder-default");
         if (defaultDisplay && defaults.root_folder) {
-            defaultDisplay.textContent = `Default: ${defaults.root_folder}`;
+            // Try to find matching folder - could be stored as path or ID
+            let displayPath = defaults.root_folder;
+            const matchByPath = options.root_folders.find(f => f.path === defaults.root_folder);
+            const matchById = options.root_folders.find(f => f.id === parseInt(defaults.root_folder) || f.id === defaults.root_folder);
+            if (matchByPath) {
+                displayPath = matchByPath.path;
+            } else if (matchById) {
+                displayPath = matchById.path;
+            }
+            defaultDisplay.textContent = `Default: ${displayPath}`;
         }
     }
 
