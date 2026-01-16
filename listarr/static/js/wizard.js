@@ -15,6 +15,10 @@ const TMDB_GENRES = {
     53: "Thriller",
 };
 
+// Preview debounce timer
+let previewDebounceTimer = null;
+const PREVIEW_DEBOUNCE_MS = 300;
+
 // Wizard state management
 const wizardState = {
     currentStep: 1,
@@ -218,9 +222,128 @@ function handleLimitChange() {
  * Called when any filter value changes - triggers debounced preview update
  */
 function onFiltersChanged() {
-    // Debounced preview will be implemented in Task 3
-    // For now, just log the state
-    console.log("Filters changed:", wizardState.filters);
+    // Clear existing timer
+    if (previewDebounceTimer) {
+        clearTimeout(previewDebounceTimer);
+    }
+
+    // Set new debounced timer
+    previewDebounceTimer = setTimeout(() => {
+        fetchPreview();
+    }, PREVIEW_DEBOUNCE_MS);
+}
+
+/**
+ * Fetch TMDB preview results based on current filters
+ */
+async function fetchPreview() {
+    // Only fetch preview if on step 2 and service is selected
+    if (wizardState.currentStep !== 2 || !wizardState.service) {
+        return;
+    }
+
+    const loadingEl = document.getElementById("preview-loading");
+    const emptyEl = document.getElementById("preview-empty");
+    const errorEl = document.getElementById("preview-error");
+    const resultsEl = document.getElementById("preview-results");
+
+    // If elements don't exist (preset mode), skip
+    if (!loadingEl || !resultsEl) {
+        return;
+    }
+
+    // Show loading state
+    loadingEl.classList.remove("hidden");
+    emptyEl.classList.add("hidden");
+    errorEl.classList.add("hidden");
+    resultsEl.classList.add("hidden");
+
+    try {
+        const response = await fetch("/lists/wizard/preview", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                service: wizardState.service,
+                preset: wizardState.preset,
+                filters: wizardState.filters,
+            }),
+        });
+
+        const data = await response.json();
+
+        // Hide loading
+        loadingEl.classList.add("hidden");
+
+        if (data.error) {
+            // Show error
+            const errorMsgEl = document.getElementById("preview-error-message");
+            if (errorMsgEl) {
+                errorMsgEl.textContent = data.error;
+            }
+            errorEl.classList.remove("hidden");
+            return;
+        }
+
+        if (!data.items || data.items.length === 0) {
+            // Show empty state
+            emptyEl.classList.remove("hidden");
+            return;
+        }
+
+        // Render preview items
+        renderPreviewItems(data.items);
+        resultsEl.classList.remove("hidden");
+
+    } catch (error) {
+        console.error("Preview fetch error:", error);
+        loadingEl.classList.add("hidden");
+        const errorMsgEl = document.getElementById("preview-error-message");
+        if (errorMsgEl) {
+            errorMsgEl.textContent = "Network error - please try again";
+        }
+        errorEl.classList.remove("hidden");
+    }
+}
+
+/**
+ * Render preview items in the preview container
+ * @param {Array} items - Array of preview items with id, title, year, rating
+ */
+function renderPreviewItems(items) {
+    const resultsEl = document.getElementById("preview-results");
+    if (!resultsEl) return;
+
+    resultsEl.innerHTML = items.map(item => `
+        <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${escapeHtml(item.title)}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    ${item.year ? item.year : "Unknown year"}
+                </p>
+            </div>
+            ${item.rating ? `
+            <div class="ml-3 flex items-center">
+                <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300">${item.rating}</span>
+            </div>
+            ` : ""}
+        </div>
+    `).join("");
+}
+
+/**
+ * Escape HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} - Escaped text
+ */
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 /**
@@ -274,6 +397,11 @@ function goToStep(stepNumber) {
 
     // Update Next button state based on validation
     updateNextButtonState();
+
+    // Trigger preview fetch when entering step 2 for custom lists
+    if (stepNumber === 2 && !wizardState.isPreset && wizardState.service) {
+        fetchPreview();
+    }
 }
 
 /**

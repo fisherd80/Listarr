@@ -2,7 +2,17 @@ from flask import render_template, flash, request, redirect, url_for, current_ap
 from datetime import datetime, timezone
 from listarr.routes import bp
 from listarr.models.lists_model import List
+from listarr.models.service_config_model import ServiceConfig
 from listarr.forms.lists_forms import ListForm
+from listarr.services.crypto_utils import decrypt_data
+from listarr.services.tmdb_service import (
+    get_trending_movies,
+    get_trending_tv,
+    get_popular_movies,
+    get_popular_tv,
+    discover_movies,
+    discover_tv,
+)
 from listarr import db
 
 @bp.route("/lists")
@@ -138,3 +148,105 @@ def toggle_list(list_id):
             "success": False,
             "message": "Error toggling list. Please try again."
         }), 500
+
+
+@bp.route("/lists/wizard/preview", methods=["POST"])
+def wizard_preview():
+    """
+    TMDB preview endpoint for the list creation wizard.
+
+    Fetches a sample of TMDB results based on preset or custom filters.
+    Returns up to 5 items for preview display.
+
+    Request JSON:
+        service: string (radarr or sonarr)
+        preset: string (trending_movies, trending_tv, popular_movies, popular_tv, or None)
+        filters: object (genre_ids, year_min, year_max, rating_min)
+
+    Returns JSON:
+        items: array of preview items with id, title, year, rating
+        error: string (if TMDB not configured or API error)
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No data provided", "items": []})
+
+    service = data.get("service")  # radarr or sonarr
+    preset = data.get("preset")  # preset name or None
+    filters = data.get("filters", {})
+
+    # Get TMDB API key from settings
+    tmdb_config = ServiceConfig.query.filter_by(service="TMDB").first()
+    if not tmdb_config or not tmdb_config.api_key_encrypted:
+        return jsonify({"error": "TMDB not configured", "items": []})
+
+    try:
+        api_key = decrypt_data(tmdb_config.api_key_encrypted)
+    except Exception as e:
+        current_app.logger.error(f"Error decrypting TMDB API key: {e}", exc_info=True)
+        return jsonify({"error": "Failed to decrypt TMDB API key", "items": []})
+
+    # Fetch based on preset or filters
+    items = []
+    try:
+        if preset == "trending_movies":
+            items = get_trending_movies(api_key)
+        elif preset == "trending_tv":
+            items = get_trending_tv(api_key)
+        elif preset == "popular_movies":
+            items = get_popular_movies(api_key)
+        elif preset == "popular_tv":
+            items = get_popular_tv(api_key)
+        else:
+            # Custom discovery with filters
+            tmdb_filters = {}
+
+            # Genre filter
+            if filters.get("genre_ids"):
+                tmdb_filters["with_genres"] = ",".join(map(str, filters["genre_ids"]))
+
+            # Year range filters
+            if filters.get("year_min"):
+                if service == "radarr":
+                    tmdb_filters["primary_release_date.gte"] = f"{filters['year_min']}-01-01"
+                else:
+                    tmdb_filters["first_air_date.gte"] = f"{filters['year_min']}-01-01"
+
+            if filters.get("year_max"):
+                if service == "radarr":
+                    tmdb_filters["primary_release_date.lte"] = f"{filters['year_max']}-12-31"
+                else:
+                    tmdb_filters["first_air_date.lte"] = f"{filters['year_max']}-12-31"
+
+            # Rating filter
+            if filters.get("rating_min"):
+                tmdb_filters["vote_average.gte"] = filters["rating_min"]
+
+            # Fetch based on service type
+            if service == "radarr":
+                items = discover_movies(api_key, tmdb_filters)
+            else:
+                items = discover_tv(api_key, tmdb_filters)
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching TMDB preview: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch preview from TMDB", "items": []})
+
+    # Return first 5 items for preview
+    preview_items = []
+    for item in items[:5]:
+        # Handle both movie and TV show objects
+        title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
+        release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
+        year = release_date[:4] if release_date else None
+        vote_average = getattr(item, "vote_average", None)
+
+        preview_items.append({
+            "id": getattr(item, "id", None),
+            "title": title,
+            "year": year,
+            "rating": round(vote_average, 1) if vote_average else None,
+        })
+
+    return jsonify({"items": preview_items})
