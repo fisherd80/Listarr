@@ -69,6 +69,9 @@ function initWizard() {
     // Set up type card click handlers (for custom lists)
     initTypeCards();
 
+    // Set up filter change handlers (for custom lists)
+    initFilters();
+
     // Initialize UI to step 1
     goToStep(1);
 
@@ -125,6 +128,99 @@ function selectType(service) {
 
     // Update Next button state
     updateNextButtonState();
+}
+
+/**
+ * Initialize filter input change handlers
+ */
+function initFilters() {
+    // Genre checkboxes
+    const genreCheckboxes = document.querySelectorAll(".genre-checkbox");
+    genreCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener("change", handleGenreChange);
+    });
+
+    // Year inputs
+    const yearMinInput = document.getElementById("filter-year-min");
+    const yearMaxInput = document.getElementById("filter-year-max");
+    if (yearMinInput) {
+        yearMinInput.addEventListener("input", handleYearChange);
+    }
+    if (yearMaxInput) {
+        yearMaxInput.addEventListener("input", handleYearChange);
+    }
+
+    // Rating slider
+    const ratingInput = document.getElementById("filter-rating-min");
+    if (ratingInput) {
+        ratingInput.addEventListener("input", handleRatingChange);
+    }
+
+    // Limit select
+    const limitSelect = document.getElementById("filter-limit");
+    if (limitSelect) {
+        limitSelect.addEventListener("change", handleLimitChange);
+    }
+}
+
+/**
+ * Handle genre checkbox change
+ */
+function handleGenreChange() {
+    const checkboxes = document.querySelectorAll(".genre-checkbox:checked");
+    wizardState.filters.genre_ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.genreId, 10));
+    onFiltersChanged();
+}
+
+/**
+ * Handle year input change
+ */
+function handleYearChange() {
+    const yearMinInput = document.getElementById("filter-year-min");
+    const yearMaxInput = document.getElementById("filter-year-max");
+
+    wizardState.filters.year_min = yearMinInput && yearMinInput.value ? parseInt(yearMinInput.value, 10) : null;
+    wizardState.filters.year_max = yearMaxInput && yearMaxInput.value ? parseInt(yearMaxInput.value, 10) : null;
+    onFiltersChanged();
+}
+
+/**
+ * Handle rating slider change
+ */
+function handleRatingChange() {
+    const ratingInput = document.getElementById("filter-rating-min");
+    const ratingValue = document.getElementById("rating-value");
+
+    if (ratingInput) {
+        const value = parseFloat(ratingInput.value);
+        wizardState.filters.rating_min = value > 0 ? value : null;
+
+        // Update display value
+        if (ratingValue) {
+            ratingValue.textContent = value > 0 ? value.toFixed(1) : "Any";
+        }
+    }
+    onFiltersChanged();
+}
+
+/**
+ * Handle limit select change
+ */
+function handleLimitChange() {
+    const limitSelect = document.getElementById("filter-limit");
+    if (limitSelect) {
+        wizardState.filters.limit = parseInt(limitSelect.value, 10);
+    }
+    onFiltersChanged();
+}
+
+/**
+ * Called when any filter value changes - triggers debounced preview update
+ */
+function onFiltersChanged() {
+    // Debounced preview will be implemented in Task 3
+    // For now, just log the state
+    console.log("Filters changed:", wizardState.filters);
 }
 
 /**

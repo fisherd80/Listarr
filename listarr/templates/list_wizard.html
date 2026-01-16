@@ -182,17 +182,164 @@
 
       <!-- Step 2: Filters -->
       <div id="step-2" class="step-content hidden">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Configure Filters</h2>
-        <p class="text-gray-500 dark:text-gray-400">
-          {% if is_preset %}
-          Review the preset filters for this list type.
-          {% else %}
-          Set up genre, year range, and rating filters with live preview.
-          {% endif %}
+        {% if is_preset %}
+        <!-- Preset Mode: Read-only filter info -->
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Preset Filters</h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">
+          These filters are pre-configured for this preset.
         </p>
-        <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p class="text-sm text-gray-600 dark:text-gray-300">Filter configuration content will be implemented in 02-03</p>
+
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+          <div class="flex items-start">
+            <svg class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p class="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                {% if preset == 'trending_movies' %}
+                Trending Movies This Week
+                {% elif preset == 'trending_tv' %}
+                Trending TV Shows This Week
+                {% elif preset == 'popular_movies' %}
+                Most Popular Movies
+                {% elif preset == 'popular_tv' %}
+                Most Popular TV Shows
+                {% endif %}
+              </p>
+              <p class="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                {% if 'trending' in preset %}
+                Fetches movies/shows that are trending on TMDB based on recent activity, views, and ratings.
+                {% else %}
+                Fetches the most popular movies/shows on TMDB based on overall popularity scores.
+                {% endif %}
+              </p>
+            </div>
+          </div>
         </div>
+
+        <p class="text-sm text-gray-500 dark:text-gray-400 italic">
+          Preset filters cannot be modified. Create a custom list if you need specific filters.
+        </p>
+
+        {% else %}
+        <!-- Custom Mode: Editable filters -->
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Configure Filters</h2>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">
+          Set up discovery filters to find the content you want. Leave fields empty to include all.
+        </p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Filters Form -->
+          <div class="space-y-6">
+            <!-- Genre Selection -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Genres
+              </label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="28" />
+                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Action</span>
+                </label>
+                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="35" />
+                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Comedy</span>
+                </label>
+                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="18" />
+                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Drama</span>
+                </label>
+                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="27" />
+                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Horror</span>
+                </label>
+                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="878" />
+                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Sci-Fi</span>
+                </label>
+                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="53" />
+                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Thriller</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Year Range -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Year Range
+              </label>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label for="filter-year-min" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">From</label>
+                  <input type="number" id="filter-year-min" min="1900" max="2030" placeholder="Any"
+                    class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
+                </div>
+                <div>
+                  <label for="filter-year-max" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">To</label>
+                  <input type="number" id="filter-year-max" min="1900" max="2030" placeholder="Any"
+                    class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Minimum Rating -->
+            <div>
+              <label for="filter-rating-min" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Minimum Rating
+              </label>
+              <div class="flex items-center space-x-4">
+                <input type="range" id="filter-rating-min" min="0" max="10" step="0.5" value="0"
+                  class="filter-input w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" />
+                <span id="rating-value" class="text-sm font-medium text-gray-700 dark:text-gray-300 w-10 text-center">Any</span>
+              </div>
+            </div>
+
+            <!-- Results Limit -->
+            <div>
+              <label for="filter-limit" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Maximum Results
+              </label>
+              <select id="filter-limit"
+                class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+                <option value="10">10 items</option>
+                <option value="20" selected>20 items</option>
+                <option value="50">50 items</option>
+                <option value="100">100 items</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Preview Section -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Live Preview</h3>
+            <div id="preview-container" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 min-h-[300px]">
+              <div id="preview-loading" class="hidden flex items-center justify-center py-8">
+                <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <div id="preview-empty" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+                <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <p class="text-sm">Preview will appear here</p>
+                <p class="text-xs mt-1">Adjust filters to see matching results</p>
+              </div>
+              <div id="preview-error" class="hidden flex flex-col items-center justify-center py-8 text-red-500 dark:text-red-400">
+                <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p id="preview-error-message" class="text-sm">Failed to load preview</p>
+              </div>
+              <div id="preview-results" class="hidden space-y-2">
+                <!-- Preview items will be inserted here by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
       </div>
 
       <!-- Step 3: Import Settings -->
