@@ -234,10 +234,17 @@ def wizard_preview():
         return jsonify({"error": "Failed to fetch preview from TMDB", "items": []})
 
     # Return first 5 items for preview
-    # Convert to list first - tmdbv3api returns AsObj which doesn't support slicing
-    items_list = list(items) if items else []
+    # tmdbv3api returns AsObj with 'results' attribute containing the actual items
+    # Access .results if available, otherwise try to iterate directly
+    if hasattr(items, 'results'):
+        items_list = items.results[:5] if items.results else []
+    elif hasattr(items, '__iter__'):
+        items_list = list(items)[:5] if items else []
+    else:
+        items_list = []
+
     preview_items = []
-    for item in items_list[:5]:
+    for item in items_list:
         # tmdbv3api returns AsObj - access as dict to get raw values
         # AsObj supports dict-like access via __getitem__
         try:
