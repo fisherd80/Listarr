@@ -2,20 +2,20 @@
 
 **Project:** Listarr
 **Milestone:** v1.0 - Automated Media Discovery
-**Last Updated:** 2026-01-15
+**Last Updated:** 2026-01-16
 
 ## Current Status
 
-**Phase:** 2 - TMDB List Generation (ready to plan)
+**Phase:** 2 - List Creation Wizard (ready to plan)
 **Plan:** Not yet planned
-**Status:** Phase 1 complete, Phase 2 ready
+**Status:** Phase 1 complete, Phase 2 requirements clarified
 
 ## Phase Progress
 
 | Phase | Status | Plans Complete | Verification |
 |-------|--------|----------------|--------------|
 | 1. List Management System | ✅ Complete | 2/2 | ✅ |
-| 2. TMDB List Generation | ⬜ Not started | 0/? | ❌ |
+| 2. List Creation Wizard | ⬜ Not started | 0/? | ❌ |
 | 3. TMDB Caching Layer | ⬜ Not started | 0/? | ❌ |
 | 4. Import Automation Engine | ⬜ Not started | 0/? | ❌ |
 | 5. Job Execution Framework | ⬜ Not started | 0/? | ❌ |
@@ -24,6 +24,8 @@
 
 ## Recent Activity
 
+- 2026-01-16: Clarified Phase 2 requirements - multi-step wizard with presets, filters, import settings, live preview
+- 2026-01-16: Updated PROJECT.md and ROADMAP.md with list wizard vision
 - 2026-01-15: Completed Phase 1 (List Management System verified)
 - 2026-01-15: Fixed toggle flash messages (removed for AJAX)
 - 2026-01-13: Completed 01-02 Task 1 (Enable/disable toggle)
@@ -33,9 +35,10 @@
 
 ## Next Steps
 
-1. Discuss or plan Phase 2 (TMDB List Generation)
-2. Implement TMDB data fetching for lists
-3. Store and display list contents
+1. Discuss or plan Phase 2 (List Creation Wizard)
+2. Build multi-step wizard UI with 4 steps (Type, Filters, Import Settings, Schedule)
+3. Implement live TMDB preview for discovery filters
+4. Add per-list import settings with service default fallback
 
 ## Blockers
 

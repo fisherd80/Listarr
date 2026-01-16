@@ -25,17 +25,26 @@ Build automated media discovery and import that just works - fresh content flows
 
 ---
 
-### Phase 2: TMDB List Generation
+### Phase 2: List Creation Wizard
 
-**Goal:** Implement TMDB list generation from multiple sources (trending, popular, discovery filters)
+**Goal:** Replace basic list form with multi-step wizard featuring presets, discovery filters, per-list import settings, and live TMDB preview
 
-**Deliverable:** System can fetch and process movies/TV shows from TMDB API based on configured list settings
+**Deliverable:** Users can create lists through a guided 4-step wizard with preset templates, see live preview of TMDB results, and configure per-list import settings that override service defaults
+
+**Wizard Steps:**
+1. **Type** - Movies (→Radarr) or TV Shows (→Sonarr)
+2. **Filters** - Genre, year range, min rating with live TMDB preview
+3. **Import Settings** - Quality profile, root folder, tags, monitored, search on add (pre-filled from service defaults, all editable)
+4. **Schedule** - Run frequency
+
+**Presets:** Trending Movies, Trending TV, Popular Movies, Popular TV (populate wizard for review)
 
 **Verification:**
-- Generate a trending movies list and verify items are fetched from TMDB
-- Generate a popular TV shows list and verify results
-- Create a discovery list with custom filters (genre, year, rating) and verify filtering works
-- All list types return valid TMDB data
+- Create a list using "Trending Movies" preset, verify wizard pre-populates correctly
+- Create a custom discovery list with genre + year filters, verify live preview shows matching TMDB results
+- Override import settings on a list, verify they differ from service defaults
+- Create list without overriding import settings, verify it uses service defaults
+- Edit an existing list through the wizard, verify all fields load correctly
 
 ---
 
@@ -117,7 +126,7 @@ Build automated media discovery and import that just works - fresh content flows
 
 All phases delivered and verified:
 - ✅ List management UI fully functional
-- ✅ TMDB list generation working for all source types
+- ✅ List creation wizard with presets, filters, import settings, and live preview
 - ✅ TMDB caching respects rate limits
 - ✅ Import automation reliably sends items to Radarr/Sonarr
 - ✅ Job execution framework tracks all operations

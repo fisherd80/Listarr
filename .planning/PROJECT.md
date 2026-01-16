@@ -23,13 +23,20 @@ Automated media discovery and import that just works - fresh content flows into 
 
 ### Active
 
-- [ ] Automated list generation from TMDB sources (trending, popular, custom filters)
+- [ ] **List Creation Wizard** - Multi-step wizard for creating lists:
+  - Step 1: Type selection (Movies→Radarr, TV→Sonarr)
+  - Step 2: Discovery filters (genre, year range, min rating) with live TMDB preview
+  - Step 3: Import settings (quality profile, root folder, tags, monitored, search on add)
+  - Step 4: Schedule configuration
+- [ ] **Preset Lists** - Quick-start templates (Trending Movies, Trending TV, Popular Movies, Popular TV) that populate wizard for review
+- [ ] **Per-List Import Settings** - Each list can override service defaults; fallback to MediaImportSettings when not overridden
+- [ ] **Live TMDB Preview** - Show sample results as user configures filters in wizard
+- [ ] Automated list generation from TMDB sources (trending, popular, discovery filters)
 - [ ] Scheduled job execution system (cron-based automation for list refreshes)
 - [ ] Manual trigger capability (run any list on-demand from UI)
 - [ ] Reliable import automation to Radarr/Sonarr with proper error handling
 - [ ] Smart TMDB caching to respect API rate limits
 - [ ] Job execution tracking and history with success/failure reporting
-- [ ] List management UI (create, edit, delete, enable/disable lists)
 - [ ] Rock-solid error handling and logging for 24/7 reliability
 
 ### Out of Scope
@@ -85,6 +92,11 @@ Comprehensive codebase documentation exists in `.planning/codebase/`:
 | Single-user design | Homelab use case, reduces complexity | — Pending |
 | SQLite database | Embedded, no external dependencies, sufficient for homelab scale | — Pending |
 | Encrypted API key storage | Security best practice for sensitive credentials | — Pending |
+| Multi-step list wizard | Guided creation is more user-friendly than raw form; breaks complex configuration into digestible steps | — Active |
+| Per-list import settings with fallback | Flexibility to override defaults per-list while keeping simple case easy; uses service defaults dynamically when not overridden | — Active |
+| Live TMDB preview in wizard | Users see what they'll get before committing; reduces trial-and-error | — Active |
+| Preset lists populate wizard (not one-click) | User can review/adjust settings before saving; balances convenience with control | — Active |
+| Start with core filters (genre, year, rating) | TMDB Discovery API has many options; start simple, expand based on need | — Active |
 
 ---
-*Last updated: 2026-01-12 after initialization*
+*Last updated: 2026-01-16 - Added list wizard requirements and key decisions*
