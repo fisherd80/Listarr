@@ -402,8 +402,8 @@ function goToStep(stepNumber) {
     // Update Next button state based on validation
     updateNextButtonState();
 
-    // Trigger preview fetch when entering step 2 for custom lists
-    if (stepNumber === 2 && !wizardState.isPreset && wizardState.service) {
+    // Trigger preview fetch when entering step 2 (for both preset and custom lists)
+    if (stepNumber === 2 && wizardState.service) {
         fetchPreview();
     }
 }
