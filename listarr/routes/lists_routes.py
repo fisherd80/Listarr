@@ -78,11 +78,41 @@ def delete_list(list_id):
 
 @bp.route("/lists/wizard")
 def list_wizard():
-    """Wizard route for creating lists via presets or custom configuration."""
+    """
+    Wizard route for creating lists via presets or custom configuration.
+
+    Query parameters:
+        preset: string (trending_movies, trending_tv, popular_movies, popular_tv, custom, or None)
+        service: string (radarr, sonarr, or None)
+        list_id: int (for edit mode - future use)
+    """
     preset = request.args.get("preset")
     service = request.args.get("service")
-    # Placeholder - will be expanded in 02-02
-    return f"Wizard placeholder: preset={preset}, service={service}"
+    list_id = request.args.get("list_id", type=int)
+
+    # Determine wizard mode based on preset
+    is_preset = False
+
+    if preset in ["trending_movies", "popular_movies"]:
+        # Movie presets always use Radarr
+        service = "radarr"
+        is_preset = True
+    elif preset in ["trending_tv", "popular_tv"]:
+        # TV presets always use Sonarr
+        service = "sonarr"
+        is_preset = True
+    elif preset == "custom" or preset is None:
+        # Custom mode - service comes from param or will be selected in step 1
+        is_preset = False
+        # Keep service as-is from query param (may be None)
+
+    return render_template(
+        "list_wizard.html",
+        preset=preset,
+        service=service,
+        is_preset=is_preset,
+        list_id=list_id,
+    )
 
 
 @bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
