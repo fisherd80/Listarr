@@ -270,6 +270,103 @@ def wizard_preview():
     return jsonify({"items": preview_items})
 
 
+@bp.route("/lists/wizard/submit", methods=["POST"])
+def wizard_submit():
+    """
+    Handle wizard form submission for creating or updating lists.
+
+    Request JSON:
+        list_id: int (None for create, ID for edit)
+        name: string (required)
+        service: string (radarr or sonarr)
+        preset: string (trending_movies, trending_tv, popular_movies, popular_tv, or None/custom)
+        filters: object (genre_ids, year_min, year_max, rating_min, limit)
+        import_settings: object (quality_profile_id, root_folder, tag_id, monitored, search_on_add)
+        schedule: object (cron, is_active)
+
+    Returns JSON:
+        success: bool
+        list_id: int (ID of created/updated list)
+        error: string (if success is false)
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"success": False, "error": "No data provided"}), 400
+
+    # Extract wizard data
+    list_id = data.get("list_id")  # None for create, ID for edit
+    name = data.get("name")
+    service = data.get("service")  # radarr or sonarr
+    preset = data.get("preset")    # preset name or None/custom
+    filters = data.get("filters", {})
+    import_settings = data.get("import_settings", {})
+    schedule = data.get("schedule", {})
+
+    # Validation
+    if not name:
+        return jsonify({"success": False, "error": "Name is required"}), 400
+    if not service or service not in ["radarr", "sonarr"]:
+        return jsonify({"success": False, "error": "Invalid service"}), 400
+
+    # Determine tmdb_list_type
+    if preset and preset not in ["custom", ""]:
+        tmdb_list_type = preset  # trending_movies, popular_tv, etc.
+    else:
+        tmdb_list_type = "discovery"
+
+    # Build filters_json
+    filters_json = {
+        "genre_ids": filters.get("genre_ids", []),
+        "year_min": filters.get("year_min"),
+        "year_max": filters.get("year_max"),
+        "rating_min": filters.get("rating_min"),
+    }
+
+    try:
+        if list_id:
+            # Edit mode
+            list_obj = List.query.get_or_404(list_id)
+            list_obj.name = name
+            list_obj.target_service = service.upper()
+            list_obj.tmdb_list_type = tmdb_list_type
+            list_obj.filters_json = filters_json
+            list_obj.limit = filters.get("limit", 20)
+            list_obj.override_quality_profile = import_settings.get("quality_profile_id")
+            list_obj.override_root_folder = import_settings.get("root_folder")
+            list_obj.override_tag_id = import_settings.get("tag_id")
+            list_obj.override_monitored = 1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None)
+            list_obj.override_search_on_add = 1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None)
+            list_obj.schedule_cron = schedule.get("cron")
+            list_obj.is_active = schedule.get("is_active", True)
+        else:
+            # Create mode
+            list_obj = List(
+                name=name,
+                target_service=service.upper(),
+                tmdb_list_type=tmdb_list_type,
+                filters_json=filters_json,
+                limit=filters.get("limit", 20),
+                override_quality_profile=import_settings.get("quality_profile_id"),
+                override_root_folder=import_settings.get("root_folder"),
+                override_tag_id=import_settings.get("tag_id"),
+                override_monitored=1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None),
+                override_search_on_add=1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None),
+                schedule_cron=schedule.get("cron"),
+                is_active=schedule.get("is_active", True),
+                created_at=datetime.now(timezone.utc),
+            )
+            db.session.add(list_obj)
+
+        db.session.commit()
+        return jsonify({"success": True, "list_id": list_obj.id})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving list: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @bp.route("/lists/wizard/defaults/<service>")
 def wizard_defaults(service):
     """

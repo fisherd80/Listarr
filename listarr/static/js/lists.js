@@ -72,9 +72,49 @@ function toggleList(listId, button) {
 }
 
 /**
+ * Show a success toast/alert for wizard actions
+ * @param {string} action - "created" or "updated"
+ */
+function showSuccessMessage(action) {
+  // Create toast element
+  const toast = document.createElement("div");
+  toast.className =
+    "fixed top-4 right-4 bg-green-100 dark:bg-green-900 border border-green-200 dark:border-green-800 rounded-lg p-4 shadow-lg z-50 flex items-center";
+  toast.innerHTML = `
+    <svg class="w-5 h-5 text-green-500 dark:text-green-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    <span class="text-sm font-medium text-green-800 dark:text-green-200">
+      List ${action} successfully!
+    </span>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Remove after 3 seconds
+  setTimeout(() => {
+    toast.style.transition = "opacity 0.3s";
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+
+  // Remove success param from URL without reload
+  const url = new URL(window.location);
+  url.searchParams.delete("success");
+  window.history.replaceState({}, "", url);
+}
+
+/**
  * Initializes toggle buttons on the lists page.
  */
 function initListsPage() {
+  // Check for success message in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const successAction = urlParams.get("success");
+  if (successAction === "created" || successAction === "updated") {
+    showSuccessMessage(successAction);
+  }
+
   // Attach click handlers to all toggle buttons
   const toggleButtons = document.querySelectorAll("[data-toggle-list]");
 

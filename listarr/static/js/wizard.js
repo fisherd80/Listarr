@@ -1199,12 +1199,124 @@ function updateSummarySchedule() {
 // ============================================
 
 /**
- * Submit the wizard form (placeholder for now)
+ * Submit the wizard form to create or update a list
  */
-function submitWizard() {
-    // Placeholder - actual form submission will be implemented in 02-05
-    console.log("Wizard submitted with state:", wizardState);
-    alert("List creation will be implemented in a future plan. Current state logged to console.");
+async function submitWizard() {
+    // Final validation
+    if (!validateStep4()) {
+        return;
+    }
+
+    // Disable the submit button to prevent double submission
+    const btnNext = document.getElementById("btn-next");
+    if (btnNext) {
+        btnNext.disabled = true;
+        btnNext.textContent = wizardState.listId ? "Saving..." : "Creating...";
+    }
+
+    // Build the payload
+    const payload = {
+        list_id: wizardState.listId || null,
+        name: wizardState.schedule.name,
+        service: wizardState.service,
+        preset: wizardState.preset,
+        filters: {
+            genre_ids: wizardState.filters.genre_ids,
+            year_min: wizardState.filters.year_min,
+            year_max: wizardState.filters.year_max,
+            rating_min: wizardState.filters.rating_min,
+            limit: wizardState.filters.limit,
+        },
+        import_settings: {
+            quality_profile_id: wizardState.importSettings.quality_profile_id,
+            root_folder: wizardState.importSettings.root_folder,
+            tag_id: wizardState.importSettings.tag_id,
+            monitored: wizardState.importSettings.monitored,
+            search_on_add: wizardState.importSettings.search_on_add,
+        },
+        schedule: {
+            cron: wizardState.schedule.cron,
+            is_active: wizardState.schedule.is_active,
+        },
+    };
+
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    try {
+        const response = await fetch("/lists/wizard/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Redirect to lists page with success message via URL param
+            const action = wizardState.listId ? "updated" : "created";
+            window.location.href = `/lists?success=${action}`;
+        } else {
+            // Show error message
+            showSubmitError(data.error || "Failed to save list");
+            // Re-enable button
+            if (btnNext) {
+                btnNext.disabled = false;
+                btnNext.textContent = wizardState.listId ? "Save Changes" : "Create List";
+            }
+        }
+    } catch (error) {
+        console.error("Submit error:", error);
+        showSubmitError("Network error - please try again");
+        // Re-enable button
+        if (btnNext) {
+            btnNext.disabled = false;
+            btnNext.textContent = wizardState.listId ? "Save Changes" : "Create List";
+        }
+    }
+}
+
+/**
+ * Show an error message after submit failure
+ * @param {string} message - Error message to display
+ */
+function showSubmitError(message) {
+    // Create or update error alert in step 4
+    let errorEl = document.getElementById("submit-error");
+
+    if (!errorEl) {
+        // Create error element
+        errorEl = document.createElement("div");
+        errorEl.id = "submit-error";
+        errorEl.className = "mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4";
+        errorEl.innerHTML = `
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-red-500 dark:text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p class="text-sm text-red-800 dark:text-red-200"><span id="submit-error-message"></span></p>
+            </div>
+        `;
+
+        // Insert into step 4 content area
+        const step4 = document.getElementById("step-4");
+        if (step4) {
+            step4.appendChild(errorEl);
+        }
+    }
+
+    // Update error message
+    const messageEl = errorEl.querySelector("#submit-error-message") || errorEl.querySelector("p span");
+    if (messageEl) {
+        messageEl.textContent = message;
+    } else {
+        errorEl.querySelector("p").textContent = message;
+    }
+
+    errorEl.classList.remove("hidden");
 }
 
 // Initialize wizard when DOM is ready
