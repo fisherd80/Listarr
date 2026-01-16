@@ -238,14 +238,25 @@ def wizard_preview():
     items_list = list(items) if items else []
     preview_items = []
     for item in items_list[:5]:
-        # Handle both movie and TV show objects
-        title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
-        release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
+        # tmdbv3api returns AsObj - access as dict to get raw values
+        # AsObj supports dict-like access via __getitem__
+        try:
+            # Try dict-style access first (more reliable for AsObj)
+            item_id = item["id"] if "id" in item else None
+            title = item.get("title") or item.get("name") or "Unknown"
+            release_date = item.get("release_date") or item.get("first_air_date") or ""
+            vote_average = item.get("vote_average")
+        except (TypeError, KeyError):
+            # Fallback to attribute access
+            item_id = getattr(item, "id", None)
+            title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
+            release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
+            vote_average = getattr(item, "vote_average", None)
+
         year = release_date[:4] if release_date else None
-        vote_average = getattr(item, "vote_average", None)
 
         preview_items.append({
-            "id": getattr(item, "id", None),
+            "id": item_id,
             "title": title,
             "year": year,
             "rating": round(vote_average, 1) if vote_average else None,
