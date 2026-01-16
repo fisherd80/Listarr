@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='favicon.jpg') }}"
+    />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+
+    <title>{% block title %}Listarr{% endblock %}</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "media",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#4F46E5",
+              secondary: "#10B981",
+            },
+          },
+        },
+      };
+    </script>
+
+    {% block head %}{% endblock %}
+  </head>
+
+  <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+    <!-- Top Navigation -->
+    <nav class="bg-white dark:bg-gray-800 shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+          <!-- Left side: Logo + Main Links -->
+          <div class="flex items-center space-x-6">
+            <!-- Logo / Site Name -->
+            <div class="flex-shrink-0 text-2xl font-bold text-primary">
+              Listarr
+            </div>
+
+            <!-- Main links -->
+            <div class="flex space-x-4">
+              <a
+                href="{{ url_for('main.dashboard_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.dashboard_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Dashboard
+              </a>
+              <a
+                href="{{ url_for('main.lists_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Lists
+              </a>
+              <a
+                href="{{ url_for('main.jobs_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.jobs_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Jobs
+              </a>
+              <a
+                href="{{ url_for('main.config_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.config_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Config
+              </a>
+            </div>
+          </div>
+
+          <!-- Right side: Settings -->
+          <div class="flex items-center">
+            <a
+              href="{{ url_for('main.settings_page') }}"
+              class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+            >
+              Settings
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Flash / Alerts -->
+    <div class="max-w-7xl mx-auto px-4 mt-4">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %}
+      <div class="space-y-2">
+        {% for category, message in messages %}
+        <div
+          class="relative px-4 py-2 rounded-md text-sm {% if category == 'success' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 {% elif category == 'warning' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 {% elif category == 'error' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 {% else %}bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200{% endif %}"
+          id="flash-{{ loop.index }}"
+        >
+          {{ message }}
+          <button
+            aria-label="Dismiss notification"
+            onclick="document.getElementById('flash-{{ loop.index }}').remove()"
+            class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            &times;
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %} {% endwith %}
+    </div>
+
+    <!-- Content -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer
+      class="bg-white dark:bg-gray-800 text-center text-sm py-4 text-gray-500 dark:text-gray-400"
+    >
+      © 2025 Listarr
+    </footer>
+  </body>
+</html>

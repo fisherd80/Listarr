@@ -235,11 +235,9 @@ def wizard_preview():
 
     # Return first 5 items for preview
     # tmdbv3api returns AsObj with 'results' attribute containing the actual items
-    # Access .results if available, otherwise try to iterate directly
-    if hasattr(items, 'results'):
-        items_list = items.results[:5] if items.results else []
-    elif hasattr(items, '__iter__'):
-        items_list = list(items)[:5] if items else []
+    # Both the response and .results are AsObj, so convert to list before slicing
+    if hasattr(items, 'results') and items.results:
+        items_list = list(items.results)[:5]
     else:
         items_list = []
 

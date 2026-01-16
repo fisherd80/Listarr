@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  listarr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: listarr
+    restart: unless-stopped
+
+    # Port mapping (host:container)
+    ports:
+      - "5000:5000"
+
+    # Environment variables
+    environment:
+      # REQUIRED: Set a secure secret key for Flask sessions
+      - LISTARR_SECRET_KEY=${LISTARR_SECRET_KEY:-change_me_in_production}
+
+      # OPTIONAL: Override encryption key (otherwise loaded from file)
+      # - FERNET_KEY=${FERNET_KEY}
+
+      # Flask environment
+      - FLASK_APP=listarr
+      - FLASK_ENV=production
+
+    # Persistent volumes
+    # CRITICAL: The instance folder must be persisted to retain:
+    #   - SQLite database (listarr.db)
+    #   - Encryption key (.fernet_key)
+    volumes:
+      - listarr-data:/app/instance
+
+      # Optional: Mount config file if using external configuration
+      # - ./config.yml:/app/config.yml:ro
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits (optional, adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    # Network mode (optional)
+    # Use 'host' if you need to access other services on the host
+    # network_mode: host
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Named volumes for data persistence
+volumes:
+  listarr-data:
+    driver: local
+    # Optional: Specify a custom mount point on the host
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /path/to/host/folder
+
+# Optional: Custom network
+# networks:
+#   listarr-net:
+#     driver: bridge

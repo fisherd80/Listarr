@@ -1,0 +1,33 @@
+# Core Flask Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Database ORM
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.23
+
+# Forms and CSRF Protection
+Flask-WTF==1.2.1
+WTForms==3.1.1
+
+# Encryption
+cryptography==41.0.7
+
+# HTTP Requests (for external APIs)
+requests==2.31.0
+
+# TMDB API Client
+tmdbv3api==1.9.0
+
+# Radarr/Sonarr API Client
+pyarr>=5.0.0
+
+# Production WSGI Server (required for Docker deployment)
+gunicorn==21.2.0
+
+# Optional: Scheduler (uncomment when implementing scheduling)
+# APScheduler==3.10.4
+
+# Optional: Task Queue (uncomment if using Celery)
+# celery==5.3.4
+# redis==5.0.1
