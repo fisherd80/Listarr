@@ -234,8 +234,10 @@ def wizard_preview():
         return jsonify({"error": "Failed to fetch preview from TMDB", "items": []})
 
     # Return first 5 items for preview
+    # Convert to list first - tmdbv3api returns AsObj which doesn't support slicing
+    items_list = list(items) if items else []
     preview_items = []
-    for item in items[:5]:
+    for item in items_list[:5]:
         # Handle both movie and TV show objects
         title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
         release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
