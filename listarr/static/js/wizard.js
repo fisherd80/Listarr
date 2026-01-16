@@ -258,11 +258,15 @@ async function fetchPreview() {
     errorEl.classList.add("hidden");
     resultsEl.classList.add("hidden");
 
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
     try {
         const response = await fetch("/lists/wizard/preview", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
             },
             body: JSON.stringify({
                 service: wizardState.service,
