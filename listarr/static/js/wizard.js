@@ -41,6 +41,7 @@ const wizardState = {
         tag_id: null,
         monitored: null,           // null = use default
         search_on_add: null,
+        season_folder: null,       // null = use default (Sonarr only)
     },
     schedule: {
         name: "",
@@ -156,6 +157,7 @@ function loadExistingListData() {
             wizardState.importSettings.tag_id = existingList.import_settings.tag_id;
             wizardState.importSettings.monitored = existingList.import_settings.monitored;
             wizardState.importSettings.search_on_add = existingList.import_settings.search_on_add;
+            wizardState.importSettings.season_folder = existingList.import_settings.season_folder;
         }
 
         // Populate schedule
@@ -747,6 +749,12 @@ function initImportSettings() {
     if (searchOnAddCheckbox) {
         searchOnAddCheckbox.addEventListener("change", handleSearchOnAddChange);
     }
+
+    // Season Folder (Sonarr only)
+    const seasonFolderCheckbox = document.getElementById("import-season-folder");
+    if (seasonFolderCheckbox) {
+        seasonFolderCheckbox.addEventListener("change", handleSeasonFolderChange);
+    }
 }
 
 /**
@@ -941,6 +949,21 @@ function populateImportSettings(defaults, options) {
         searchOnAddCheckbox.checked = defaults.search_on_add !== false;
     }
 
+    // Season Folder checkbox (Sonarr only)
+    const seasonFolderContainer = document.getElementById("import-season-folder-container");
+    const seasonFolderCheckbox = document.getElementById("import-season-folder");
+    if (seasonFolderContainer && seasonFolderCheckbox) {
+        if (wizardState.service === "sonarr") {
+            // Show for Sonarr
+            seasonFolderContainer.classList.remove("hidden");
+            // Pre-check based on defaults (or true if no defaults)
+            seasonFolderCheckbox.checked = defaults.season_folder !== false;
+        } else {
+            // Hide for Radarr
+            seasonFolderContainer.classList.add("hidden");
+        }
+    }
+
     // In edit mode, apply existing list override values
     if (wizardState.editMode) {
         populateStep3EditMode(options);
@@ -1000,6 +1023,14 @@ function populateStep3EditMode(options) {
         const searchOnAddCheckbox = document.getElementById("import-search-on-add");
         if (searchOnAddCheckbox) {
             searchOnAddCheckbox.checked = wizardState.importSettings.search_on_add;
+        }
+    }
+
+    // Season Folder (only override if explicitly set, Sonarr only)
+    if (wizardState.importSettings.season_folder !== null && wizardState.service === "sonarr") {
+        const seasonFolderCheckbox = document.getElementById("import-season-folder");
+        if (seasonFolderCheckbox) {
+            seasonFolderCheckbox.checked = wizardState.importSettings.season_folder;
         }
     }
 }
@@ -1093,6 +1124,25 @@ function handleSearchOnAddChange() {
         wizardState.importSettings.search_on_add = null;
     } else {
         wizardState.importSettings.search_on_add = value;
+    }
+}
+
+/**
+ * Handle Season Folder checkbox change (Sonarr only)
+ */
+function handleSeasonFolderChange() {
+    const checkbox = document.getElementById("import-season-folder");
+    if (!checkbox) return;
+
+    const value = checkbox.checked;
+    const defaults = wizardState._importDefaults;
+    const defaultValue = defaults ? defaults.season_folder : true;
+
+    // If value matches default, store null (use default)
+    if (value === defaultValue) {
+        wizardState.importSettings.season_folder = null;
+    } else {
+        wizardState.importSettings.season_folder = value;
     }
 }
 
@@ -1413,6 +1463,7 @@ async function submitWizard() {
             tag_id: wizardState.importSettings.tag_id,
             monitored: wizardState.importSettings.monitored,
             search_on_add: wizardState.importSettings.search_on_add,
+            season_folder: wizardState.importSettings.season_folder,
         },
         schedule: {
             cron: wizardState.schedule.cron,

@@ -460,7 +460,7 @@
             </p>
           </div>
 
-          <!-- Monitored & Search on Add -->
+          <!-- Monitored, Search on Add, Season Folder -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Monitored -->
             <div>
@@ -483,6 +483,18 @@
               </label>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
                 Start searching for downloads immediately
+              </p>
+            </div>
+
+            <!-- Season Folder (Sonarr only) -->
+            <div id="import-season-folder-container" class="hidden">
+              <label class="flex items-center">
+                <input type="checkbox" id="import-season-folder"
+                  class="rounded text-primary focus:ring-primary h-4 w-4" />
+                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Create Season Folders</span>
+              </label>
+              <p id="import-season-folder-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+                Organize episodes into season subfolders
               </p>
             </div>
           </div>

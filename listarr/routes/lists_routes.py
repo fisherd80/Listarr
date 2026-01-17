@@ -124,6 +124,7 @@ def list_wizard():
                 "tag_id": list_obj.override_tag_id,
                 "monitored": True if list_obj.override_monitored == 1 else (False if list_obj.override_monitored == 0 else None),
                 "search_on_add": True if list_obj.override_search_on_add == 1 else (False if list_obj.override_search_on_add == 0 else None),
+                "season_folder": True if list_obj.override_season_folder == 1 else (False if list_obj.override_season_folder == 0 else None),
             },
             "schedule": {
                 "cron": list_obj.schedule_cron,
@@ -380,6 +381,7 @@ def wizard_submit():
             list_obj.override_tag_id = import_settings.get("tag_id")
             list_obj.override_monitored = 1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None)
             list_obj.override_search_on_add = 1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None)
+            list_obj.override_season_folder = 1 if import_settings.get("season_folder") else (0 if import_settings.get("season_folder") is False else None)
             list_obj.schedule_cron = schedule.get("cron")
             list_obj.is_active = schedule.get("is_active", True)
         else:
@@ -395,6 +397,7 @@ def wizard_submit():
                 override_tag_id=import_settings.get("tag_id"),
                 override_monitored=1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None),
                 override_search_on_add=1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None),
+                override_season_folder=1 if import_settings.get("season_folder") else (0 if import_settings.get("season_folder") is False else None),
                 schedule_cron=schedule.get("cron"),
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
@@ -478,6 +481,11 @@ def wizard_defaults(service):
             }
         })
 
+    # Season folder default - only relevant for Sonarr
+    season_folder_default = True  # Sonarr default
+    if import_settings and hasattr(import_settings, 'season_folder') and import_settings.season_folder is not None:
+        season_folder_default = import_settings.season_folder
+
     return jsonify({
         "configured": True,
         "defaults": {
@@ -486,6 +494,7 @@ def wizard_defaults(service):
             "monitored": import_settings.monitored if import_settings else True,
             "search_on_add": import_settings.search_on_add if import_settings else True,
             "tag_id": import_settings.default_tag_id if import_settings else None,
+            "season_folder": season_folder_default if service == "sonarr" else None,
         },
         "options": {
             "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
