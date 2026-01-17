@@ -107,10 +107,15 @@ function initWizard() {
     // Set up schedule change handlers
     initSchedule();
 
-    // Initialize UI to step 1
-    goToStep(1);
+    // Initialize UI to appropriate starting step
+    // Presets and edit mode skip Step 1 (type already determined)
+    if (wizardState.editMode || wizardState.isPreset) {
+        goToStep(2);
+    } else {
+        goToStep(1);
+    }
 
-    // In edit mode for custom lists, select the type card
+    // In edit mode for custom lists, select the type card (for visual consistency if user goes back)
     if (wizardState.editMode && !wizardState.isPreset && wizardState.service) {
         selectType(wizardState.service);
     }
@@ -570,6 +575,11 @@ function nextStep() {
  * Go back to the previous step
  */
 function prevStep() {
+    // If at step 2 and we started there (preset or edit), back cancels wizard
+    if (wizardState.currentStep === 2 && (wizardState.isPreset || wizardState.editMode)) {
+        window.location.href = '/lists';
+        return;
+    }
     if (wizardState.currentStep > 1) {
         goToStep(wizardState.currentStep - 1);
     }
