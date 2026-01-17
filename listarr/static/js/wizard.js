@@ -1289,6 +1289,15 @@ function populateStep4() {
         enabledCheckbox.checked = wizardState.schedule.is_active;
     }
 
+    // Sync state from input value (handles pre-populated names from presets)
+    // This ensures validation will pass for pre-filled names
+    if (nameInput && nameInput.value && !wizardState.schedule.name) {
+        wizardState.schedule.name = nameInput.value.trim();
+    }
+
+    // Update Next button state to reflect valid pre-populated name
+    updateNextButtonState();
+
     // Update summary section
     updateSummary();
 }
