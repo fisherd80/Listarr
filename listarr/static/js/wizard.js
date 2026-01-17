@@ -5,14 +5,47 @@
  * and state management for the list creation flow.
  */
 
-// TMDB Genre IDs (same for movies and TV)
-const TMDB_GENRES = {
+// TMDB Movie Genre IDs
+const TMDB_MOVIE_GENRES = {
     28: "Action",
+    12: "Adventure",
+    16: "Animation",
     35: "Comedy",
+    80: "Crime",
+    99: "Documentary",
     18: "Drama",
+    10751: "Family",
+    14: "Fantasy",
+    36: "History",
     27: "Horror",
-    878: "Sci-Fi",
+    10402: "Music",
+    9648: "Mystery",
+    10749: "Romance",
+    878: "Science Fiction",
+    10770: "TV Movie",
     53: "Thriller",
+    10752: "War",
+    37: "Western",
+};
+
+// TMDB TV Genre IDs (different from movies!)
+const TMDB_TV_GENRES = {
+    10759: "Action & Adventure",
+    16: "Animation",
+    35: "Comedy",
+    80: "Crime",
+    99: "Documentary",
+    18: "Drama",
+    10751: "Family",
+    10762: "Kids",
+    9648: "Mystery",
+    10763: "News",
+    10764: "Reality",
+    10765: "Sci-Fi & Fantasy",
+    10766: "Soap",
+    10767: "Talk",
+    10768: "War & Politics",
+    37: "Western",
 };
 
 // Preview debounce timer
@@ -220,6 +253,9 @@ function selectType(service) {
         hint.classList.add("hidden");
     }
 
+    // Update genre checkboxes for the selected service (movies vs TV have different genres)
+    updateGenreCheckboxes();
+
     // Update Next button state
     updateNextButtonState();
 }
@@ -228,11 +264,7 @@ function selectType(service) {
  * Initialize filter input change handlers
  */
 function initFilters() {
-    // Genre checkboxes
-    const genreCheckboxes = document.querySelectorAll(".genre-checkbox");
-    genreCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener("change", handleGenreChange);
-    });
+    // Genre checkboxes - event listeners are attached dynamically in updateGenreCheckboxes()
 
     // Year inputs
     const yearMinInput = document.getElementById("filter-year-min");
@@ -255,6 +287,40 @@ function initFilters() {
     if (limitSelect) {
         limitSelect.addEventListener("change", handleLimitChange);
     }
+}
+
+/**
+ * Update genre checkboxes based on the selected service (movies vs TV)
+ * TV shows and movies have different genre IDs in TMDB
+ */
+function updateGenreCheckboxes() {
+    const container = document.getElementById("genre-checkboxes");
+    if (!container) return;
+
+    // Use correct genre map based on service
+    const genreMap = wizardState.service === "sonarr" ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
+
+    // Generate checkbox HTML
+    container.innerHTML = Object.entries(genreMap).map(([id, name]) => `
+        <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+            <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="${id}" />
+            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">${name}</span>
+        </label>
+    `).join("");
+
+    // Attach event listeners to new checkboxes
+    document.querySelectorAll(".genre-checkbox").forEach(cb => {
+        cb.addEventListener("change", handleGenreChange);
+    });
+
+    // Filter out any previously selected genres that don't exist in the new map
+    wizardState.filters.genre_ids = wizardState.filters.genre_ids.filter(id => genreMap[id]);
+
+    // Re-check previously selected genres
+    document.querySelectorAll(".genre-checkbox").forEach(cb => {
+        const id = parseInt(cb.dataset.genreId, 10);
+        cb.checked = wizardState.filters.genre_ids.includes(id);
+    });
 }
 
 /**
@@ -494,6 +560,8 @@ function goToStep(stepNumber) {
 
     // Trigger preview fetch when entering step 2 (for both preset and custom lists)
     if (stepNumber === 2 && wizardState.service) {
+        // Update genre checkboxes for correct service (movies vs TV)
+        updateGenreCheckboxes();
         // Pre-fill filter form fields in edit mode
         if (wizardState.editMode) {
             populateStep2EditMode();
@@ -1365,7 +1433,9 @@ function updateSummaryFilters() {
     const parts = [];
 
     if (wizardState.filters.genre_ids && wizardState.filters.genre_ids.length > 0) {
-        const genreNames = wizardState.filters.genre_ids.map(id => TMDB_GENRES[id] || id);
+        // Use correct genre map based on service
+        const genreMap = wizardState.service === "sonarr" ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
+        const genreNames = wizardState.filters.genre_ids.map(id => genreMap[id] || id);
         parts.push(genreNames.join(", "));
     }
 

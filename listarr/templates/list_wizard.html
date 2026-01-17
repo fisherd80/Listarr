@@ -266,31 +266,8 @@
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Genres
               </label>
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="28" />
-                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Action</span>
-                </label>
-                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="35" />
-                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Comedy</span>
-                </label>
-                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="18" />
-                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Drama</span>
-                </label>
-                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="27" />
-                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Horror</span>
-                </label>
-                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="878" />
-                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Sci-Fi</span>
-                </label>
-                <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="53" />
-                  <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Thriller</span>
-                </label>
+              <div id="genre-checkboxes" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <!-- Dynamically populated by JavaScript based on service (movies vs TV) -->
               </div>
             </div>
 
