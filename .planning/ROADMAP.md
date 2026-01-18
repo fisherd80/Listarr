@@ -48,11 +48,15 @@ Build automated media discovery and import that just works - fresh content flows
 
 ---
 
-### Phase 3: TMDB Caching Layer
+### Phase 3: TMDB Caching Layer (Complete)
 
 **Goal:** Implement smart caching to respect TMDB API rate limits and improve performance
 
 **Deliverable:** TMDB API responses are cached with appropriate TTLs, preventing rate limit violations
+
+**Status:** Complete (2026-01-18) - 2/2 plans executed
+- 03-01: TMDB cache service with TTL-based caching
+- 03-02: Integrated caching into wizard preview
 
 **Verification:**
 - Fetch the same list twice within cache window and verify only one API call is made
@@ -122,6 +126,21 @@ Build automated media discovery and import that just works - fresh content flows
 
 ---
 
+### Phase 8: Service Settings Caching & Background Refresh
+
+**Goal:** Refactor caching from Radarr/Sonarr to collect settings and figures on launch, with background refresh to prevent data rot
+
+**Deliverable:** Service settings (quality profiles, root folders, tags) are cached on application startup and refreshed periodically in the background, reducing API calls and improving responsiveness
+
+**Verification:**
+- Start the application and verify Radarr/Sonarr settings are fetched on launch
+- Check that cached settings are used for list creation wizard without additional API calls
+- Wait for background refresh interval and verify settings are updated
+- Modify settings in Radarr/Sonarr and verify they appear after next refresh
+- Verify application remains responsive even if services are temporarily unavailable
+
+---
+
 ## Milestone Complete When
 
 All phases delivered and verified:
@@ -132,11 +151,12 @@ All phases delivered and verified:
 - ✅ Job execution framework tracks all operations
 - ✅ Scheduler runs lists automatically on cron schedules
 - ✅ Manual triggers allow on-demand execution
+- ✅ Service settings cached on launch with background refresh
 
 **Success criteria:** User can configure a trending movies list, schedule it to run daily, and verify that new movies automatically appear in Radarr without any manual intervention.
 
 ---
 
 *Roadmap created: 2026-01-12*
-*Phases: 7*
+*Phases: 8*
 *Depth: Standard (3-5 plans per phase)*

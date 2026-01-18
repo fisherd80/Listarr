@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Phase:** 3 - TMDB Caching Layer (in progress)
-**Plan:** 1 of 2 complete
-**Status:** In progress
+**Phase:** 3 - TMDB Caching Layer (complete)
+**Plan:** 2 of 2 complete
+**Status:** Phase complete
 
 ## Phase Progress
 
@@ -16,7 +16,7 @@
 |-------|--------|----------------|--------------|
 | 1. List Management System | Complete | 2/2 | Verified |
 | 2. List Creation Wizard | Complete | 5/5 + FIX | Verified |
-| 3. TMDB Caching Layer | In progress | 1/2 | - |
+| 3. TMDB Caching Layer | Complete | 2/2 | Pending |
 | 4. Import Automation Engine | Not started | 0/? | - |
 | 5. Job Execution Framework | Not started | 0/? | - |
 | 6. Scheduler System | Not started | 0/? | - |
@@ -25,21 +25,22 @@
 
 ## Recent Activity
 
+- 2026-01-18: Completed 03-02-PLAN (Integrate caching into wizard preview)
+  - Updated wizard_preview() to use cached TMDB functions
+  - Added debug endpoint /lists/debug/cache-stats
+  - All 363 tests pass
 - 2026-01-18: Completed 03-01-PLAN (TMDB cache service with TTL caching)
   - Created tmdb_cache.py with 8 cached wrapper functions
   - Added cachetools dependency
   - Implemented cache management functions
 - 2026-01-17: Completed 02-05-FIX (6 UAT issues resolved)
 - 2026-01-17: Completed 02-05-PLAN (Schedule step, edit mode, form submission)
-- 2026-01-16: Completed 02-04-PLAN (Import Settings step with service defaults)
-- 2026-01-16: Fixed 02-03 UAT issues (tmdbv3api AsObj handling, CSRF token)
-- 2026-01-16: Completed 02-03-PLAN (type selection, filters, live preview)
 
 ## Next Steps
 
-1. Execute 03-02-PLAN (Integrate caching layer with wizard)
-2. Complete Phase 3 verification
-3. Move to Phase 4 (Import Automation Engine)
+1. Run Phase 3 verification (cache hit/miss behavior)
+2. Plan Phase 4 (Import Automation Engine)
+3. Begin import system implementation
 
 ## Blockers
 
@@ -48,15 +49,16 @@ None
 ## Session Continuity
 
 Last session: 2026-01-18
-Stopped at: Completed 03-01-PLAN
+Stopped at: Completed 03-02-PLAN (Phase 3 complete)
 Resume file: None
 
 ## Notes
 
 - Phase 2 wizard fully functional with all 4 steps
-- TMDB caching service now available with TTL-based expiration
+- Phase 3 TMDB caching layer complete
+- Wizard preview uses cached calls for all TMDB operations
 - Caches: trending (1h), popular (4h), discover (6h), details (24h)
-- Thread-safe implementation following dashboard_cache.py pattern
+- Debug endpoint available at /lists/debug/cache-stats
 
 ## Roadmap Evolution
 
