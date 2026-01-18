@@ -10,6 +10,18 @@
 
 ## Resolved Issues
 
+### UAT-007: Edit button should use original edit form, not wizard
+
+**Discovered:** 2026-01-18
+**Phase/Plan:** 02-05
+**Severity:** Major
+**Feature:** Edit mode
+**Description:** The Edit button currently opens the wizard at Step 2. User prefers the original edit form (edit_list.html) for editing existing lists - it's simpler and was working.
+**Expected:** Edit button should open edit_list.html, not redirect to wizard
+**Actual:** Edit button opens wizard at Step 2
+**Resolution:** Reverted href from `list_wizard` back to `edit_list` in lists.html
+**Fixed:** 2026-01-18
+
 ### UAT-001: Preset flow should skip Step 1
 
 **Discovered:** 2026-01-17
