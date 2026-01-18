@@ -606,3 +606,15 @@ def wizard_defaults(service):
             "tags": [{"id": t["id"], "label": t["label"]} for t in tags],
         }
     })
+
+
+@bp.route("/lists/debug/cache-stats", methods=["GET"])
+def cache_stats():
+    """
+    Debug endpoint for TMDB cache statistics.
+
+    Returns JSON with cache sizes, max sizes, and TTLs for each cache type.
+    Intended for development/debugging - shows cache hit/miss effectiveness.
+    """
+    from listarr.services.tmdb_cache import get_cache_stats
+    return jsonify(get_cache_stats())
