@@ -5,13 +5,13 @@ from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
 from listarr.forms.lists_forms import ListForm
 from listarr.services.crypto_utils import decrypt_data
-from listarr.services.tmdb_service import (
-    get_trending_movies,
-    get_trending_tv,
-    get_popular_movies,
-    get_popular_tv,
-    discover_movies,
-    discover_tv,
+from listarr.services.tmdb_cache import (
+    get_trending_movies_cached,
+    get_trending_tv_cached,
+    get_popular_movies_cached,
+    get_popular_tv_cached,
+    discover_movies_cached,
+    discover_tv_cached,
 )
 from listarr import db
 
@@ -50,15 +50,80 @@ def create_list():
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
 def edit_list(list_id):
     list_obj = List.query.get_or_404(list_id)
-    form = ListForm(obj=list_obj)
+    service_type = list_obj.target_service  # RADARR or SONARR
+
+    # Get service config for fetching options
+    config = ServiceConfig.query.filter_by(service=service_type).first()
+
+    # Initialize form
+    form = ListForm()
+
+    # Build choices for dropdowns
+    quality_profile_choices = [("", "Use Default")]
+    root_folder_choices = [("", "Use Default")]
+    tag_choices = [("", "None")]
+
+    if config and config.api_key_encrypted:
+        try:
+            api_key = decrypt_data(config.api_key_encrypted)
+            base_url = config.base_url
+
+            # Import correct service module
+            if service_type == "RADARR":
+                from listarr.services.radarr_service import get_quality_profiles, get_root_folders, get_tags
+            else:
+                from listarr.services.sonarr_service import get_quality_profiles, get_root_folders, get_tags
+
+            # Fetch options from service API
+            quality_profiles = get_quality_profiles(base_url, api_key)
+            root_folders = get_root_folders(base_url, api_key)
+            tags = get_tags(base_url, api_key)
+
+            # Build choices
+            quality_profile_choices.extend(
+                [(str(p["id"]), p["name"]) for p in quality_profiles]
+            )
+            root_folder_choices.extend(
+                [(f["path"], f["path"]) for f in root_folders]
+            )
+            tag_choices.extend(
+                [(str(t["id"]), t["label"]) for t in tags]
+            )
+        except Exception as e:
+            current_app.logger.error(f"Error fetching {service_type} options: {e}", exc_info=True)
+            flash(f"Could not load {service_type} options. Some dropdowns may be empty.", "warning")
+
+    # Set form choices
+    form.override_quality_profile.choices = quality_profile_choices
+    form.override_root_folder.choices = root_folder_choices
+    form.override_tag_id.choices = tag_choices
 
     if request.method == "POST" and form.validate_on_submit():
         try:
             list_obj.name = form.name.data
-            list_obj.target_service = form.target_service.data
-            list_obj.tmdb_list_type = form.tmdb_list_type.data
             list_obj.is_active = form.is_active.data
-            list_obj.filters_json = form.filters_json.data or "{}"
+            list_obj.schedule_cron = form.schedule_cron.data or None
+
+            # Handle quality profile (store as int or None)
+            qp_value = form.override_quality_profile.data
+            list_obj.override_quality_profile = int(qp_value) if qp_value else None
+
+            # Handle root folder (store as string or None)
+            list_obj.override_root_folder = form.override_root_folder.data or None
+
+            # Handle tag (store as int or None)
+            tag_value = form.override_tag_id.data
+            list_obj.override_tag_id = int(tag_value) if tag_value else None
+
+            # Handle tri-state fields (store as 1, 0, or None)
+            monitored_value = form.override_monitored.data
+            list_obj.override_monitored = int(monitored_value) if monitored_value else None
+
+            search_value = form.override_search_on_add.data
+            list_obj.override_search_on_add = int(search_value) if search_value else None
+
+            season_value = form.override_season_folder.data
+            list_obj.override_season_folder = int(season_value) if season_value else None
 
             db.session.commit()
             flash(f"List '{list_obj.name}' updated successfully!", "success")
@@ -67,24 +132,50 @@ def edit_list(list_id):
             db.session.rollback()
             current_app.logger.error(f"Error updating list: {e}", exc_info=True)
             flash("Error updating list. Please try again.", "error")
+    else:
+        # Pre-populate form with current values (GET request)
+        form.name.data = list_obj.name
+        form.is_active.data = list_obj.is_active
+        form.schedule_cron.data = list_obj.schedule_cron or ""
 
-    return render_template("edit_list.html", form=form, list=list_obj)
+        # Convert stored values to form values
+        form.override_quality_profile.data = str(list_obj.override_quality_profile) if list_obj.override_quality_profile else ""
+        form.override_root_folder.data = list_obj.override_root_folder or ""
+        form.override_tag_id.data = str(list_obj.override_tag_id) if list_obj.override_tag_id else ""
+
+        # Tri-state fields: None -> "", 1 -> "1", 0 -> "0"
+        form.override_monitored.data = str(list_obj.override_monitored) if list_obj.override_monitored is not None else ""
+        form.override_search_on_add.data = str(list_obj.override_search_on_add) if list_obj.override_search_on_add is not None else ""
+        form.override_season_folder.data = str(list_obj.override_season_folder) if list_obj.override_season_folder is not None else ""
+
+    return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type)
 
 @bp.route("/lists/delete/<int:list_id>", methods=["POST"])
 def delete_list(list_id):
+    """
+    Delete a list via AJAX.
+
+    Returns JSON:
+        success: bool
+        message: string
+    """
     list_obj = List.query.get_or_404(list_id)
 
     try:
         list_name = list_obj.name
         db.session.delete(list_obj)
         db.session.commit()
-        flash(f"List '{list_name}' deleted successfully!", "success")
+        return jsonify({
+            "success": True,
+            "message": f"List '{list_name}' deleted successfully!"
+        })
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting list: {e}", exc_info=True)
-        flash("Error deleting list. Please try again.", "error")
-
-    return redirect(url_for("main.lists_page"))
+        return jsonify({
+            "success": False,
+            "message": "Error deleting list. Please try again."
+        }), 500
 
 @bp.route("/lists/wizard")
 def list_wizard():
@@ -205,7 +296,7 @@ def wizard_preview():
     Request JSON:
         service: string (radarr or sonarr)
         preset: string (trending_movies, trending_tv, popular_movies, popular_tv, or None)
-        filters: object (genre_ids, year_min, year_max, rating_min)
+        filters: object (genres_include, genres_exclude, language, year_min, year_max, rating_min)
 
     Returns JSON:
         items: array of preview items with id, title, year, rating
@@ -235,20 +326,31 @@ def wizard_preview():
     items = []
     try:
         if preset == "trending_movies":
-            items = get_trending_movies(api_key)
+            items = get_trending_movies_cached(api_key)
         elif preset == "trending_tv":
-            items = get_trending_tv(api_key)
+            items = get_trending_tv_cached(api_key)
         elif preset == "popular_movies":
-            items = get_popular_movies(api_key)
+            items = get_popular_movies_cached(api_key)
         elif preset == "popular_tv":
-            items = get_popular_tv(api_key)
+            items = get_popular_tv_cached(api_key)
         else:
             # Custom discovery with filters
             tmdb_filters = {}
 
-            # Genre filter
-            if filters.get("genre_ids"):
+            # Genre include filter (new format)
+            if filters.get("genres_include"):
+                tmdb_filters["with_genres"] = ",".join(map(str, filters["genres_include"]))
+            # Backward compatibility for old format
+            elif filters.get("genre_ids"):
                 tmdb_filters["with_genres"] = ",".join(map(str, filters["genre_ids"]))
+
+            # Genre exclude filter (new format)
+            if filters.get("genres_exclude"):
+                tmdb_filters["without_genres"] = ",".join(map(str, filters["genres_exclude"]))
+
+            # Language filter
+            if filters.get("language"):
+                tmdb_filters["with_original_language"] = filters["language"]
 
             # Year range filters
             if filters.get("year_min"):
@@ -269,9 +371,9 @@ def wizard_preview():
 
             # Fetch based on service type
             if service == "radarr":
-                items = discover_movies(api_key, tmdb_filters)
+                items = discover_movies_cached(api_key, tmdb_filters)
             else:
-                items = discover_tv(api_key, tmdb_filters)
+                items = discover_tv_cached(api_key, tmdb_filters)
 
     except Exception as e:
         current_app.logger.error(f"Error fetching TMDB preview: {e}", exc_info=True)
@@ -324,7 +426,7 @@ def wizard_submit():
         name: string (required)
         service: string (radarr or sonarr)
         preset: string (trending_movies, trending_tv, popular_movies, popular_tv, or None/custom)
-        filters: object (genre_ids, year_min, year_max, rating_min, limit)
+        filters: object (genres_include, genres_exclude, language, year_min, year_max, rating_min, limit)
         import_settings: object (quality_profile_id, root_folder, tag_id, monitored, search_on_add)
         schedule: object (cron, is_active)
 
@@ -359,9 +461,11 @@ def wizard_submit():
     else:
         tmdb_list_type = "discovery"
 
-    # Build filters_json
+    # Build filters_json with new format
     filters_json = {
-        "genre_ids": filters.get("genre_ids", []),
+        "genres_include": filters.get("genres_include", []),
+        "genres_exclude": filters.get("genres_exclude", []),
+        "language": filters.get("language"),
         "year_min": filters.get("year_min"),
         "year_max": filters.get("year_max"),
         "rating_min": filters.get("rating_min"),
