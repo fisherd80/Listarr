@@ -294,3 +294,50 @@ def get_tv_details_cached(tmdb_id: int, api_key: str) -> dict:
         logger.debug(f"Cache MISS for {cache_key} - empty result, not cached")
 
     return result
+
+
+def get_cache_stats() -> dict:
+    """
+    Get statistics for all TMDB caches.
+
+    Returns:
+        dict: Dictionary with cache statistics for each cache type
+    """
+    with _cache_lock:
+        return {
+            "trending": {
+                "size": len(_trending_cache),
+                "maxsize": _trending_cache.maxsize,
+                "ttl": TTL_TRENDING
+            },
+            "popular": {
+                "size": len(_popular_cache),
+                "maxsize": _popular_cache.maxsize,
+                "ttl": TTL_POPULAR
+            },
+            "discover": {
+                "size": len(_discover_cache),
+                "maxsize": _discover_cache.maxsize,
+                "ttl": TTL_DISCOVER
+            },
+            "details": {
+                "size": len(_details_cache),
+                "maxsize": _details_cache.maxsize,
+                "ttl": TTL_DETAILS
+            }
+        }
+
+
+def clear_all_caches() -> None:
+    """
+    Clear all TMDB caches.
+
+    This function removes all cached entries from all TMDB caches.
+    Useful for forcing fresh data fetch or freeing memory.
+    """
+    with _cache_lock:
+        _trending_cache.clear()
+        _popular_cache.clear()
+        _discover_cache.clear()
+        _details_cache.clear()
+        logger.info("All TMDB caches cleared")
