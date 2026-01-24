@@ -11,7 +11,7 @@ class List(db.Model):
     target_service = db.Column(db.String(20), nullable=False)
     tmdb_list_type = db.Column(db.String(50), nullable=False)
 
-    override_root_folder = db.Column(db.Integer)
+    override_root_folder = db.Column(db.String(255))
     override_quality_profile = db.Column(db.Integer)
     override_monitored = db.Column(db.Integer)
     override_search_on_add = db.Column(db.Integer)
