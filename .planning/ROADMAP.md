@@ -66,6 +66,26 @@ Build automated media discovery and import that just works - fresh content flows
 
 ---
 
+### Phase 3.1: Update Config Page Tags (INSERTED)
+
+**Goal:** Add tag storage to the Config page with create-if-missing pattern for Radarr/Sonarr tags
+
+**Deliverable:** Config page allows users to configure and persist tags for both Radarr and Sonarr services using text input (not dropdown)
+
+**Depends on:** Phase 3
+**Plans:** 1 plan
+
+Plans:
+- [ ] 03.1-01-PLAN.md - Implement tag storage with create-if-missing pattern
+
+**Verification:**
+- Tags can be configured on the Config page for Radarr
+- Tags can be configured on the Config page for Sonarr
+- Tag selections persist correctly in the database
+- Tags are created in Radarr/Sonarr if they don't exist
+
+---
+
 ### Phase 4: Import Automation Engine
 
 **Goal:** Build reliable import system that sends TMDB items to Radarr/Sonarr with proper error handling
@@ -91,7 +111,7 @@ Build automated media discovery and import that just works - fresh content flows
 - Queue a list import job and verify it executes
 - View job execution history in the dashboard
 - Verify failed jobs are logged with error details
-- Check that job status updates correctly (pending → running → completed/failed)
+- Check that job status updates correctly (pending -> running -> completed/failed)
 - Confirm job history persists across application restarts
 
 ---
@@ -119,7 +139,7 @@ Build automated media discovery and import that just works - fresh content flows
 
 **Verification:**
 - Click "Run Now" button on a list and verify job executes immediately
-- Verify UI shows job status (running → completed)
+- Verify UI shows job status (running -> completed)
 - Check that manually triggered jobs appear in job history
 - Test triggering multiple lists simultaneously
 - Verify UI prevents duplicate triggers while job is running
@@ -144,14 +164,14 @@ Build automated media discovery and import that just works - fresh content flows
 ## Milestone Complete When
 
 All phases delivered and verified:
-- ✅ List management UI fully functional
-- ✅ List creation wizard with presets, filters, import settings, and live preview
-- ✅ TMDB caching respects rate limits
-- ✅ Import automation reliably sends items to Radarr/Sonarr
-- ✅ Job execution framework tracks all operations
-- ✅ Scheduler runs lists automatically on cron schedules
-- ✅ Manual triggers allow on-demand execution
-- ✅ Service settings cached on launch with background refresh
+- List management UI fully functional
+- List creation wizard with presets, filters, import settings, and live preview
+- TMDB caching respects rate limits
+- Import automation reliably sends items to Radarr/Sonarr
+- Job execution framework tracks all operations
+- Scheduler runs lists automatically on cron schedules
+- Manual triggers allow on-demand execution
+- Service settings cached on launch with background refresh
 
 **Success criteria:** User can configure a trending movies list, schedule it to run daily, and verify that new movies automatically appear in Radarr without any manual intervention.
 
