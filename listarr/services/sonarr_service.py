@@ -239,6 +239,111 @@ def get_missing_episodes_count(base_url: str, api_key: str):
         return 0
 
 
+def get_existing_series_tvdb_ids(base_url: str, api_key: str) -> set[int]:
+    """
+    Fetches all TVDB IDs of series currently in Sonarr.
+    Used for pre-flight duplicate detection.
+
+    Args:
+        base_url (str): Base URL of Sonarr (e.g., "http://localhost:8989/").
+        api_key (str): Sonarr API key from Settings > General.
+
+    Returns:
+        set[int]: Set of TVDB IDs, empty set on error.
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    try:
+        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
+        series = sonarr.get_series()
+        return {s.get('tvdbId') for s in series if s.get('tvdbId')}
+    except Exception as e:
+        logger.error(f"Error fetching existing series TVDB IDs: {e}", exc_info=True)
+        return set()
+
+
+def lookup_series(base_url: str, api_key: str, tvdb_id: int) -> dict | None:
+    """
+    Look up a series in Sonarr by TVDB ID.
+
+    Args:
+        base_url (str): Base URL of Sonarr (e.g., "http://localhost:8989/").
+        api_key (str): Sonarr API key from Settings > General.
+        tvdb_id (int): TVDB series ID to look up.
+
+    Returns:
+        dict: Series data suitable for add_series(), or None if not found.
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    try:
+        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
+        logger.debug(f"Looking up series with TVDB ID: {tvdb_id}")
+        results = sonarr.lookup_series(id_=tvdb_id)
+        if results:
+            return results[0]
+        return None
+    except Exception as e:
+        logger.error(f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True)
+        return None
+
+
+def add_series(
+    base_url: str,
+    api_key: str,
+    series_data: dict,
+    root_folder: str,
+    quality_profile_id: int,
+    monitored: bool = True,
+    season_folder: bool = True,
+    search_on_add: bool = True,
+    tags: list[int] = None
+) -> dict:
+    """
+    Add a series to Sonarr.
+
+    Args:
+        base_url (str): Base URL of Sonarr (e.g., "http://localhost:8989/").
+        api_key (str): Sonarr API key from Settings > General.
+        series_data (dict): Series dict from lookup_series().
+        root_folder (str): Path string (e.g., "/tv").
+        quality_profile_id (int): Integer ID of quality profile.
+        monitored (bool): Whether to monitor the series (default: True).
+        season_folder (bool): Whether to use season folders (default: True).
+        search_on_add (bool): Whether to search for missing episodes after adding (default: True).
+        tags (list[int]): List of tag IDs (optional).
+
+    Returns:
+        dict: Added series data from Sonarr.
+
+    Raises:
+        Exception: On API error (caller should handle).
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
+
+    title = series_data.get('title', 'Unknown')
+    tvdb_id = series_data.get('tvdbId', 'Unknown')
+    logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
+
+    return sonarr.add_series(
+        series=series_data,
+        root_dir=root_folder,
+        quality_profile_id=quality_profile_id,
+        monitored=monitored,
+        season_folder=season_folder,
+        search_for_missing_episodes=search_on_add,
+        tags=tags or []
+    )
+
+
 def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
     """
     Creates a tag in Sonarr if it doesn't exist, or returns existing tag ID.
