@@ -56,7 +56,7 @@ document
     })
       .then((response) => response.json())
       .then((data) => {
-        alert(data.message);
+        showToast(data.message, data.success ? "success" : "error");
 
         // Update last test status display using helper function
         lastTestDiv.innerHTML = generateStatusHTML(data.success, data.timestamp);
@@ -66,7 +66,7 @@ document
         button.textContent = "Test Connection";
       })
       .catch((error) => {
-        alert("Error testing API key.");
+        showToast("Error testing API key.", "error");
         console.error(error);
 
         // Re-enable button

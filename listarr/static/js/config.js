@@ -438,7 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
         .then((response) => response.json())
         .then((data) => {
-          alert(data.message);
+          showToast(data.message, data.success ? "success" : "error");
 
           // Update last test status display using helper function
           lastTestDiv.innerHTML = generateStatusHTML(data.success, data.timestamp);
@@ -448,7 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
           button.textContent = "Test Connection";
         })
         .catch((error) => {
-          alert("Error testing Radarr connection.");
+          showToast("Error testing Radarr connection.", "error");
           console.error(error);
 
           // Re-enable button
@@ -485,7 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
         .then((response) => response.json())
         .then((data) => {
-          alert(data.message);
+          showToast(data.message, data.success ? "success" : "error");
 
           // Update last test status display using helper function
           lastTestDiv.innerHTML = generateStatusHTML(data.success, data.timestamp);
@@ -495,7 +495,7 @@ document.addEventListener("DOMContentLoaded", () => {
           button.textContent = "Test Connection";
         })
         .catch((error) => {
-          alert("Error testing Sonarr connection.");
+          showToast("Error testing Sonarr connection.", "error");
           console.error(error);
 
           // Re-enable button
@@ -582,9 +582,9 @@ document.addEventListener("DOMContentLoaded", () => {
         .then((response) => response.json())
         .then((data) => {
           if (data.success) {
-            alert(data.message);
+            showToast(data.message, "success");
           } else {
-            alert("Error: " + data.message);
+            showToast("Error: " + data.message, "error");
           }
 
           // Re-enable button
@@ -592,7 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
           button.textContent = "Save Import Settings";
         })
         .catch((error) => {
-          alert("Error saving Radarr import settings.");
+          showToast("Error saving Radarr import settings.", "error");
           console.error(error);
 
           // Re-enable button
@@ -674,9 +674,9 @@ document.addEventListener("DOMContentLoaded", () => {
         .then((response) => response.json())
         .then((data) => {
           if (data.success) {
-            alert(data.message);
+            showToast(data.message, "success");
           } else {
-            alert("Error: " + data.message);
+            showToast("Error: " + data.message, "error");
           }
 
           // Re-enable button
@@ -684,7 +684,7 @@ document.addEventListener("DOMContentLoaded", () => {
           button.textContent = "Save Import Settings";
         })
         .catch((error) => {
-          alert("Error saving Sonarr import settings.");
+          showToast("Error saving Sonarr import settings.", "error");
           console.error(error);
 
           // Re-enable button
