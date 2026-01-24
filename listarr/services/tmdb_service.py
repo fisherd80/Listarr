@@ -49,6 +49,30 @@ def validate_tmdb_api_key(api_key: str) -> bool:
         return False
 
 
+def get_tvdb_id_from_tmdb(tmdb_id: int, api_key: str) -> int | None:
+    """
+    Get TVDB ID for a TMDB TV show.
+
+    Args:
+        tmdb_id (int): TMDB TV show ID
+        api_key (str): TMDB API key
+
+    Returns:
+        int: TVDB ID or None if not found/not available
+    """
+    if not api_key or not tmdb_id:
+        return None
+
+    try:
+        _init_tmdb(api_key)
+        tv = TV()
+        external_ids = tv.external_ids(tmdb_id)
+        return external_ids.get('tvdb_id')
+    except Exception as e:
+        logger.error(f"Error fetching TVDB ID for TMDB TV show {tmdb_id}: {e}", exc_info=True)
+        return None
+
+
 def get_imdb_id_from_tmdb(tmdb_id: int, api_key: str, media_type: str = 'movie') -> str:
     """
     Get IMDB ID for a TMDB movie or TV show.
