@@ -223,6 +223,7 @@ function loadRadarrSavedSettings() {
         const qualityProfileSelect = document.getElementById("radarr-quality-profile");
         const monitorSelect = document.getElementById("radarr-monitor");
         const searchOnAddSelect = document.getElementById("radarr-search-on-add");
+        const tagsInput = document.getElementById("radarr-tags");
 
         // Apply saved values to dropdowns
         if (rootFolderSelect && data.settings.root_folder_id) {
@@ -239,6 +240,11 @@ function loadRadarrSavedSettings() {
 
         if (searchOnAddSelect && data.settings.search_on_add !== undefined) {
           searchOnAddSelect.value = data.settings.search_on_add ? "true" : "false";
+        }
+
+        // Apply saved tag label
+        if (tagsInput && data.settings.tag_label) {
+          tagsInput.value = data.settings.tag_label;
         }
       }
     })
@@ -366,6 +372,7 @@ function loadSonarrSavedSettings() {
         const monitorSelect = document.getElementById("sonarr-monitor");
         const seasonFolderSelect = document.getElementById("sonarr-season-folder");
         const searchOnAddSelect = document.getElementById("sonarr-search-on-add");
+        const tagsInput = document.getElementById("sonarr-tags");
 
         // Apply saved values to dropdowns
         if (rootFolderSelect && data.settings.root_folder_id) {
@@ -386,6 +393,11 @@ function loadSonarrSavedSettings() {
 
         if (searchOnAddSelect && data.settings.search_on_add !== undefined) {
           searchOnAddSelect.value = data.settings.search_on_add ? "true" : "false";
+        }
+
+        // Apply saved tag label
+        if (tagsInput && data.settings.tag_label) {
+          tagsInput.value = data.settings.tag_label;
         }
       }
     })
@@ -516,6 +528,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const qualityProfileSelect = document.getElementById("radarr-quality-profile");
       const monitorSelect = document.getElementById("radarr-monitor");
       const searchOnAddSelect = document.getElementById("radarr-search-on-add");
+      const tagsInput = document.getElementById("radarr-tags");
       const button = this;
 
       // Get selected values
@@ -523,6 +536,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const qualityProfileId = qualityProfileSelect.value;
       const monitorValue = monitorSelect.value;
       const searchOnAddValue = searchOnAddSelect.value;
+      const tagLabel = tagsInput ? tagsInput.value.trim() : "";
 
       // Validate selections
       if (!rootFolderId || !qualityProfileId) {
@@ -562,6 +576,7 @@ document.addEventListener("DOMContentLoaded", () => {
           quality_profile_id: qualityProfileId,
           monitored: monitored,
           search_on_add: searchOnAdd,
+          tag_label: tagLabel || null,
         }),
       })
         .then((response) => response.json())
@@ -597,6 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const monitorSelect = document.getElementById("sonarr-monitor");
       const seasonFolderSelect = document.getElementById("sonarr-season-folder");
       const searchOnAddSelect = document.getElementById("sonarr-search-on-add");
+      const tagsInput = document.getElementById("sonarr-tags");
       const button = this;
 
       // Get selected values
@@ -605,6 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const monitorValue = monitorSelect.value;
       const seasonFolderValue = seasonFolderSelect.value;
       const searchOnAddValue = searchOnAddSelect.value;
+      const tagLabel = tagsInput ? tagsInput.value.trim() : "";
 
       // Validate selections
       if (!rootFolderId || !qualityProfileId) {
@@ -651,6 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
           monitored: monitored,
           season_folder: seasonFolder,
           search_on_add: searchOnAdd,
+          tag_label: tagLabel || null,
         }),
       })
         .then((response) => response.json())
