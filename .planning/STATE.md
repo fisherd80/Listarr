@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Phase:** 3.1 - Update Config Page Tags
-**Plan:** 1 of 1 complete
-**Status:** Phase complete
+**Phase:** 4 - Import Automation Engine
+**Plan:** 1 of 3 complete
+**Status:** In progress
 
 ## Phase Progress
 
@@ -18,7 +18,7 @@
 | 2. List Creation Wizard | Complete | 5/5 + FIX | Verified |
 | 3. TMDB Caching Layer | Complete | 2/2 | Verified |
 | 3.1 Update Config Page Tags | Complete | 1/1 | Verified |
-| 4. Import Automation Engine | Not started | 0/? | - |
+| 4. Import Automation Engine | In progress | 1/3 | - |
 | 5. Job Execution Framework | Not started | 0/? | - |
 | 6. Scheduler System | Not started | 0/? | - |
 | 7. Manual Trigger UI | Not started | 0/? | - |
@@ -26,6 +26,10 @@
 
 ## Recent Activity
 
+- 2026-01-24: Completed 04-01-PLAN (TVDB translation + Radarr import methods)
+  - Added get_tvdb_id_from_tmdb() to tmdb_service.py
+  - Added get_existing_movie_tmdb_ids(), lookup_movie(), add_movie() to radarr_service.py
+  - All 363 tests pass
 - 2026-01-24: Completed 03.1-01-PLAN (Tag storage on Config page)
   - Added create_or_get_tag_id to radarr_service and sonarr_service
   - Updated config routes to handle tag creation/lookup
@@ -53,7 +57,7 @@ None
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 03.1-01-PLAN (Phase 3.1 complete)
+Stopped at: Completed 04-01-PLAN (TVDB translation + Radarr import methods)
 Resume file: None
 
 ## Notes

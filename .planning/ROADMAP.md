@@ -92,7 +92,7 @@ Build automated media discovery and import that just works - fresh content flows
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 04-01-PLAN.md — TVDB translation + Radarr import methods
+- [x] 04-01-PLAN.md — TVDB translation + Radarr import methods
 - [ ] 04-02-PLAN.md — Sonarr import methods + ImportResult dataclass
 - [ ] 04-03-PLAN.md — Import orchestration service + test endpoint
 
