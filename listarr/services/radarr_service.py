@@ -188,6 +188,108 @@ def get_missing_movies_count(base_url: str, api_key: str):
         return 0
 
 
+def get_existing_movie_tmdb_ids(base_url: str, api_key: str) -> set[int]:
+    """
+    Fetches all TMDB IDs of movies currently in Radarr.
+    Used for pre-flight duplicate detection.
+
+    Args:
+        base_url (str): Base URL of Radarr (e.g., "http://localhost:7878/").
+        api_key (str): Radarr API key from Settings > General.
+
+    Returns:
+        set[int]: Set of TMDB IDs, empty set on error.
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    try:
+        radarr = RadarrAPI(host_url=base_url, api_key=api_key)
+        movies = radarr.get_movie()
+        return {m.get('tmdbId') for m in movies if m.get('tmdbId')}
+    except Exception as e:
+        logger.error(f"Error fetching existing movie TMDB IDs: {e}", exc_info=True)
+        return set()
+
+
+def lookup_movie(base_url: str, api_key: str, tmdb_id: int) -> dict | None:
+    """
+    Look up a movie in Radarr by TMDB ID.
+
+    Args:
+        base_url (str): Base URL of Radarr (e.g., "http://localhost:7878/").
+        api_key (str): Radarr API key from Settings > General.
+        tmdb_id (int): TMDB movie ID to look up.
+
+    Returns:
+        dict: Movie data suitable for add_movie(), or None if not found.
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    try:
+        radarr = RadarrAPI(host_url=base_url, api_key=api_key)
+        logger.debug(f"Looking up movie with TMDB ID: {tmdb_id}")
+        results = radarr.lookup_movie(term=f"tmdb:{tmdb_id}")
+        if results:
+            return results[0]
+        return None
+    except Exception as e:
+        logger.error(f"Error looking up movie by TMDB ID {tmdb_id}: {e}", exc_info=True)
+        return None
+
+
+def add_movie(
+    base_url: str,
+    api_key: str,
+    movie_data: dict,
+    root_folder: str,
+    quality_profile_id: int,
+    monitored: bool = True,
+    search_on_add: bool = True,
+    tags: list[int] = None
+) -> dict:
+    """
+    Add a movie to Radarr.
+
+    Args:
+        base_url (str): Base URL of Radarr (e.g., "http://localhost:7878/").
+        api_key (str): Radarr API key from Settings > General.
+        movie_data (dict): Movie dict from lookup_movie().
+        root_folder (str): Path string (e.g., "/movies").
+        quality_profile_id (int): Integer ID of quality profile.
+        monitored (bool): Whether to monitor the movie (default: True).
+        search_on_add (bool): Whether to search immediately after adding (default: True).
+        tags (list[int]): List of tag IDs (optional).
+
+    Returns:
+        dict: Added movie data from Radarr.
+
+    Raises:
+        Exception: On API error (caller should handle).
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    radarr = RadarrAPI(host_url=base_url, api_key=api_key)
+
+    title = movie_data.get('title', 'Unknown')
+    tmdb_id = movie_data.get('tmdbId', 'Unknown')
+    logger.info(f"Adding movie: {title} (TMDB: {tmdb_id})")
+
+    return radarr.add_movie(
+        movie=movie_data,
+        root_dir=root_folder,
+        quality_profile_id=quality_profile_id,
+        monitored=monitored,
+        search_for_movie=search_on_add,
+        tags=tags or []
+    )
+
+
 def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
     """
     Creates a tag in Radarr if it doesn't exist, or returns existing tag ID.
