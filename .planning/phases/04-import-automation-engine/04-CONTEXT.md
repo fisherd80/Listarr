@@ -1,56 +1,75 @@
 # Phase 4: Import Automation Engine - Context
 
-**Gathered:** 2026-01-18
+**Gathered:** 2026-01-24
 **Status:** Ready for planning
 
-<vision>
-## How This Should Work
+<domain>
+## Phase Boundary
 
-Background processing that runs jobs and imports items automatically based on list configuration. When a list is triggered (manually for now, scheduled later), it fetches TMDB results and imports them to the appropriate service (Radarr for movies, Sonarr for TV).
+Build reliable import system that sends TMDB items to Radarr/Sonarr with proper error handling. System imports movies to Radarr and TV shows to Sonarr with configured quality profiles, root folders, and tags. Job execution framework and scheduling are separate phases.
 
-Duplicates (items already in library) should be logged but not cause alerts or errors - just track them for history and move on quietly. The system should be invisible when working correctly.
+</domain>
 
-</vision>
+<decisions>
+## Implementation Decisions
 
-<essential>
-## What Must Be Nailed
+### Import behavior
+- Process all items at once (no batching)
+- Small delay between API calls (100-500ms) to be gentle on services
+- Retry 2-3 times on failure for an item, then log and move on (no per-item retry loop)
+- Block duplicate runs of the same list (prevent concurrent imports of same list)
 
-All three of these are equally critical:
+### Duplicate handling
+- Detect duplicates by TMDB ID match
+- Skip and log items that already exist in Radarr/Sonarr
+- Include skip reason in log (e.g., "already in Radarr")
+- Track skips separately from adds: "Added: 5, Skipped: 3, Failed: 1"
 
-- **Reliability** - Rock-solid imports that never fail silently or corrupt data
-- **Correct settings** - Items imported with the right quality profile, root folder, and tags every time (using list overrides or service defaults)
-- **Visibility** - Clear logging of what was imported, what was skipped (already exists), and what failed
+### Error reporting
+- Store errors in database only (no separate log files)
+- Simple user-friendly error messages (not full technical details)
+- Categorize errors by type (API error, already exists, invalid data, etc.)
+- "Partial success" status for jobs where some items succeed and some fail
+- Special "service error" status when Radarr/Sonarr is completely down (update dashboard accordingly)
+- Keep job history forever (no auto-cleanup)
+- No retry UI for failed items (user re-runs whole list if needed)
+- No tracking of repeat failures across job runs
 
-</essential>
+### Import feedback
+- Jobs page shows history of executed list imports
+- Summary shows three counts: Added, Skipped, Failed
+- Expandable dropdown shows raw log text in scrollable text box
+- Log format: simple lines like "[Added] Movie Name (2024)" (no timestamps)
+- Dashboard shows recent job status summary
+- Lists page only has manual "Run Now" button (no inline job feedback)
 
-<boundaries>
-## What's Out of Scope
+### Claude's Discretion
+- Exact delay timing between API calls
+- Error category definitions
+- Dashboard summary format and styling
+- Log text formatting details
 
-- **No scheduling** - Manual trigger only for this phase. Automated cron-based scheduling comes in Phase 6
-- Job execution UI comes in Phase 5/7
-- This phase focuses on the import engine/service layer
-
-</boundaries>
+</decisions>
 
 <specifics>
 ## Specific Ideas
 
-No specific requirements - open to standard approaches.
-
-The import should work reliably with the existing Radarr/Sonarr service integrations already in the codebase.
+- Log display in Jobs page should be a scrollable text box showing raw log content
+- Dashboard should surface job status, particularly service errors
+- Job history is permanent storage, no cleanup needed
+- The import should work reliably with the existing Radarr/Sonarr service integrations already in the codebase
+- Per-list import settings (quality profile, root folder, tags, monitored, search on add) were implemented in Phase 2 and should be respected when importing
 
 </specifics>
 
-<notes>
-## Additional Context
+<deferred>
+## Deferred Ideas
 
-This phase connects the TMDB list results (from Phase 2 wizard, cached in Phase 3) to actual imports into Radarr/Sonarr. It's the core automation that makes Listarr useful.
+None — discussion stayed within phase scope
 
-Per-list import settings (quality profile, root folder, tags, monitored, search on add) were implemented in Phase 2 and should be respected when importing.
-
-</notes>
+</deferred>
 
 ---
 
 *Phase: 04-import-automation-engine*
-*Context gathered: 2026-01-18*
+*Context gathered: 2026-01-24*
