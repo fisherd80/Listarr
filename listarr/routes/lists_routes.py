@@ -1,6 +1,7 @@
 from flask import render_template, flash, request, redirect, url_for, current_app, jsonify
 from datetime import datetime, timezone
 from listarr.routes import bp
+from listarr import csrf
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
 from listarr.forms.lists_forms import ListForm
@@ -697,6 +698,7 @@ def cache_stats():
 
 
 @bp.route("/lists/<int:list_id>/run", methods=["POST"])
+@csrf.exempt
 def run_list_import(list_id):
     """
     Manually trigger import for a list.
