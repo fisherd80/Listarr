@@ -175,7 +175,7 @@ def get_missing_movies_count(base_url: str, api_key: str):
         movies = radarr.get_movie()
         if not movies:
             return 0
-        
+
         # Count movies that are monitored but don't have a file
         # If hasFile field is missing, treat as having a file (not missing)
         missing_count = sum(
@@ -186,4 +186,55 @@ def get_missing_movies_count(base_url: str, api_key: str):
     except Exception as e:
         logger.error(f"Error fetching missing movies count: {e}", exc_info=True)
         return 0
+
+
+def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
+    """
+    Creates a tag in Radarr if it doesn't exist, or returns existing tag ID.
+    Normalizes tag label to lowercase with hyphens (Radarr/Sonarr requirement).
+
+    Args:
+        base_url (str): Base URL of Radarr (e.g., "http://localhost:7878/").
+        api_key (str): Radarr API key from Settings > General.
+        tag_label (str): Tag label to create or find.
+
+    Returns:
+        int or None: Tag ID if successful, None on error or if label is empty.
+    """
+    # Ensure base_url ends with a slash
+    if not base_url.endswith("/"):
+        base_url += "/"
+
+    # Normalize tag label
+    # 1. Convert to lowercase
+    # 2. Replace spaces with hyphens
+    # 3. Remove consecutive hyphens
+    # 4. Strip leading/trailing hyphens
+    normalized_label = tag_label.lower().replace(" ", "-")
+    # Remove consecutive hyphens
+    while "--" in normalized_label:
+        normalized_label = normalized_label.replace("--", "-")
+    normalized_label = normalized_label.strip("-")
+
+    # Return None if normalized label is empty
+    if not normalized_label:
+        return None
+
+    try:
+        radarr = RadarrAPI(host_url=base_url, api_key=api_key)
+
+        # Fetch all existing tags
+        tags = radarr.get_tag()
+
+        # Search for existing tag (case-insensitive match)
+        for tag in tags:
+            if tag.get("label", "").lower() == normalized_label:
+                return tag["id"]
+
+        # Tag not found, create new one
+        new_tag = radarr.create_tag(label=normalized_label)
+        return new_tag["id"]
+    except Exception as e:
+        logger.error(f"Error creating/fetching tag '{tag_label}': {e}", exc_info=True)
+        return None
 
