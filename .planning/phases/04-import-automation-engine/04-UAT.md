@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 04-import-automation-engine
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03 in progress]
 started: 2026-01-24T12:00:00Z
-updated: 2026-01-24T14:30:00Z
+updated: 2026-01-24T15:00:00Z
 ---
 
 ## Current Test
@@ -61,9 +61,13 @@ skipped: 2
   reason: "User reported: partially works, The list is set to get 100 entries, yet only 20 was sent add request"
   severity: major
   test: 3
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "_fetch_tmdb_items() only fetches one TMDB page (20 items). Limit is applied after fetch, but source only has 20 items. Need multi-page fetch when limit > 20."
+  artifacts:
+    - path: "listarr/services/import_service.py"
+      issue: "_fetch_tmdb_items() calls cached functions without page parameter"
+  missing:
+    - "Fetch multiple pages from TMDB when limit > 20"
+    - "Calculate pages needed: math.ceil(limit / 20)"
   debug_session: ""
 
 - truth: "Movies are added to Radarr with correct root folder path"
@@ -71,7 +75,11 @@ skipped: 2
   reason: "User reported: 2 movies failed with Bad Request - Invalid Path: '5' (root folder passed as ID instead of path string)"
   severity: blocker
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "List.override_root_folder is db.Column(db.Integer) but should be db.String(255). Storing ID instead of path string like '/movies'."
+  artifacts:
+    - path: "listarr/models/lists_model.py"
+      issue: "override_root_folder = db.Column(db.Integer) should be String"
+  missing:
+    - "Change column type to db.String(255)"
+    - "Database migration to alter column type"
   debug_session: ""
