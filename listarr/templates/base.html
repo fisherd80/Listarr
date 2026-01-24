@@ -88,14 +88,12 @@
       </div>
     </nav>
 
-    <!-- Flash / Alerts (Toast Style) -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div id="flash-container" class="fixed top-4 right-4 z-50 space-y-2">
+    <!-- Toast Container (shared by Flask flash and JS toasts) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2">
+      {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
       <div
-        class="flash-toast flex items-center p-4 rounded-lg border shadow-lg max-w-md {% if category == 'success' %}bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-800{% elif category == 'warning' %}bg-yellow-100 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-800{% elif category == 'error' %}bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-800{% else %}bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-800{% endif %}"
-        id="flash-{{ loop.index }}"
+        class="flash-toast flex items-center p-4 rounded-lg border shadow-lg max-w-md transition-all duration-300 {% if category == 'success' %}bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-800{% elif category == 'warning' %}bg-yellow-100 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-800{% elif category == 'error' %}bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-800{% else %}bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-800{% endif %}"
       >
         <svg class="w-5 h-5 mr-3 flex-shrink-0 {% if category == 'success' %}text-green-500 dark:text-green-400{% elif category == 'warning' %}text-yellow-500 dark:text-yellow-400{% elif category == 'error' %}text-red-500 dark:text-red-400{% else %}text-blue-500 dark:text-blue-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           {% if category == 'success' %}
@@ -111,19 +109,18 @@
         <span class="text-sm font-medium {% if category == 'success' %}text-green-800 dark:text-green-200{% elif category == 'warning' %}text-yellow-800 dark:text-yellow-200{% elif category == 'error' %}text-red-800 dark:text-red-200{% else %}text-blue-800 dark:text-blue-200{% endif %}">{{ message }}</span>
       </div>
       {% endfor %}
+      {% endwith %}
     </div>
     <script>
       // Auto-dismiss flash messages after 3 seconds
       document.querySelectorAll('.flash-toast').forEach((toast, index) => {
         setTimeout(() => {
-          toast.style.transition = 'opacity 0.3s';
           toast.style.opacity = '0';
+          toast.style.transform = 'translateX(100%)';
           setTimeout(() => toast.remove(), 300);
         }, 3000 + (index * 200));
       });
     </script>
-    {% endif %}
-    {% endwith %}
 
     <!-- Content -->
     <main class="max-w-7xl mx-auto px-4 py-6">

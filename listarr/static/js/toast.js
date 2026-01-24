@@ -34,6 +34,21 @@ const TOAST_CONFIG = {
 };
 
 /**
+ * Get or create the toast container
+ * @returns {HTMLElement} The toast container element
+ */
+function getToastContainer() {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    container.className = "fixed top-4 right-4 z-50 flex flex-col gap-2";
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
+/**
  * Show a toast notification
  * @param {string} message - The message to display
  * @param {string} type - Toast type: "success", "error", "warning", "info"
@@ -41,10 +56,11 @@ const TOAST_CONFIG = {
  */
 function showToast(message, type = "success", duration = 3000) {
   const config = TOAST_CONFIG[type] || TOAST_CONFIG.success;
+  const container = getToastContainer();
 
   // Create toast element
   const toast = document.createElement("div");
-  toast.className = `fixed top-4 right-4 ${config.bgClass} border rounded-lg p-4 shadow-lg z-50 flex items-center max-w-md`;
+  toast.className = `${config.bgClass} border rounded-lg p-4 shadow-lg flex items-center max-w-md transition-all duration-300`;
   toast.innerHTML = `
     <svg class="w-5 h-5 ${config.iconClass} mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       ${config.icon}
@@ -52,12 +68,12 @@ function showToast(message, type = "success", duration = 3000) {
     <span class="text-sm font-medium ${config.textClass}">${escapeHtml(message)}</span>
   `;
 
-  document.body.appendChild(toast);
+  container.appendChild(toast);
 
   // Remove after duration
   setTimeout(() => {
-    toast.style.transition = "opacity 0.3s";
     toast.style.opacity = "0";
+    toast.style.transform = "translateX(100%)";
     setTimeout(() => toast.remove(), 300);
   }, duration);
 }
