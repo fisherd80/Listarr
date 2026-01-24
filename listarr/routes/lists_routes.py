@@ -5,6 +5,7 @@ from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
 from listarr.forms.lists_forms import ListForm
 from listarr.services.crypto_utils import decrypt_data
+from listarr.services.import_service import import_list
 from listarr.services.tmdb_cache import (
     get_trending_movies_cached,
     get_trending_tv_cached,
@@ -693,3 +694,58 @@ def cache_stats():
     """
     from listarr.services.tmdb_cache import get_cache_stats
     return jsonify(get_cache_stats())
+
+
+@bp.route("/lists/<int:list_id>/run", methods=["POST"])
+def run_list_import(list_id):
+    """
+    Manually trigger import for a list.
+    Returns JSON with import results.
+
+    Returns:
+        JSON response with:
+        - success: bool
+        - list_id: int
+        - list_name: string
+        - result: ImportResult.to_dict()
+        OR
+        - success: false
+        - error: string
+    """
+    # Fetch list by ID
+    list_obj = List.query.get(list_id)
+    if not list_obj:
+        return jsonify({
+            "success": False,
+            "error": f"List with ID {list_id} not found"
+        }), 404
+
+    # Check if list is active
+    if not list_obj.is_active:
+        return jsonify({
+            "success": False,
+            "error": f"List '{list_obj.name}' is not active"
+        }), 400
+
+    try:
+        # Run the import
+        result = import_list(list_id)
+
+        # Update last_run_at timestamp
+        list_obj.last_run_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "list_id": list_id,
+            "list_name": list_obj.name,
+            "result": result.to_dict()
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error running import for list {list_id}: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
