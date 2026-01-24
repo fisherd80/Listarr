@@ -89,6 +89,13 @@ Build automated media discovery and import that just works - fresh content flows
 
 **Deliverable:** System can import movies to Radarr and TV shows to Sonarr with configured quality profiles and root folders, handling errors gracefully
 
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 04-01-PLAN.md — TVDB translation + Radarr import methods
+- [ ] 04-02-PLAN.md — Sonarr import methods + ImportResult dataclass
+- [ ] 04-03-PLAN.md — Import orchestration service + test endpoint
+
 **Verification:**
 - Import a movie to Radarr and verify it appears with correct quality profile
 - Import a TV show to Sonarr and verify it appears with correct settings
