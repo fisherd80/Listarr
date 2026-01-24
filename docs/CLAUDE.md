@@ -528,13 +528,84 @@ radarr.add_movie(db_id=tmdb_id, quality_profile_id=profile_id, root_dir=root_pat
 
 ## UI/UX Design Guidelines
 
+### Toast Notifications (Standard Pattern)
+
+**IMPORTANT**: Use JavaScript toast notifications instead of Flask flash messages for all user feedback. This provides a consistent, modern UX with auto-dismissing notifications in the top-right corner.
+
+**Implementation Location**: `listarr/static/js/lists.js` exports the `showToast()` function.
+
+**Usage**:
+```javascript
+// Success notification (green)
+showToast("List created successfully!", "success");
+
+// Error notification (red)
+showToast("Failed to delete list. Please try again.", "error");
+
+// Warning notification (yellow)
+showToast("Some items could not be imported.", "warning");
+
+// Info notification (blue)
+showToast("Refreshing data...", "info");
+
+// Custom duration (default is 3000ms)
+showToast("Processing complete!", "success", 5000);
+```
+
+**Supported Types**:
+| Type | Color | Icon | Use Case |
+|------|-------|------|----------|
+| `success` | Green | Checkmark | Successful operations (create, update, delete) |
+| `error` | Red | X | Failed operations, validation errors |
+| `warning` | Yellow | Triangle | Partial failures, deprecation notices |
+| `info` | Blue | Info circle | Status updates, neutral information |
+
+**Key Features**:
+- Auto-dismisses after 3 seconds (configurable)
+- Fade-out animation
+- Fixed position top-right (`fixed top-4 right-4`)
+- Dark mode support
+- XSS-safe (uses `escapeHtml()`)
+
+**Pattern for AJAX Operations**:
+```javascript
+fetch("/endpoint", { method: "POST", ... })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast(data.message || "Operation successful!", "success");
+    } else {
+      showToast(data.message || "Operation failed", "error");
+    }
+  })
+  .catch(error => {
+    showToast("Network error. Please try again.", "error");
+  });
+```
+
+**Pattern for URL Parameter Messages** (after redirects):
+```javascript
+// In initPage() function
+const urlParams = new URLSearchParams(window.location.search);
+const successAction = urlParams.get("success");
+if (successAction === "created" || successAction === "updated") {
+  showToast(`List ${successAction} successfully!`, "success");
+  // Clean URL
+  const url = new URL(window.location);
+  url.searchParams.delete("success");
+  window.history.replaceState({}, "", url);
+}
+```
+
+**DO NOT USE**: Flask flash messages (`flash()`) for user feedback. Toast notifications provide better UX.
+
 ### Global Styles
 
 - Single-page feel with top navigation
 - System-based dark mode
 - Fully responsive
 - Tailwind CSS
-- Dismissible alerts (multiple allowed, not consolidated)
+- Toast notifications for user feedback (not flash messages)
 
 ### Loading States
 

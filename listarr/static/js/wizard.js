@@ -48,6 +48,26 @@ const TMDB_TV_GENRES = {
     37: "Western",
 };
 
+// Top 5 genres for initial display (rest shown on "Show more")
+const TOP_MOVIE_GENRES = [28, 35, 18, 27, 53];  // Action, Comedy, Drama, Horror, Thriller
+const TOP_TV_GENRES = [18, 35, 10759, 80, 10765];  // Drama, Comedy, Action&Adv, Crime, Sci-Fi&Fantasy
+
+// Language options for filter
+const LANGUAGE_OPTIONS = [
+    { code: "", label: "Any Language" },
+    { code: "en", label: "English" },
+    { code: "es", label: "Spanish" },
+    { code: "fr", label: "French" },
+    { code: "de", label: "German" },
+    { code: "ja", label: "Japanese" },
+    { code: "ko", label: "Korean" },
+    { code: "zh", label: "Chinese" },
+    { code: "it", label: "Italian" },
+    { code: "pt", label: "Portuguese" },
+    { code: "ru", label: "Russian" },
+    { code: "hi", label: "Hindi" },
+];
+
 // Preview debounce timer
 let previewDebounceTimer = null;
 const PREVIEW_DEBOUNCE_MS = 300;
@@ -62,16 +82,20 @@ const wizardState = {
     listId: null,      // for edit mode
     editMode: false,   // true if editing existing list
     filters: {
-        genre_ids: [],
+        genres_include: [],   // Green - must include these genres
+        genres_exclude: [],   // Red - must exclude these genres
+        language: null,       // ISO 639-1 code or null for any
         year_min: null,
         year_max: null,
         rating_min: null,
         limit: 20,
     },
+    // UI state for genre selector
+    genresExpanded: false,  // Track if "Show more" is expanded
     importSettings: {
         quality_profile_id: null,  // null = use default
         root_folder: null,
-        tag_id: null,
+        tag: null,                 // tag name string, null = use default
         monitored: null,           // null = use default
         search_on_add: null,
         season_folder: null,       // null = use default (Sonarr only)
@@ -174,9 +198,19 @@ function loadExistingListData() {
         wizardState.preset = existingList.preset;
         wizardState.isPreset = existingList.is_preset;
 
-        // Populate filters
+        // Populate filters with backward compatibility for old genre_ids format
         if (existingList.filters) {
-            wizardState.filters.genre_ids = existingList.filters.genre_ids || [];
+            // Handle new format (genres_include/genres_exclude) or old format (genre_ids)
+            if (existingList.filters.genres_include || existingList.filters.genres_exclude) {
+                // New format
+                wizardState.filters.genres_include = existingList.filters.genres_include || [];
+                wizardState.filters.genres_exclude = existingList.filters.genres_exclude || [];
+            } else if (existingList.filters.genre_ids) {
+                // Old format - treat genre_ids as genres_include
+                wizardState.filters.genres_include = existingList.filters.genre_ids || [];
+                wizardState.filters.genres_exclude = [];
+            }
+            wizardState.filters.language = existingList.filters.language || null;
             wizardState.filters.year_min = existingList.filters.year_min;
             wizardState.filters.year_max = existingList.filters.year_max;
             wizardState.filters.rating_min = existingList.filters.rating_min;
@@ -187,7 +221,7 @@ function loadExistingListData() {
         if (existingList.import_settings) {
             wizardState.importSettings.quality_profile_id = existingList.import_settings.quality_profile_id;
             wizardState.importSettings.root_folder = existingList.import_settings.root_folder;
-            wizardState.importSettings.tag_id = existingList.import_settings.tag_id;
+            wizardState.importSettings.tag = existingList.import_settings.tag;
             wizardState.importSettings.monitored = existingList.import_settings.monitored;
             wizardState.importSettings.search_on_add = existingList.import_settings.search_on_add;
             wizardState.importSettings.season_folder = existingList.import_settings.season_folder;
@@ -264,7 +298,13 @@ function selectType(service) {
  * Initialize filter input change handlers
  */
 function initFilters() {
-    // Genre checkboxes - event listeners are attached dynamically in updateGenreCheckboxes()
+    // Genre toggles - event listeners are attached dynamically in updateGenreCheckboxes()
+
+    // Language select
+    const languageSelect = document.getElementById("filter-language");
+    if (languageSelect) {
+        languageSelect.addEventListener("change", handleLanguageChange);
+    }
 
     // Year inputs
     const yearMinInput = document.getElementById("filter-year-min");
@@ -292,43 +332,151 @@ function initFilters() {
 /**
  * Update genre checkboxes based on the selected service (movies vs TV)
  * TV shows and movies have different genre IDs in TMDB
+ * Renders three-state toggle buttons with "show more" functionality
  */
 function updateGenreCheckboxes() {
     const container = document.getElementById("genre-checkboxes");
     if (!container) return;
 
-    // Use correct genre map based on service
+    // Use correct genre map and top 5 based on service
     const genreMap = wizardState.service === "sonarr" ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
-
-    // Generate checkbox HTML
-    container.innerHTML = Object.entries(genreMap).map(([id, name]) => `
-        <label class="flex items-center p-2 rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-            <input type="checkbox" class="genre-checkbox rounded text-primary focus:ring-primary" data-genre-id="${id}" />
-            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">${name}</span>
-        </label>
-    `).join("");
-
-    // Attach event listeners to new checkboxes
-    document.querySelectorAll(".genre-checkbox").forEach(cb => {
-        cb.addEventListener("change", handleGenreChange);
-    });
+    const topGenres = wizardState.service === "sonarr" ? TOP_TV_GENRES : TOP_MOVIE_GENRES;
 
     // Filter out any previously selected genres that don't exist in the new map
-    wizardState.filters.genre_ids = wizardState.filters.genre_ids.filter(id => genreMap[id]);
+    wizardState.filters.genres_include = wizardState.filters.genres_include.filter(id => genreMap[id]);
+    wizardState.filters.genres_exclude = wizardState.filters.genres_exclude.filter(id => genreMap[id]);
 
-    // Re-check previously selected genres
-    document.querySelectorAll(".genre-checkbox").forEach(cb => {
-        const id = parseInt(cb.dataset.genreId, 10);
-        cb.checked = wizardState.filters.genre_ids.includes(id);
+    // Sort genres: top 5 first, then the rest alphabetically
+    const genreEntries = Object.entries(genreMap);
+    const topGenreEntries = topGenres.map(id => [String(id), genreMap[id]]).filter(([id, name]) => name);
+    const otherGenreEntries = genreEntries
+        .filter(([id]) => !topGenres.includes(parseInt(id)))
+        .sort((a, b) => a[1].localeCompare(b[1]));
+
+    // Generate HTML for genre toggles
+    const renderGenreButton = ([id, name]) => {
+        const genreId = parseInt(id);
+        const isIncluded = wizardState.filters.genres_include.includes(genreId);
+        const isExcluded = wizardState.filters.genres_exclude.includes(genreId);
+
+        let bgClass, iconHtml;
+        if (isIncluded) {
+            bgClass = "bg-green-100 dark:bg-green-900/50 border-green-300 dark:border-green-700 text-green-800 dark:text-green-200";
+            iconHtml = `<svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>`;
+        } else if (isExcluded) {
+            bgClass = "bg-red-100 dark:bg-red-900/50 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200";
+            iconHtml = `<svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>`;
+        } else {
+            bgClass = "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300";
+            iconHtml = "";
+        }
+
+        return `
+            <button type="button"
+                class="genre-toggle inline-flex items-center px-3 py-1.5 rounded-full border text-sm font-medium transition-colors duration-150 hover:opacity-80 ${bgClass}"
+                data-genre-id="${id}">
+                ${iconHtml}<span>${escapeHtml(name)}</span>
+            </button>
+        `;
+    };
+
+    // Build the full HTML with top 5 and expandable section
+    const topGenresHtml = topGenreEntries.map(renderGenreButton).join("");
+    const otherGenresHtml = otherGenreEntries.map(renderGenreButton).join("");
+
+    container.innerHTML = `
+        <div class="flex flex-wrap gap-2 mb-2" id="genre-top-section">
+            ${topGenresHtml}
+        </div>
+        <div id="genre-more-section" class="${wizardState.genresExpanded ? '' : 'hidden'}">
+            <div class="flex flex-wrap gap-2">
+                ${otherGenresHtml}
+            </div>
+        </div>
+        <button type="button" id="genre-show-more-btn"
+            class="mt-2 text-sm text-primary hover:text-indigo-700 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+            <span>${wizardState.genresExpanded ? 'Show less' : 'Show more'}</span>
+            <svg class="w-4 h-4 ml-1 transform ${wizardState.genresExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+    `;
+
+    // Attach event listeners to genre toggle buttons
+    document.querySelectorAll(".genre-toggle").forEach(btn => {
+        btn.addEventListener("click", () => handleGenreToggle(parseInt(btn.dataset.genreId)));
     });
+
+    // Attach event listener to show more button
+    const showMoreBtn = document.getElementById("genre-show-more-btn");
+    if (showMoreBtn) {
+        showMoreBtn.addEventListener("click", toggleGenreExpanded);
+    }
 }
 
 /**
- * Handle genre checkbox change
+ * Handle genre toggle button click - cycles through off → include → exclude → off
+ * @param {number} genreId - The genre ID to toggle
  */
-function handleGenreChange() {
-    const checkboxes = document.querySelectorAll(".genre-checkbox:checked");
-    wizardState.filters.genre_ids = Array.from(checkboxes).map(cb => parseInt(cb.dataset.genreId, 10));
+function handleGenreToggle(genreId) {
+    const isIncluded = wizardState.filters.genres_include.includes(genreId);
+    const isExcluded = wizardState.filters.genres_exclude.includes(genreId);
+
+    if (!isIncluded && !isExcluded) {
+        // Off → Include (green)
+        wizardState.filters.genres_include.push(genreId);
+    } else if (isIncluded) {
+        // Include → Exclude (red)
+        wizardState.filters.genres_include = wizardState.filters.genres_include.filter(id => id !== genreId);
+        wizardState.filters.genres_exclude.push(genreId);
+    } else {
+        // Exclude → Off
+        wizardState.filters.genres_exclude = wizardState.filters.genres_exclude.filter(id => id !== genreId);
+    }
+
+    // Re-render the genre buttons to update visual state
+    updateGenreCheckboxes();
+    onFiltersChanged();
+}
+
+/**
+ * Toggle the expanded state of the genre selector
+ */
+function toggleGenreExpanded() {
+    wizardState.genresExpanded = !wizardState.genresExpanded;
+
+    const moreSection = document.getElementById("genre-more-section");
+    const showMoreBtn = document.getElementById("genre-show-more-btn");
+
+    if (moreSection) {
+        moreSection.classList.toggle("hidden", !wizardState.genresExpanded);
+    }
+
+    if (showMoreBtn) {
+        const label = showMoreBtn.querySelector("span");
+        const icon = showMoreBtn.querySelector("svg");
+        if (label) {
+            label.textContent = wizardState.genresExpanded ? "Show less" : "Show more";
+        }
+        if (icon) {
+            icon.classList.toggle("rotate-180", wizardState.genresExpanded);
+        }
+    }
+}
+
+/**
+ * Handle language selection change
+ */
+function handleLanguageChange() {
+    const languageSelect = document.getElementById("filter-language");
+    if (languageSelect) {
+        const value = languageSelect.value;
+        wizardState.filters.language = value || null;
+    }
     onFiltersChanged();
 }
 
@@ -587,12 +735,23 @@ function populateStep2EditMode() {
     // Only for custom lists (presets have read-only filters)
     if (wizardState.isPreset) return;
 
-    // Genre checkboxes
-    const genreCheckboxes = document.querySelectorAll(".genre-checkbox");
-    genreCheckboxes.forEach(checkbox => {
-        const genreId = parseInt(checkbox.dataset.genreId, 10);
-        checkbox.checked = wizardState.filters.genre_ids.includes(genreId);
-    });
+    // Genre toggles are automatically populated via updateGenreCheckboxes()
+    // which reads from wizardState.filters.genres_include and genres_exclude
+
+    // If any genre is selected outside the top 5, expand the genre section
+    const genreMap = wizardState.service === "sonarr" ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
+    const topGenres = wizardState.service === "sonarr" ? TOP_TV_GENRES : TOP_MOVIE_GENRES;
+    const allSelectedGenres = [...wizardState.filters.genres_include, ...wizardState.filters.genres_exclude];
+    const hasOtherGenres = allSelectedGenres.some(id => !topGenres.includes(id));
+    if (hasOtherGenres) {
+        wizardState.genresExpanded = true;
+    }
+
+    // Language select
+    const languageSelect = document.getElementById("filter-language");
+    if (languageSelect && wizardState.filters.language) {
+        languageSelect.value = wizardState.filters.language;
+    }
 
     // Year inputs
     const yearMinInput = document.getElementById("filter-year-min");
@@ -801,9 +960,9 @@ function initImportSettings() {
     }
 
     // Tag
-    const tagSelect = document.getElementById("import-tag");
-    if (tagSelect) {
-        tagSelect.addEventListener("change", handleTagChange);
+    const tagInput = document.getElementById("import-tag");
+    if (tagInput) {
+        tagInput.addEventListener("input", handleTagChange);
     }
 
     // Monitored
@@ -979,26 +1138,15 @@ function populateImportSettings(defaults, options) {
         }
     }
 
-    // Tag dropdown
-    const tagSelect = document.getElementById("import-tag");
-    if (tagSelect && options.tags) {
-        // Clear existing options (except "None")
-        tagSelect.innerHTML = '<option value="">None</option>';
-
-        // Add options
-        options.tags.forEach(tag => {
-            const option = document.createElement("option");
-            option.value = tag.id;
-            option.textContent = tag.label;
-            tagSelect.appendChild(option);
-        });
-
-        // Show default value
-        const defaultDisplay = document.getElementById("import-tag-default");
-        if (defaultDisplay && defaults.tag_id) {
-            const defaultTag = options.tags.find(t => t.id === defaults.tag_id);
-            if (defaultTag) {
-                defaultDisplay.textContent = `Default: ${defaultTag.label}`;
+    // Tag input - show default tag name in placeholder
+    const tagInput = document.getElementById("import-tag");
+    const defaultDisplay = document.getElementById("import-tag-default");
+    if (tagInput && defaults.tag_id && options.tags) {
+        const defaultTag = options.tags.find(t => t.id === defaults.tag_id);
+        if (defaultTag) {
+            tagInput.placeholder = defaultTag.label;
+            if (defaultDisplay) {
+                defaultDisplay.textContent = `Default: ${defaultTag.label}. Tag will be created if it doesn't exist. Allowed: letters, numbers, hyphens.`;
             }
         }
     }
@@ -1071,10 +1219,10 @@ function populateStep3EditMode(options) {
     }
 
     // Tag
-    if (wizardState.importSettings.tag_id !== null) {
-        const tagSelect = document.getElementById("import-tag");
-        if (tagSelect) {
-            tagSelect.value = wizardState.importSettings.tag_id;
+    if (wizardState.importSettings.tag !== null) {
+        const tagInput = document.getElementById("import-tag");
+        if (tagInput) {
+            tagInput.value = wizardState.importSettings.tag;
         }
     }
 
@@ -1140,20 +1288,19 @@ function handleRootFolderChange() {
 }
 
 /**
- * Handle Tag selection change
+ * Handle Tag input change
  */
 function handleTagChange() {
-    const select = document.getElementById("import-tag");
-    if (!select) return;
+    const input = document.getElementById("import-tag");
+    if (!input) return;
 
-    const value = select.value;
-    const defaults = wizardState._importDefaults;
+    const value = input.value.trim();
 
-    // If value is empty or matches default, store null (use default)
-    if (!value || (defaults && parseInt(value) === defaults.tag_id)) {
-        wizardState.importSettings.tag_id = null;
+    // If value is empty, store null (use default)
+    if (!value) {
+        wizardState.importSettings.tag = null;
     } else {
-        wizardState.importSettings.tag_id = parseInt(value);
+        wizardState.importSettings.tag = value;
     }
 }
 
@@ -1429,14 +1576,29 @@ function updateSummaryFilters() {
         return;
     }
 
-    // Build filter description
+    // Build filter description with HTML support for include/exclude styling
     const parts = [];
 
-    if (wizardState.filters.genre_ids && wizardState.filters.genre_ids.length > 0) {
-        // Use correct genre map based on service
-        const genreMap = wizardState.service === "sonarr" ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
-        const genreNames = wizardState.filters.genre_ids.map(id => genreMap[id] || id);
-        parts.push(genreNames.join(", "));
+    // Use correct genre map based on service
+    const genreMap = wizardState.service === "sonarr" ? TMDB_TV_GENRES : TMDB_MOVIE_GENRES;
+
+    // Include genres (green)
+    if (wizardState.filters.genres_include && wizardState.filters.genres_include.length > 0) {
+        const includeNames = wizardState.filters.genres_include.map(id => genreMap[id] || id);
+        parts.push(`<span class="text-green-600 dark:text-green-400">+${includeNames.join(", +")}</span>`);
+    }
+
+    // Exclude genres (red with strikethrough)
+    if (wizardState.filters.genres_exclude && wizardState.filters.genres_exclude.length > 0) {
+        const excludeNames = wizardState.filters.genres_exclude.map(id => genreMap[id] || id);
+        parts.push(`<span class="text-red-600 dark:text-red-400 line-through">-${excludeNames.join(", -")}</span>`);
+    }
+
+    // Language
+    if (wizardState.filters.language) {
+        const langOption = LANGUAGE_OPTIONS.find(l => l.code === wizardState.filters.language);
+        const langLabel = langOption ? langOption.label : wizardState.filters.language;
+        parts.push(langLabel);
     }
 
     if (wizardState.filters.year_min || wizardState.filters.year_max) {
@@ -1449,7 +1611,7 @@ function updateSummaryFilters() {
         parts.push(`${wizardState.filters.rating_min}+ rating`);
     }
 
-    el.textContent = parts.length > 0 ? parts.join(", ") : "No filters (all results)";
+    el.innerHTML = parts.length > 0 ? parts.join(", ") : "No filters (all results)";
 }
 
 /**
@@ -1530,7 +1692,9 @@ async function submitWizard() {
         service: wizardState.service,
         preset: wizardState.preset,
         filters: {
-            genre_ids: wizardState.filters.genre_ids,
+            genres_include: wizardState.filters.genres_include,
+            genres_exclude: wizardState.filters.genres_exclude,
+            language: wizardState.filters.language,
             year_min: wizardState.filters.year_min,
             year_max: wizardState.filters.year_max,
             rating_min: wizardState.filters.rating_min,
@@ -1539,7 +1703,7 @@ async function submitWizard() {
         import_settings: {
             quality_profile_id: wizardState.importSettings.quality_profile_id,
             root_folder: wizardState.importSettings.root_folder,
-            tag_id: wizardState.importSettings.tag_id,
+            tag: wizardState.importSettings.tag,
             monitored: wizardState.importSettings.monitored,
             search_on_add: wizardState.importSettings.search_on_add,
             season_folder: wizardState.importSettings.season_folder,

@@ -1,5 +1,6 @@
-{% extends "base.html" %} {% block title %}Edit List - Listarr{% endblock %} {%
-block content %}
+{% extends "base.html" %}
+{% block title %}Edit List - Listarr{% endblock %}
+{% block content %}
 
 <div class="max-w-2xl mx-auto space-y-6">
   <!-- Page Header -->
@@ -8,8 +9,29 @@ block content %}
       Edit List
     </h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-      Update the list configuration below.
+      Update list settings below. To change filters or list type, use the wizard.
     </p>
+  </div>
+
+  <!-- List Info Card (Read-only) -->
+  <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ list.name }}</h2>
+        <div class="mt-1 flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if list.target_service == 'RADARR' %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200{% else %}bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200{% endif %}">
+            {{ list.target_service }}
+          </span>
+          <span>{{ list.tmdb_list_type.replace('_', ' ').title() }}</span>
+        </div>
+      </div>
+      <a
+        href="{{ url_for('main.list_wizard', list_id=list.id) }}"
+        class="text-sm text-primary hover:text-indigo-700 dark:hover:text-indigo-300"
+      >
+        Edit in Wizard &rarr;
+      </a>
+    </div>
   </div>
 
   <!-- Edit Form -->
@@ -17,7 +39,7 @@ block content %}
     <form method="POST" action="{{ url_for('main.edit_list', list_id=list.id) }}">
       {{ form.hidden_tag() }}
 
-      <div class="p-6 space-y-4">
+      <div class="p-6 space-y-6">
         <!-- Name Field -->
         <div>
           <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -29,37 +51,93 @@ block content %}
           {% endif %}
         </div>
 
-        <!-- Target Service Field -->
-        <div>
-          <label for="target_service" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {{ form.target_service.label.text }}
-          </label>
-          {{ form.target_service(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="target_service") }}
-          {% if form.target_service.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.target_service.errors[0] }}</p>
-          {% endif %}
+        <!-- Import Settings Section -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+          <h3 class="text-base font-medium text-gray-900 dark:text-gray-100 mb-4">Import Settings</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Override the default import settings for this list. Leave as "Use Default" to use your global settings.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Quality Profile -->
+            <div>
+              <label for="override_quality_profile" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {{ form.override_quality_profile.label.text }}
+              </label>
+              {{ form.override_quality_profile(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="override_quality_profile") }}
+            </div>
+
+            <!-- Root Folder -->
+            <div>
+              <label for="override_root_folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {{ form.override_root_folder.label.text }}
+              </label>
+              {{ form.override_root_folder(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="override_root_folder") }}
+            </div>
+
+            <!-- Tag -->
+            <div>
+              <label for="override_tag" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Tag
+              </label>
+              <input type="text" id="override_tag" name="override_tag" value="{{ form.override_tag.data or '' }}"
+                placeholder="Use Default"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100" />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Tag will be created if it doesn't exist. Allowed: letters, numbers, hyphens.
+              </p>
+            </div>
+
+            <!-- Monitored -->
+            <div>
+              <label for="override_monitored" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {{ form.override_monitored.label.text }}
+              </label>
+              {{ form.override_monitored(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="override_monitored") }}
+            </div>
+
+            <!-- Search on Add -->
+            <div>
+              <label for="override_search_on_add" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {{ form.override_search_on_add.label.text }}
+              </label>
+              {{ form.override_search_on_add(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="override_search_on_add") }}
+            </div>
+
+            <!-- Season Folder (Sonarr only) -->
+            {% if service_type == 'SONARR' %}
+            <div>
+              <label for="override_season_folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {{ form.override_season_folder.label.text }}
+              </label>
+              {{ form.override_season_folder(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="override_season_folder") }}
+            </div>
+            {% endif %}
+          </div>
         </div>
 
-        <!-- TMDB List Type Field -->
-        <div>
-          <label for="tmdb_list_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {{ form.tmdb_list_type.label.text }}
-          </label>
-          {{ form.tmdb_list_type(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="tmdb_list_type") }}
-          {% if form.tmdb_list_type.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ form.tmdb_list_type.errors[0] }}</p>
-          {% endif %}
-        </div>
+        <!-- Schedule Section -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+          <h3 class="text-base font-medium text-gray-900 dark:text-gray-100 mb-4">Schedule</h3>
 
-        <!-- Is Active Field -->
-        <div class="flex items-center">
-          {{ form.is_active(class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded", id="is_active") }}
-          <label for="is_active" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-            {{ form.is_active.label.text }}
-          </label>
-        </div>
+          <div class="space-y-4">
+            <!-- Schedule Cron -->
+            <div>
+              <label for="schedule_cron" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {{ form.schedule_cron.label.text }}
+              </label>
+              {{ form.schedule_cron(class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-gray-100", id="schedule_cron") }}
+            </div>
 
-        {{ form.filters_json() }}
+            <!-- Is Active -->
+            <div class="flex items-center">
+              {{ form.is_active(class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded", id="is_active") }}
+              <label for="is_active" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                {{ form.is_active.label.text }}
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Form Footer -->

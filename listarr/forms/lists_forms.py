@@ -1,30 +1,74 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, HiddenField, BooleanField
+from wtforms import StringField, SelectField, BooleanField
 from wtforms.validators import DataRequired, Length
 
+
+# Cron schedule presets
+SCHEDULE_CHOICES = [
+    ("", "Use Default"),
+    ("0 */6 * * *", "Every 6 hours"),
+    ("0 */12 * * *", "Every 12 hours"),
+    ("0 0 * * *", "Daily at midnight"),
+    ("0 0 * * 0", "Weekly on Sunday"),
+    ("0 0 1 * *", "Monthly on 1st"),
+]
+
+# Tri-state choices for Yes/No/Default
+TRI_STATE_CHOICES = [
+    ("", "Use Default"),
+    ("1", "Yes"),
+    ("0", "No"),
+]
+
+
 class ListForm(FlaskForm):
+    """Form for editing list settings (not type/filters)."""
+
     name = StringField(
         label="Name",
         validators=[DataRequired(), Length(max=100)]
     )
 
-    target_service = SelectField(
-        label="Target Service",
-        choices=[("RADARR", "Radarr"), ("SONARR", "Sonarr")],
-        validators=[DataRequired()]
-    )
-
-    tmdb_list_type = SelectField(
-        label="TMDB List Type",
-        choices=[
-            ("trending_movies", "Trending Movies"),
-            ("popular_movies", "Popular Movies"),
-            ("trending_tv", "Trending TV Shows"),
-            ("popular_tv", "Popular TV Shows")
-        ],
-        validators=[DataRequired()]
-    )
-
-    filters_json = HiddenField(default="{}")
-
     is_active = BooleanField(label="Active", default=True)
+
+    schedule_cron = SelectField(
+        label="Schedule",
+        choices=SCHEDULE_CHOICES,
+        validators=[]
+    )
+
+    # Import settings - choices populated dynamically in route
+    override_quality_profile = SelectField(
+        label="Quality Profile",
+        choices=[("", "Use Default")],
+        validators=[]
+    )
+
+    override_root_folder = SelectField(
+        label="Root Folder",
+        choices=[("", "Use Default")],
+        validators=[]
+    )
+
+    override_tag = StringField(
+        label="Tag",
+        validators=[]
+    )
+
+    override_monitored = SelectField(
+        label="Monitored",
+        choices=TRI_STATE_CHOICES,
+        validators=[]
+    )
+
+    override_search_on_add = SelectField(
+        label="Search on Add",
+        choices=TRI_STATE_CHOICES,
+        validators=[]
+    )
+
+    override_season_folder = SelectField(
+        label="Season Folder",
+        choices=TRI_STATE_CHOICES,
+        validators=[]
+    )

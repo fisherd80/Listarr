@@ -58,10 +58,9 @@ def edit_list(list_id):
     # Initialize form
     form = ListForm()
 
-    # Build choices for dropdowns
+    # Build choices for dropdowns (quality profile and root folder only, not tags)
     quality_profile_choices = [("", "Use Default")]
     root_folder_choices = [("", "Use Default")]
-    tag_choices = [("", "None")]
 
     if config and config.api_key_encrypted:
         try:
@@ -86,9 +85,6 @@ def edit_list(list_id):
             root_folder_choices.extend(
                 [(f["path"], f["path"]) for f in root_folders]
             )
-            tag_choices.extend(
-                [(str(t["id"]), t["label"]) for t in tags]
-            )
         except Exception as e:
             current_app.logger.error(f"Error fetching {service_type} options: {e}", exc_info=True)
             flash(f"Could not load {service_type} options. Some dropdowns may be empty.", "warning")
@@ -96,7 +92,6 @@ def edit_list(list_id):
     # Set form choices
     form.override_quality_profile.choices = quality_profile_choices
     form.override_root_folder.choices = root_folder_choices
-    form.override_tag_id.choices = tag_choices
 
     if request.method == "POST" and form.validate_on_submit():
         try:
@@ -111,9 +106,25 @@ def edit_list(list_id):
             # Handle root folder (store as string or None)
             list_obj.override_root_folder = form.override_root_folder.data or None
 
-            # Handle tag (store as int or None)
-            tag_value = form.override_tag_id.data
-            list_obj.override_tag_id = int(tag_value) if tag_value else None
+            # Handle tag - use create_or_get_tag_id to normalize and create if needed
+            tag_name = form.override_tag.data
+            if tag_name and tag_name.strip():
+                if config and config.api_key_encrypted:
+                    api_key = decrypt_data(config.api_key_encrypted)
+                    base_url = config.base_url
+
+                    # Import correct service module
+                    if service_type == "RADARR":
+                        from listarr.services.radarr_service import create_or_get_tag_id
+                    else:
+                        from listarr.services.sonarr_service import create_or_get_tag_id
+
+                    list_obj.override_tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
+                else:
+                    flash("Service not configured. Cannot create/verify tag.", "warning")
+                    list_obj.override_tag_id = None
+            else:
+                list_obj.override_tag_id = None
 
             # Handle tri-state fields (store as 1, 0, or None)
             monitored_value = form.override_monitored.data
@@ -141,7 +152,27 @@ def edit_list(list_id):
         # Convert stored values to form values
         form.override_quality_profile.data = str(list_obj.override_quality_profile) if list_obj.override_quality_profile else ""
         form.override_root_folder.data = list_obj.override_root_folder or ""
-        form.override_tag_id.data = str(list_obj.override_tag_id) if list_obj.override_tag_id else ""
+
+        # Convert tag_id to tag name for display
+        if list_obj.override_tag_id and config and config.api_key_encrypted:
+            try:
+                api_key = decrypt_data(config.api_key_encrypted)
+                base_url = config.base_url
+
+                # Import correct service module
+                if service_type == "RADARR":
+                    from listarr.services.radarr_service import get_tags
+                else:
+                    from listarr.services.sonarr_service import get_tags
+
+                tags = get_tags(base_url, api_key)
+                tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
+                form.override_tag.data = tag["label"] if tag else ""
+            except Exception as e:
+                current_app.logger.error(f"Error fetching tag name: {e}", exc_info=True)
+                form.override_tag.data = ""
+        else:
+            form.override_tag.data = ""
 
         # Tri-state fields: None -> "", 1 -> "1", 0 -> "0"
         form.override_monitored.data = str(list_obj.override_monitored) if list_obj.override_monitored is not None else ""
@@ -199,6 +230,27 @@ def list_wizard():
         is_preset = list_obj.tmdb_list_type not in ["discovery", "custom"]
         preset_value = list_obj.tmdb_list_type if is_preset else None
 
+        # Get tag name from tag_id
+        tag_name = None
+        if list_obj.override_tag_id:
+            config = ServiceConfig.query.filter_by(service=list_obj.target_service).first()
+            if config and config.api_key_encrypted:
+                try:
+                    api_key = decrypt_data(config.api_key_encrypted)
+                    base_url = config.base_url
+
+                    # Import correct service module
+                    if list_obj.target_service == "RADARR":
+                        from listarr.services.radarr_service import get_tags
+                    else:
+                        from listarr.services.sonarr_service import get_tags
+
+                    tags = get_tags(base_url, api_key)
+                    tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
+                    tag_name = tag["label"] if tag else None
+                except Exception as e:
+                    current_app.logger.error(f"Error fetching tag name for list wizard: {e}", exc_info=True)
+
         # Build existing list data for JavaScript
         existing_list = {
             "id": list_obj.id,
@@ -212,7 +264,7 @@ def list_wizard():
             "import_settings": {
                 "quality_profile_id": list_obj.override_quality_profile,
                 "root_folder": list_obj.override_root_folder,
-                "tag_id": list_obj.override_tag_id,
+                "tag": tag_name,
                 "monitored": True if list_obj.override_monitored == 1 else (False if list_obj.override_monitored == 0 else None),
                 "search_on_add": True if list_obj.override_search_on_add == 1 else (False if list_obj.override_search_on_add == 0 else None),
                 "season_folder": True if list_obj.override_season_folder == 1 else (False if list_obj.override_season_folder == 0 else None),
@@ -471,6 +523,29 @@ def wizard_submit():
         "rating_min": filters.get("rating_min"),
     }
 
+    # Handle tag - create or get tag_id from tag name
+    tag_id = None
+    tag_name = import_settings.get("tag")
+    if tag_name and tag_name.strip():
+        # Get service config
+        service_upper = service.upper()
+        config = ServiceConfig.query.filter_by(service=service_upper).first()
+        if config and config.api_key_encrypted:
+            try:
+                api_key = decrypt_data(config.api_key_encrypted)
+                base_url = config.base_url
+
+                # Import correct service module
+                if service == "radarr":
+                    from listarr.services.radarr_service import create_or_get_tag_id
+                else:
+                    from listarr.services.sonarr_service import create_or_get_tag_id
+
+                tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
+            except Exception as e:
+                current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
+                return jsonify({"success": False, "error": f"Failed to create/get tag: {str(e)}"}), 500
+
     try:
         if list_id:
             # Edit mode
@@ -482,7 +557,7 @@ def wizard_submit():
             list_obj.limit = filters.get("limit", 20)
             list_obj.override_quality_profile = import_settings.get("quality_profile_id")
             list_obj.override_root_folder = import_settings.get("root_folder")
-            list_obj.override_tag_id = import_settings.get("tag_id")
+            list_obj.override_tag_id = tag_id
             list_obj.override_monitored = 1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None)
             list_obj.override_search_on_add = 1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None)
             list_obj.override_season_folder = 1 if import_settings.get("season_folder") else (0 if import_settings.get("season_folder") is False else None)
@@ -498,7 +573,7 @@ def wizard_submit():
                 limit=filters.get("limit", 20),
                 override_quality_profile=import_settings.get("quality_profile_id"),
                 override_root_folder=import_settings.get("root_folder"),
-                override_tag_id=import_settings.get("tag_id"),
+                override_tag_id=tag_id,
                 override_monitored=1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None),
                 override_search_on_add=1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None),
                 override_season_folder=1 if import_settings.get("season_folder") else (0 if import_settings.get("season_folder") is False else None),
@@ -524,8 +599,8 @@ def wizard_defaults(service):
 
     Returns JSON with:
         - configured: bool - whether service is configured
-        - defaults: dict - current MediaImportSettings defaults for this service
-        - options: dict - available quality profiles, root folders, and tags
+        - defaults: dict - current MediaImportSettings defaults for this service (includes tag_id for default tag)
+        - options: dict - available quality profiles, root folders, and tags (tags used to resolve default tag name)
 
     Args:
         service: string (radarr or sonarr)
