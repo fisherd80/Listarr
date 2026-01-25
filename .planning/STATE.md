@@ -28,6 +28,13 @@
 
 ## Recent Activity
 
+- 2026-01-25: Completed 06-01-PLAN (Model & Infrastructure)
+  - Enhanced Job model with list_name, duration, completed_at, triggered_by, retry_count, items_failed, error_details
+  - Added to_dict() methods to Job and JobItem models
+  - Enabled SQLite WAL mode for concurrent access
+  - Added tenacity>=8.2.0 dependency for retry logic
+  - Implemented job recovery on app startup
+  - All 379 tests pass
 - 2026-01-25: Completed 06-02-PLAN (Job executor service)
   - Created job_executor.py with submit_job(), is_list_running(), get_job_status()
   - Implemented job lifecycle management (_mark_job_completed, _mark_job_failed, _mark_job_timeout)
@@ -37,8 +44,8 @@
   - Fixed finished_at -> completed_at migration in dashboard_routes.py and tests
   - Fixed recover_interrupted_jobs for test compatibility
   - Added 16 new unit tests, all 379 tests pass
-- 2026-01-25: Phase 6 Wave 1 in progress
-  - 06-01 and 06-02 executing in parallel
+- 2026-01-25: Phase 6 Wave 1 complete
+  - 06-01 and 06-02 executed in parallel
 - 2026-01-25: Phase 6 planned - 6 plans in 3 waves
   - Wave 1: Model enhancement + Job executor service
   - Wave 2: Lists migration + Jobs API endpoints
@@ -48,11 +55,10 @@
 
 ## Next Steps
 
-1. Complete 06-01 (if not already complete)
-2. Execute Wave 2 (06-03 + 06-04)
-3. Execute Wave 3 (06-05 + 06-06)
-4. Verify Phase 6 implementation
-5. Plan Phase 7 (Scheduler System)
+1. Execute Wave 2 (06-03 + 06-04)
+2. Execute Wave 3 (06-05 + 06-06)
+3. Verify Phase 6 implementation
+4. Plan Phase 7 (Scheduler System)
 
 ## Blockers
 
@@ -61,7 +67,7 @@ None
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 06-02-PLAN (Job executor service)
+Stopped at: Completed Phase 6 Wave 1 (06-01 + 06-02)
 Resume file: None
 
 ## Notes
@@ -84,6 +90,8 @@ Resume file: None
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Module-level SQLAlchemy event listener | Avoids app context issues with db.engine | 2026-01-25 |
+| Renamed finished_at to completed_at | Consistency with terminology used throughout | 2026-01-25 |
 | Cooperative timeout via threading.Event | Allows graceful cancellation, partial results preserved | 2026-01-25 |
 | Lazy executor initialization | Singleton pattern avoids multiple executor instances | 2026-01-25 |
 | Store JobItem records for each result | Enables detailed job history and debugging | 2026-01-25 |
