@@ -19,11 +19,12 @@
 | 3. TMDB Caching Layer | Complete | 2/2 | Verified |
 | 3.1 Update Config Page Tags | Complete | 1/1 | Verified |
 | 4. Import Automation Engine | Complete | 3/3 + FIX | Verified |
-| 5. Job Execution Framework | Not started | 0/? | - |
-| 6. Scheduler System | Not started | 0/? | - |
-| 7. Manual Trigger UI | Not started | 0/? | - |
+| 5. Manual Trigger UI | Not started | 0/? | - |
+| 6. Job Execution Framework | Not started | 0/? | - |
+| 7. Scheduler System | Not started | 0/? | - |
 | 8. Service Settings Caching & Background Refresh | Not started | 0/? | - |
-| 9. Migrate from pyarr to Direct API | Not started | 0/? | - |
+| 9. User Authentication | Not started | 0/? | - |
+| 10. Migrate from pyarr to Direct API | Not started | 0/? | - |
 
 ## Recent Activity
 
@@ -47,9 +48,9 @@
 
 ## Next Steps
 
-1. Plan Phase 5 (Job Execution Framework)
+1. Plan Phase 5 (Manual Trigger UI)
 2. Execute Phase 5 plans
-3. Plan Phase 6 (Scheduler System)
+3. Plan Phase 6 (Job Execution Framework)
 
 ## Blockers
 
@@ -75,6 +76,12 @@ Resume file: None
 
 ## Roadmap Evolution
 
+- 2026-01-25: Roadmap reordered for optimal development flow:
+  - Manual Trigger UI moved from 7→5 (quick win, endpoint exists)
+  - Job Execution Framework moved from 5→6
+  - Scheduler System moved from 6→7
+  - Phase 9 added: User Authentication (users table exists)
+  - pyarr Migration moved to Phase 10
 - 2026-01-25: Phase 9 added: Migrate from pyarr to Direct API (for full feature support)
 - 2026-01-23: Phase 3.1 inserted after Phase 3: Update Config Page Tags (URGENT - missed during original config page creation)
 - 2026-01-18: Phase 8 added: Service Settings Caching & Background Refresh

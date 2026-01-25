@@ -105,7 +105,21 @@ Plans:
 
 ---
 
-### Phase 5: Job Execution Framework
+### Phase 5: Manual Trigger UI
+
+**Goal:** Add manual trigger capability to run any list on-demand from the UI
+
+**Deliverable:** Users can click a button to immediately execute any list import job using the existing `/lists/<id>/run` endpoint
+
+**Verification:**
+- Click "Run Now" button on a list and verify job executes immediately
+- Verify UI shows job status feedback (running -> completed)
+- Check that results are displayed to the user
+- Verify UI prevents duplicate triggers while job is running
+
+---
+
+### Phase 6: Job Execution Framework
 
 **Goal:** Create background job processing system with execution tracking and history
 
@@ -120,7 +134,7 @@ Plans:
 
 ---
 
-### Phase 6: Scheduler System
+### Phase 7: Scheduler System
 
 **Goal:** Implement cron-based scheduler for automated list refresh on schedule
 
@@ -132,21 +146,6 @@ Plans:
 - Check job history shows scheduled executions
 - Disable the list and verify scheduled jobs stop
 - Re-enable and verify scheduling resumes
-
----
-
-### Phase 7: Manual Trigger UI
-
-**Goal:** Add manual trigger capability to run any list on-demand from the UI
-
-**Deliverable:** Users can click a button to immediately execute any list import job
-
-**Verification:**
-- Click "Run Now" button on a list and verify job executes immediately
-- Verify UI shows job status (running -> completed)
-- Check that manually triggered jobs appear in job history
-- Test triggering multiple lists simultaneously
-- Verify UI prevents duplicate triggers while job is running
 
 ---
 
@@ -165,7 +164,28 @@ Plans:
 
 ---
 
-### Phase 9: Migrate from pyarr to Direct API
+### Phase 9: User Authentication
+
+**Goal:** Implement user login system to secure the web interface
+
+**Deliverable:** Users must authenticate to access the application, with session management and logout capability
+
+**Research Required:**
+- Existing users table structure in database
+- Settings page placeholder for user management
+- Flask-Login or similar authentication approach
+
+**Verification:**
+- Unauthenticated users are redirected to login page
+- Valid credentials allow access to application
+- Invalid credentials show appropriate error
+- Session persists across page navigation
+- Logout clears session and redirects to login
+- Protected routes reject unauthenticated requests
+
+---
+
+### Phase 10: Migrate from pyarr to Direct API
 
 **Goal:** Replace pyarr library with direct Radarr/Sonarr API calls for full control and feature support
 
@@ -191,15 +211,18 @@ All phases delivered and verified:
 - List creation wizard with presets, filters, import settings, and live preview
 - TMDB caching respects rate limits
 - Import automation reliably sends items to Radarr/Sonarr
+- Manual triggers allow on-demand execution from UI
 - Job execution framework tracks all operations
 - Scheduler runs lists automatically on cron schedules
-- Manual triggers allow on-demand execution
 - Service settings cached on launch with background refresh
+- User authentication secures web interface
+- Direct API calls replace pyarr for full feature support
 
 **Success criteria:** User can configure a trending movies list, schedule it to run daily, and verify that new movies automatically appear in Radarr without any manual intervention.
 
 ---
 
 *Roadmap created: 2026-01-12*
-*Phases: 8*
+*Last updated: 2026-01-25*
+*Phases: 10 (4 complete, 6 remaining)*
 *Depth: Standard (3-5 plans per phase)*
