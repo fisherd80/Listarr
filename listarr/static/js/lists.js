@@ -263,12 +263,13 @@ function restoreButton(button) {
 
 /**
  * Show color-coded result toast based on import outcome.
- * @param {Object} result - Import result with added/skipped/failed counts
+ * @param {Object} result - Import result with summary containing counts
  */
 function showResultToast(result) {
-  const added = result.added || 0;
-  const skipped = result.skipped || 0;
-  const failed = result.failed || 0;
+  // API returns arrays with counts in summary object
+  const added = result.summary?.added_count || 0;
+  const skipped = result.summary?.skipped_count || 0;
+  const failed = result.summary?.failed_count || 0;
 
   // Determine toast type based on results
   let toastType = "success";
