@@ -111,6 +111,12 @@ Plans:
 
 **Deliverable:** Users can click a button to immediately execute any list import job using the existing `/lists/<id>/run` endpoint
 
+**Plans:** 2 plans in 2 waves
+
+Plans:
+- [ ] 05-01-PLAN.md — Run button UI + synchronous handler with toast feedback
+- [ ] 05-02-PLAN.md — Status endpoint + localStorage tracking + polling for async state
+
 **Verification:**
 - Click "Run Now" button on a list and verify job executes immediately
 - Verify UI shows job status feedback (running -> completed)
