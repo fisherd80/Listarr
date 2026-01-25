@@ -7,8 +7,8 @@
 ## Current Status
 
 **Phase:** 5 - Manual Trigger UI
-**Plan:** 1 of 2 complete
-**Status:** In progress
+**Plan:** 2 of 2 complete
+**Status:** Phase complete - Ready for UAT
 
 ## Phase Progress
 
@@ -19,7 +19,7 @@
 | 3. TMDB Caching Layer | Complete | 2/2 | Verified |
 | 3.1 Update Config Page Tags | Complete | 1/1 | Verified |
 | 4. Import Automation Engine | Complete | 3/3 + FIX | Verified |
-| 5. Manual Trigger UI | In progress | 1/2 | - |
+| 5. Manual Trigger UI | Complete | 2/2 | Pending UAT |
 | 6. Job Execution Framework | Not started | 0/? | - |
 | 7. Scheduler System | Not started | 0/? | - |
 | 8. Service Settings Caching & Background Refresh | Not started | 0/? | - |
@@ -28,6 +28,12 @@
 
 ## Recent Activity
 
+- 2026-01-25: Completed 05-02-PLAN (Async run + polling)
+  - Made run endpoint async (202 response)
+  - Added ThreadPoolExecutor for background jobs
+  - Added status endpoint for polling
+  - Implemented localStorage state persistence
+  - All 363 tests pass
 - 2026-01-25: Completed 05-01-PLAN (Run button + handler)
   - Added Run button to list table Actions column
   - Implemented runList() with toast feedback
@@ -38,16 +44,11 @@
   - Fixed multi-page TMDB fetch for limits > 20 (major)
   - Fixed Sonarr add_series tags support (discovered during UAT)
   - Added Phase 9 to roadmap: Migrate from pyarr to Direct API
-- 2026-01-24: Completed 04-03-PLAN (Import orchestration + test endpoint)
-  - Created import orchestration in import_service.py
-  - Added POST /lists/<id>/run endpoint
-  - All 363 tests pass
 
 ## Next Steps
 
-1. Execute 05-02-PLAN (Progress polling)
-2. UAT Phase 5
-3. Plan Phase 6 (Job Execution Framework)
+1. UAT Phase 5 (Manual Trigger UI)
+2. Plan Phase 6 (Job Execution Framework)
 
 ## Blockers
 
@@ -56,7 +57,7 @@ None
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 05-01-PLAN - Run button and handler
+Stopped at: Completed 05-02-PLAN - Async run and polling
 Resume file: None
 
 ## Notes
@@ -65,19 +66,23 @@ Resume file: None
 - Phase 3 TMDB caching layer complete
 - Phase 3.1 tag storage complete - Config page tags functional
 - Phase 4 import automation complete - Radarr and Sonarr imports working
-- Phase 5: Run button added, currently synchronous (05-02 adds polling)
+- Phase 5: Run button with async import and status polling complete
 - Tag normalization: lowercase, hyphens, auto-create if missing
 - Wizard preview uses cached calls for all TMDB operations
 - Caches: trending (1h), popular (4h), discover (6h), details (24h)
 - Debug endpoint available at /lists/debug/cache-stats
-- Import endpoint: POST /lists/<id>/run
+- Import endpoint: POST /lists/<id>/run (async, returns 202)
+- Status endpoint: GET /lists/<id>/status (for polling)
 
 ## Decisions Made
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| Synchronous import with results toast | Endpoint returns 200 with results, not 202 async | 2026-01-25 |
-| Placeholder polling stubs | 05-02 will implement actual polling | 2026-01-25 |
+| ThreadPoolExecutor for background jobs | Stdlib solution, no new dependencies, max 3 workers | 2026-01-25 |
+| In-memory job tracking | Simple for MVP, jobs lost on restart is acceptable | 2026-01-25 |
+| localStorage for client state | Persists across tabs and navigation | 2026-01-25 |
+| 5-minute polling timeout | Long enough for imports, short enough to detect stuck | 2026-01-25 |
+| 2-second polling interval | Balance between responsiveness and server load | 2026-01-25 |
 
 ## Roadmap Evolution
 
