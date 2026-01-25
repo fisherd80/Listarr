@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Phase:** 5 - Manual Trigger UI
-**Plan:** 2 of 2 complete + FIX
-**Status:** Complete - Verified
+**Phase:** 6 - Job Execution Framework
+**Plan:** 2 of 6 (Wave 1 complete)
+**Status:** In progress - Wave 1 complete
 
 ## Phase Progress
 
@@ -20,7 +20,7 @@
 | 3.1 Update Config Page Tags | Complete | 1/1 | Verified |
 | 4. Import Automation Engine | Complete | 3/3 + FIX | Verified |
 | 5. Manual Trigger UI | Complete | 2/2 + FIX | Verified |
-| 6. Job Execution Framework | Not started | 0/? | - |
+| 6. Job Execution Framework | In progress | 2/6 | Wave 1 done |
 | 7. Scheduler System | Not started | 0/? | - |
 | 8. Service Settings Caching & Background Refresh | Not started | 0/? | - |
 | 9. User Authentication | Not started | 0/? | - |
@@ -28,30 +28,31 @@
 
 ## Recent Activity
 
+- 2026-01-25: Completed 06-02-PLAN (Job executor service)
+  - Created job_executor.py with submit_job(), is_list_running(), get_job_status()
+  - Implemented job lifecycle management (_mark_job_completed, _mark_job_failed, _mark_job_timeout)
+  - Added JobItem storage for results
+  - ThreadPoolExecutor with MAX_WORKERS=3
+  - 10-minute timeout with threading.Timer
+  - Fixed finished_at -> completed_at migration in dashboard_routes.py and tests
+  - Fixed recover_interrupted_jobs for test compatibility
+  - Added 16 new unit tests, all 379 tests pass
+- 2026-01-25: Phase 6 Wave 1 in progress
+  - 06-01 and 06-02 executing in parallel
+- 2026-01-25: Phase 6 planned - 6 plans in 3 waves
+  - Wave 1: Model enhancement + Job executor service
+  - Wave 2: Lists migration + Jobs API endpoints
+  - Wave 3: Jobs page UI + Dashboard widget
 - 2026-01-25: Phase 5 verification passed (16/16 must-haves)
   - Fixed result toast to read result.summary.*_count (f4a2f9f)
-- 2026-01-25: Completed 05-02-PLAN (Async run + polling)
-  - Made run endpoint async (202 response)
-  - Added ThreadPoolExecutor for background jobs
-  - Added status endpoint for polling
-  - Implemented localStorage state persistence
-  - All 363 tests pass
-- 2026-01-25: Completed 05-01-PLAN (Run button + handler)
-  - Added Run button to list table Actions column
-  - Implemented runList() with toast feedback
-  - Toggle integration shows/hides Run button
-  - All 363 tests pass
-- 2026-01-25: Completed Phase 4 UAT - All 7 tests passed
-  - Fixed root folder path storage (blocker)
-  - Fixed multi-page TMDB fetch for limits > 20 (major)
-  - Fixed Sonarr add_series tags support (discovered during UAT)
-  - Added Phase 9 to roadmap: Migrate from pyarr to Direct API
 
 ## Next Steps
 
-1. Plan Phase 6 (Job Execution Framework)
-2. Execute Phase 6 plans
-3. Plan Phase 7 (Scheduler System)
+1. Complete 06-01 (if not already complete)
+2. Execute Wave 2 (06-03 + 06-04)
+3. Execute Wave 3 (06-05 + 06-06)
+4. Verify Phase 6 implementation
+5. Plan Phase 7 (Scheduler System)
 
 ## Blockers
 
@@ -60,7 +61,7 @@ None
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed Phase 5 - Manual Trigger UI verified
+Stopped at: Completed 06-02-PLAN (Job executor service)
 Resume file: None
 
 ## Notes
@@ -70,17 +71,22 @@ Resume file: None
 - Phase 3.1 tag storage complete - Config page tags functional
 - Phase 4 import automation complete - Radarr and Sonarr imports working
 - Phase 5: Run button with async import and status polling complete
+- Phase 6 Wave 1: Job model enhanced, job_executor.py created
 - Tag normalization: lowercase, hyphens, auto-create if missing
 - Wizard preview uses cached calls for all TMDB operations
 - Caches: trending (1h), popular (4h), discover (6h), details (24h)
 - Debug endpoint available at /lists/debug/cache-stats
 - Import endpoint: POST /lists/<id>/run (async, returns 202)
 - Status endpoint: GET /lists/<id>/status (for polling)
+- Job executor: submit_job(), is_list_running(), get_job_status()
 
 ## Decisions Made
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Cooperative timeout via threading.Event | Allows graceful cancellation, partial results preserved | 2026-01-25 |
+| Lazy executor initialization | Singleton pattern avoids multiple executor instances | 2026-01-25 |
+| Store JobItem records for each result | Enables detailed job history and debugging | 2026-01-25 |
 | ThreadPoolExecutor for background jobs | Stdlib solution, no new dependencies, max 3 workers | 2026-01-25 |
 | In-memory job tracking | Simple for MVP, jobs lost on restart is acceptable | 2026-01-25 |
 | localStorage for client state | Persists across tabs and navigation | 2026-01-25 |
