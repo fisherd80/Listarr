@@ -56,6 +56,13 @@ function toggleList(listId, button) {
 
         // Update button text
         button.textContent = data.is_active ? "Disable" : "Enable";
+
+        // Update Run button visibility
+        const runButton = row.querySelector("[data-run-list]");
+        if (runButton) {
+          runButton.style.display = data.is_active ? "" : "none";
+          runButton.setAttribute("data-list-active", data.is_active ? "true" : "false");
+        }
       } else {
         console.error("Toggle failed:", data.message);
         showToast(data.message || "Failed to toggle list status", "error");
@@ -154,6 +161,83 @@ function deleteList(listId, button) {
     });
 }
 
+// Placeholder stubs - replaced by Plan 05-02
+function trackRunningJob(listId, startTime) {
+  console.log("trackRunningJob stub:", listId);
+}
+function pollJobStatus(listId) {
+  console.log("pollJobStatus stub:", listId);
+}
+
+/**
+ * Runs an import for a list via AJAX.
+ * @param {number} listId - The ID of the list to run
+ * @param {HTMLButtonElement} button - The button that was clicked
+ */
+function runList(listId, button) {
+  // Immediately disable button and change text to prevent double-click
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "Running...";
+
+  fetch(`/lists/${listId}/run`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken(),
+    },
+  })
+    .then((response) => {
+      if (!response.ok) {
+        return response.json().then((data) => {
+          throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        });
+      }
+      return response.json();
+    })
+    .then((data) => {
+      if (data.success) {
+        // Show success toast with import results
+        const result = data.result || {};
+        const added = result.added || 0;
+        const skipped = result.skipped || 0;
+        const failed = result.failed || 0;
+        showToast(
+          `Import complete: ${added} added, ${skipped} skipped, ${failed} failed`,
+          "success"
+        );
+        // Track job and start polling (stubs for now, implemented in 05-02)
+        trackRunningJob(listId, Date.now());
+        pollJobStatus(listId);
+      } else {
+        throw new Error(data.error || "Import failed");
+      }
+    })
+    .catch((error) => {
+      console.error("Error running list:", error);
+      showToast(error.message || "Error running import. Please try again.", "error");
+    })
+    .finally(() => {
+      // Re-enable button and restore text
+      button.disabled = false;
+      button.textContent = originalText;
+    });
+}
+
+/**
+ * Initializes run buttons on the lists page.
+ */
+function initRunButtons() {
+  const runButtons = document.querySelectorAll("[data-run-list]");
+  runButtons.forEach((button) => {
+    button.addEventListener("click", function (e) {
+      e.preventDefault();
+      const listId = this.getAttribute("data-run-list");
+      runList(listId, this);
+    });
+  });
+}
+
 /**
  * Initializes toggle buttons on the lists page.
  */
@@ -192,6 +276,9 @@ function initListsPage() {
       deleteList(listId, this);
     });
   });
+
+  // Initialize run buttons
+  initRunButtons();
 }
 
 // Initialize when DOM is ready
