@@ -908,12 +908,22 @@ class TestRadarrImportSettingsEndpoints:
         assert data['success'] is True
         assert data['settings'] is None
 
-    def test_fetch_radarr_import_settings_when_exist(self, app, client):
-        """Test fetching existing import settings."""
+    @patch('listarr.routes.config_routes.get_radarr_root_folders')
+    def test_fetch_radarr_import_settings_when_exist(self, mock_root_folders, app, client, temp_instance_path):
+        """Test fetching existing import settings (returns ID from stored path)."""
+        # Create Radarr service config for API lookup
         with app.app_context():
+            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="RADARR",
+                base_url="http://localhost:7878",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+
             settings = MediaImportSettings(
                 service="RADARR",
-                root_folder="/movies",
+                root_folder="/movies",  # Path stored in DB
                 quality_profile_id=1,
                 monitored=True,
                 search_on_add=False
@@ -921,21 +931,45 @@ class TestRadarrImportSettingsEndpoints:
             db.session.add(settings)
             db.session.commit()
 
+        # Mock root folders to return ID for the stored path
+        mock_root_folders.return_value = [
+            {'id': 5, 'path': '/movies'},
+            {'id': 6, 'path': '/other'}
+        ]
+
         response = client.get('/config/radarr/import-settings')
 
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        assert data['settings']['root_folder_id'] == '/movies'
+        assert data['settings']['root_folder_id'] == 5  # Returns ID, not path
         assert data['settings']['quality_profile_id'] == 1
         assert data['settings']['monitored'] is True
         assert data['settings']['search_on_add'] is False
 
-    def test_save_radarr_import_settings_creates_new(self, app, client):
-        """Test saving new Radarr import settings."""
+    @patch('listarr.routes.config_routes.get_radarr_root_folders')
+    def test_save_radarr_import_settings_creates_new(self, mock_root_folders, app, client, temp_instance_path):
+        """Test saving new Radarr import settings (stores path from ID)."""
+        # Create Radarr service config
+        with app.app_context():
+            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="RADARR",
+                base_url="http://localhost:7878",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+            db.session.commit()
+
+        # Mock root folders - route looks up path from ID
+        mock_root_folders.return_value = [
+            {'id': 5, 'path': '/movies'},
+            {'id': 6, 'path': '/other'}
+        ]
+
         response = client.post('/config/radarr/import-settings',
             json={
-                'root_folder_id': '/movies',
+                'root_folder_id': 5,  # Pass ID, not path
                 'quality_profile_id': 1,
                 'monitored': True,
                 'search_on_add': False
@@ -947,17 +981,26 @@ class TestRadarrImportSettingsEndpoints:
         data = response.get_json()
         assert data['success'] is True
 
-        # Verify in database
+        # Verify path is stored in database (not ID)
         with app.app_context():
             settings = MediaImportSettings.query.filter_by(service="RADARR").first()
             assert settings is not None
-            assert settings.root_folder == '/movies'
+            assert settings.root_folder == '/movies'  # Path stored, not ID
             assert settings.quality_profile_id == 1
 
-    def test_save_radarr_import_settings_updates_existing(self, app, client):
+    @patch('listarr.routes.config_routes.get_radarr_root_folders')
+    def test_save_radarr_import_settings_updates_existing(self, mock_root_folders, app, client, temp_instance_path):
         """Test updating existing Radarr import settings."""
-        # Create existing settings
+        # Create Radarr service config and existing settings
         with app.app_context():
+            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="RADARR",
+                base_url="http://localhost:7878",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+
             settings = MediaImportSettings(
                 service="RADARR",
                 root_folder="/old",
@@ -969,9 +1012,15 @@ class TestRadarrImportSettingsEndpoints:
             db.session.commit()
             settings_id = settings.id
 
+        # Mock root folders
+        mock_root_folders.return_value = [
+            {'id': 7, 'path': '/new'},
+            {'id': 8, 'path': '/other'}
+        ]
+
         response = client.post('/config/radarr/import-settings',
             json={
-                'root_folder_id': '/new',
+                'root_folder_id': 7,  # Pass ID
                 'quality_profile_id': 2,
                 'monitored': False,
                 'search_on_add': False
@@ -986,7 +1035,7 @@ class TestRadarrImportSettingsEndpoints:
             all_settings = MediaImportSettings.query.filter_by(service="RADARR").all()
             assert len(all_settings) == 1
             assert all_settings[0].id == settings_id
-            assert all_settings[0].root_folder == '/new'
+            assert all_settings[0].root_folder == '/new'  # Path stored
 
     def test_save_radarr_import_settings_validates_required_fields(self, client):
         """Test that required fields are validated."""
@@ -1056,19 +1105,32 @@ class TestRadarrImportSettingsEndpoints:
         data = response.get_json()
         assert data['success'] is False
 
-    def test_save_radarr_import_settings_handles_database_error(self, app, client):
+    @patch('listarr.routes.config_routes.get_radarr_root_folders')
+    def test_save_radarr_import_settings_handles_database_error(self, mock_root_folders, app, client, temp_instance_path):
         """Test handling of database errors during save."""
+        # Create Radarr service config
         with app.app_context():
-            with patch.object(db.session, 'commit', side_effect=Exception("DB error")):
-                response = client.post('/config/radarr/import-settings',
-                    json={
-                        'root_folder_id': '/movies',
-                        'quality_profile_id': 1,
-                        'monitored': True,
-                        'search_on_add': False
-                    },
-                    content_type='application/json'
-                )
+            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="RADARR",
+                base_url="http://localhost:7878",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+            db.session.commit()
+
+        mock_root_folders.return_value = [{'id': 5, 'path': '/movies'}]
+
+        with patch.object(db.session, 'commit', side_effect=Exception("DB error")):
+            response = client.post('/config/radarr/import-settings',
+                json={
+                    'root_folder_id': 5,
+                    'quality_profile_id': 1,
+                    'monitored': True,
+                    'search_on_add': False
+                },
+                content_type='application/json'
+            )
 
         assert response.status_code == 500
         data = response.get_json()
@@ -1255,12 +1317,22 @@ class TestSonarrImportSettingsEndpoints:
         assert data['success'] is True
         assert data['settings'] is None
 
-    def test_fetch_sonarr_import_settings_when_exist(self, app, client):
-        """Test fetching existing Sonarr import settings."""
+    @patch('listarr.routes.config_routes.get_sonarr_root_folders')
+    def test_fetch_sonarr_import_settings_when_exist(self, mock_root_folders, app, client, temp_instance_path):
+        """Test fetching existing Sonarr import settings (returns ID from stored path)."""
+        # Create Sonarr service config for API lookup
         with app.app_context():
+            encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="SONARR",
+                base_url="http://localhost:8989",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+
             settings = MediaImportSettings(
                 service="SONARR",
-                root_folder="/tv",
+                root_folder="/tv",  # Path stored in DB
                 quality_profile_id=1,
                 monitored=True,
                 season_folder=True,
@@ -1269,19 +1341,43 @@ class TestSonarrImportSettingsEndpoints:
             db.session.add(settings)
             db.session.commit()
 
+        # Mock root folders to return ID for the stored path
+        mock_root_folders.return_value = [
+            {'id': 3, 'path': '/tv'},
+            {'id': 4, 'path': '/other'}
+        ]
+
         response = client.get('/config/sonarr/import-settings')
 
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        assert data['settings']['root_folder_id'] == '/tv'
+        assert data['settings']['root_folder_id'] == 3  # Returns ID, not path
         assert data['settings']['season_folder'] is True
 
-    def test_save_sonarr_import_settings_creates_new(self, app, client):
-        """Test saving new Sonarr import settings."""
+    @patch('listarr.routes.config_routes.get_sonarr_root_folders')
+    def test_save_sonarr_import_settings_creates_new(self, mock_root_folders, app, client, temp_instance_path):
+        """Test saving new Sonarr import settings (stores path from ID)."""
+        # Create Sonarr service config
+        with app.app_context():
+            encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="SONARR",
+                base_url="http://localhost:8989",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+            db.session.commit()
+
+        # Mock root folders - route looks up path from ID
+        mock_root_folders.return_value = [
+            {'id': 3, 'path': '/tv'},
+            {'id': 4, 'path': '/other'}
+        ]
+
         response = client.post('/config/sonarr/import-settings',
             json={
-                'root_folder_id': '/tv',
+                'root_folder_id': 3,  # Pass ID, not path
                 'quality_profile_id': 1,
                 'monitored': True,
                 'season_folder': True,
@@ -1294,11 +1390,11 @@ class TestSonarrImportSettingsEndpoints:
         data = response.get_json()
         assert data['success'] is True
 
-        # Verify in database
+        # Verify path is stored in database (not ID)
         with app.app_context():
             settings = MediaImportSettings.query.filter_by(service="SONARR").first()
             assert settings is not None
-            assert settings.root_folder == '/tv'
+            assert settings.root_folder == '/tv'  # Path stored, not ID
             assert settings.season_folder is True
 
     def test_save_sonarr_import_settings_validates_season_folder_required(self, client):
@@ -1337,10 +1433,19 @@ class TestSonarrImportSettingsEndpoints:
         assert data['success'] is False
         assert 'Search on Add option is required' in data['message']
 
-    def test_save_sonarr_import_settings_updates_existing(self, app, client):
+    @patch('listarr.routes.config_routes.get_sonarr_root_folders')
+    def test_save_sonarr_import_settings_updates_existing(self, mock_root_folders, app, client, temp_instance_path):
         """Test updating existing Sonarr import settings."""
-        # Create existing settings
+        # Create Sonarr service config and existing settings
         with app.app_context():
+            encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="SONARR",
+                base_url="http://localhost:8989",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+
             settings = MediaImportSettings(
                 service="SONARR",
                 root_folder="/old",
@@ -1353,9 +1458,15 @@ class TestSonarrImportSettingsEndpoints:
             db.session.commit()
             settings_id = settings.id
 
+        # Mock root folders
+        mock_root_folders.return_value = [
+            {'id': 5, 'path': '/new'},
+            {'id': 6, 'path': '/other'}
+        ]
+
         response = client.post('/config/sonarr/import-settings',
             json={
-                'root_folder_id': '/new',
+                'root_folder_id': 5,  # Pass ID
                 'quality_profile_id': 2,
                 'monitored': False,
                 'season_folder': False,
@@ -1371,22 +1482,35 @@ class TestSonarrImportSettingsEndpoints:
             all_settings = MediaImportSettings.query.filter_by(service="SONARR").all()
             assert len(all_settings) == 1
             assert all_settings[0].id == settings_id
-            assert all_settings[0].root_folder == '/new'
+            assert all_settings[0].root_folder == '/new'  # Path stored
 
-    def test_save_sonarr_import_settings_handles_database_error(self, app, client):
+    @patch('listarr.routes.config_routes.get_sonarr_root_folders')
+    def test_save_sonarr_import_settings_handles_database_error(self, mock_root_folders, app, client, temp_instance_path):
         """Test handling of database errors during save."""
+        # Create Sonarr service config
         with app.app_context():
-            with patch.object(db.session, 'commit', side_effect=Exception("DB error")):
-                response = client.post('/config/sonarr/import-settings',
-                    json={
-                        'root_folder_id': '/tv',
-                        'quality_profile_id': 1,
-                        'monitored': True,
-                        'season_folder': True,
-                        'search_on_add': False
-                    },
-                    content_type='application/json'
-                )
+            encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="SONARR",
+                base_url="http://localhost:8989",
+                api_key_encrypted=encrypted
+            )
+            db.session.add(config)
+            db.session.commit()
+
+        mock_root_folders.return_value = [{'id': 3, 'path': '/tv'}]
+
+        with patch.object(db.session, 'commit', side_effect=Exception("DB error")):
+            response = client.post('/config/sonarr/import-settings',
+                json={
+                    'root_folder_id': 3,
+                    'quality_profile_id': 1,
+                    'monitored': True,
+                    'season_folder': True,
+                    'search_on_add': False
+                },
+                content_type='application/json'
+            )
 
         assert response.status_code == 500
         data = response.get_json()

@@ -276,10 +276,10 @@ class TestRadarrImportSettingsWorkflow:
         assert data['success'] is True
         assert len(data['folders']) == 2
 
-        # Step 4: Save import settings
+        # Step 4: Save import settings (pass ID, path gets stored)
         response = client.post('/config/radarr/import-settings',
             json={
-                'root_folder_id': '/movies',
+                'root_folder_id': 1,  # Pass ID, not path
                 'quality_profile_id': 1,
                 'monitored': True,
                 'search_on_add': False
@@ -290,20 +290,30 @@ class TestRadarrImportSettingsWorkflow:
         data = response.get_json()
         assert data['success'] is True
 
-        # Step 5: Retrieve saved settings
+        # Step 5: Retrieve saved settings (returns ID, stores path)
         response = client.get('/config/radarr/import-settings')
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        assert data['settings']['root_folder_id'] == '/movies'
+        assert data['settings']['root_folder_id'] == 1  # Returns ID for frontend
         assert data['settings']['quality_profile_id'] == 1
         assert data['settings']['monitored'] is True
         assert data['settings']['search_on_add'] is False
 
+        # Verify path is stored in DB
+        with app.app_context():
+            settings = MediaImportSettings.query.filter_by(service="RADARR").first()
+            assert settings.root_folder == '/movies'  # Path stored, not ID
+
+    @patch('listarr.routes.config_routes.get_radarr_root_folders')
     @patch('listarr.routes.config_routes.validate_radarr_api_key')
-    def test_radarr_import_settings_update_workflow(self, mock_test, app, client, temp_instance_path):
+    def test_radarr_import_settings_update_workflow(self, mock_test, mock_root_folders, app, client, temp_instance_path):
         """Test workflow: save import settings, update, verify changes."""
         mock_test.return_value = True
+        mock_root_folders.return_value = [
+            {'id': 1, 'path': '/movies'},
+            {'id': 2, 'path': '/storage/movies'}
+        ]
 
         # Create Radarr config
         with app.app_context():
@@ -316,10 +326,10 @@ class TestRadarrImportSettingsWorkflow:
             db.session.add(config)
             db.session.commit()
 
-        # Step 1: Save initial settings
+        # Step 1: Save initial settings (pass ID)
         client.post('/config/radarr/import-settings',
             json={
-                'root_folder_id': '/movies',
+                'root_folder_id': 1,
                 'quality_profile_id': 1,
                 'monitored': True,
                 'search_on_add': True
@@ -327,10 +337,10 @@ class TestRadarrImportSettingsWorkflow:
             content_type='application/json'
         )
 
-        # Step 2: Update settings
+        # Step 2: Update settings (pass different ID)
         response = client.post('/config/radarr/import-settings',
             json={
-                'root_folder_id': '/storage/movies',
+                'root_folder_id': 2,
                 'quality_profile_id': 2,
                 'monitored': False,
                 'search_on_add': False
@@ -339,11 +349,11 @@ class TestRadarrImportSettingsWorkflow:
         )
         assert response.status_code == 200
 
-        # Step 3: Verify only one settings entry exists with updated values
+        # Step 3: Verify only one settings entry exists with updated values (path stored)
         with app.app_context():
             settings = MediaImportSettings.query.filter_by(service="RADARR").all()
             assert len(settings) == 1
-            assert settings[0].root_folder == '/storage/movies'
+            assert settings[0].root_folder == '/storage/movies'  # Path stored
             assert settings[0].quality_profile_id == 2
             assert settings[0].monitored is False
             assert settings[0].search_on_add is False
@@ -394,10 +404,10 @@ class TestSonarrImportSettingsWorkflow:
         assert data['success'] is True
         assert len(data['folders']) == 2
 
-        # Step 4: Save import settings (includes season_folder for Sonarr)
+        # Step 4: Save import settings (pass ID, path gets stored)
         response = client.post('/config/sonarr/import-settings',
             json={
-                'root_folder_id': '/tv',
+                'root_folder_id': 1,  # Pass ID, not path
                 'quality_profile_id': 1,
                 'monitored': True,
                 'season_folder': True,
@@ -409,21 +419,31 @@ class TestSonarrImportSettingsWorkflow:
         data = response.get_json()
         assert data['success'] is True
 
-        # Step 5: Retrieve saved settings
+        # Step 5: Retrieve saved settings (returns ID, stores path)
         response = client.get('/config/sonarr/import-settings')
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
-        assert data['settings']['root_folder_id'] == '/tv'
+        assert data['settings']['root_folder_id'] == 1  # Returns ID for frontend
         assert data['settings']['quality_profile_id'] == 1
         assert data['settings']['monitored'] is True
         assert data['settings']['season_folder'] is True
         assert data['settings']['search_on_add'] is False
 
+        # Verify path is stored in DB
+        with app.app_context():
+            settings = MediaImportSettings.query.filter_by(service="SONARR").first()
+            assert settings.root_folder == '/tv'  # Path stored, not ID
+
+    @patch('listarr.routes.config_routes.get_sonarr_root_folders')
     @patch('listarr.routes.config_routes.validate_sonarr_api_key')
-    def test_sonarr_import_settings_update_workflow(self, mock_test, app, client, temp_instance_path):
+    def test_sonarr_import_settings_update_workflow(self, mock_test, mock_root_folders, app, client, temp_instance_path):
         """Test workflow: save Sonarr import settings, update, verify changes."""
         mock_test.return_value = True
+        mock_root_folders.return_value = [
+            {'id': 1, 'path': '/tv'},
+            {'id': 2, 'path': '/storage/tv'}
+        ]
 
         # Create Sonarr config
         with app.app_context():
@@ -436,10 +456,10 @@ class TestSonarrImportSettingsWorkflow:
             db.session.add(config)
             db.session.commit()
 
-        # Step 1: Save initial settings
+        # Step 1: Save initial settings (pass ID)
         client.post('/config/sonarr/import-settings',
             json={
-                'root_folder_id': '/tv',
+                'root_folder_id': 1,
                 'quality_profile_id': 1,
                 'monitored': True,
                 'season_folder': True,
@@ -448,10 +468,10 @@ class TestSonarrImportSettingsWorkflow:
             content_type='application/json'
         )
 
-        # Step 2: Update settings
+        # Step 2: Update settings (pass different ID)
         response = client.post('/config/sonarr/import-settings',
             json={
-                'root_folder_id': '/storage/tv',
+                'root_folder_id': 2,
                 'quality_profile_id': 2,
                 'monitored': False,
                 'season_folder': False,
@@ -461,11 +481,11 @@ class TestSonarrImportSettingsWorkflow:
         )
         assert response.status_code == 200
 
-        # Step 3: Verify only one settings entry exists with updated values
+        # Step 3: Verify only one settings entry exists with updated values (path stored)
         with app.app_context():
             settings = MediaImportSettings.query.filter_by(service="SONARR").all()
             assert len(settings) == 1
-            assert settings[0].root_folder == '/storage/tv'
+            assert settings[0].root_folder == '/storage/tv'  # Path stored
             assert settings[0].quality_profile_id == 2
             assert settings[0].monitored is False
             assert settings[0].season_folder is False

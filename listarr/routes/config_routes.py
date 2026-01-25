@@ -363,37 +363,45 @@ def fetch_radarr_import_settings():
     """
     Fetches saved import settings for Radarr from the database.
     Returns JSON with root_folder_id, quality_profile_id, monitored, search_on_add, and tag_label.
+    Note: root_folder is stored as path, but we return the ID for frontend dropdown selection.
     """
     import_settings = MediaImportSettings.query.filter_by(service="RADARR").first()
 
     if not import_settings:
         return jsonify({"success": True, "settings": None})
 
-    # Get tag label if tag ID exists
+    # Get Radarr service config for API calls
+    radarr_service = ServiceConfig.query.filter_by(service="RADARR").first()
+    root_folder_id = None
     tag_label = None
-    if import_settings.default_tag_id:
+
+    if radarr_service and radarr_service.api_key_encrypted:
         try:
-            # Get Radarr service config to fetch tags
-            radarr_service = ServiceConfig.query.filter_by(service="RADARR").first()
-            if radarr_service and radarr_service.api_key_encrypted:
-                api_key = decrypt_data(radarr_service.api_key_encrypted, instance_path=current_app.instance_path)
-                base_url = radarr_service.base_url
+            api_key = decrypt_data(radarr_service.api_key_encrypted, instance_path=current_app.instance_path)
+            base_url = radarr_service.base_url
 
-                # Fetch all tags
+            # Look up root folder ID from stored path
+            if import_settings.root_folder:
+                folders = get_radarr_root_folders(base_url, api_key)
+                for folder in folders:
+                    if folder.get("path") == import_settings.root_folder:
+                        root_folder_id = folder.get("id")
+                        break
+
+            # Get tag label if tag ID exists
+            if import_settings.default_tag_id:
                 tags = get_radarr_tags(base_url, api_key)
-
-                # Find the tag with matching ID
                 for tag in tags:
                     if tag.get("id") == import_settings.default_tag_id:
                         tag_label = tag.get("label")
                         break
         except Exception as e:
-            current_app.logger.error(f"Error fetching tag label for Radarr: {e}", exc_info=True)
+            current_app.logger.error(f"Error fetching Radarr data: {e}", exc_info=True)
 
     return jsonify({
         "success": True,
         "settings": {
-            "root_folder_id": import_settings.root_folder,
+            "root_folder_id": root_folder_id,
             "quality_profile_id": import_settings.quality_profile_id,
             "monitored": import_settings.monitored,
             "search_on_add": import_settings.search_on_add,
@@ -410,6 +418,7 @@ def save_radarr_import_settings():
     """
     Saves import settings for Radarr to the database.
     Expects JSON with root_folder_id, quality_profile_id, monitored, search_on_add, and tag_label.
+    Stores the actual root folder path (not ID) for use by import service.
     """
     data = request.json
     root_folder_id = data.get("root_folder_id")
@@ -428,22 +437,38 @@ def save_radarr_import_settings():
     if search_on_add is None:
         return jsonify({"success": False, "message": "Search on Add option is required."}), 400
 
+    # Get Radarr service config (needed for root folder lookup and tag handling)
+    radarr_config = ServiceConfig.query.filter_by(service="RADARR").first()
+    if not radarr_config or not radarr_config.api_key_encrypted:
+        return jsonify({"success": False, "message": "Radarr not configured."}), 400
+
+    try:
+        api_key = decrypt_data(radarr_config.api_key_encrypted, instance_path=current_app.instance_path)
+        base_url = radarr_config.base_url
+    except Exception as e:
+        current_app.logger.error(f"Error decrypting Radarr API key: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to decrypt API key"}), 500
+
+    # Look up root folder path from ID
+    try:
+        folders = get_radarr_root_folders(base_url, api_key)
+        root_folder_path = None
+        for folder in folders:
+            if str(folder.get("id")) == str(root_folder_id):
+                root_folder_path = folder.get("path")
+                break
+
+        if not root_folder_path:
+            return jsonify({"success": False, "message": f"Root folder ID {root_folder_id} not found in Radarr"}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error fetching root folders from Radarr: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to fetch root folders"}), 500
+
     # Handle tag creation/lookup
     tag_id = None
     if tag_label and tag_label.strip():
         try:
-            # Get Radarr service config
-            radarr_service = ServiceConfig.query.filter_by(service="RADARR").first()
-            if not radarr_service or not radarr_service.api_key_encrypted:
-                return jsonify({"success": False, "message": "Radarr not configured."}), 400
-
-            # Decrypt API key
-            api_key = decrypt_data(radarr_service.api_key_encrypted, instance_path=current_app.instance_path)
-            base_url = radarr_service.base_url
-
-            # Create or get tag ID
             tag_id = radarr_create_or_get_tag_id(base_url, api_key, tag_label.strip())
-
             if tag_id is None:
                 return jsonify({"success": False, "message": "Failed to create/find tag in Radarr"}), 500
         except Exception as e:
@@ -456,7 +481,7 @@ def save_radarr_import_settings():
 
         if import_settings:
             # Update existing settings
-            import_settings.root_folder = str(root_folder_id)
+            import_settings.root_folder = root_folder_path
             import_settings.quality_profile_id = int(quality_profile_id)
             import_settings.monitored = bool(monitored)
             import_settings.search_on_add = bool(search_on_add)
@@ -465,7 +490,7 @@ def save_radarr_import_settings():
             # Create new settings
             import_settings = MediaImportSettings(
                 service="RADARR",
-                root_folder=str(root_folder_id),
+                root_folder=root_folder_path,
                 quality_profile_id=int(quality_profile_id),
                 monitored=bool(monitored),
                 search_on_add=bool(search_on_add),
@@ -559,37 +584,45 @@ def fetch_sonarr_import_settings():
     """
     Fetches saved import settings for Sonarr from the database.
     Returns JSON with root_folder_id, quality_profile_id, monitored, season_folder, search_on_add, and tag_label.
+    Note: root_folder is stored as path, but we return the ID for frontend dropdown selection.
     """
     import_settings = MediaImportSettings.query.filter_by(service="SONARR").first()
 
     if not import_settings:
         return jsonify({"success": True, "settings": None})
 
-    # Get tag label if tag ID exists
+    # Get Sonarr service config for API calls
+    sonarr_service = ServiceConfig.query.filter_by(service="SONARR").first()
+    root_folder_id = None
     tag_label = None
-    if import_settings.default_tag_id:
+
+    if sonarr_service and sonarr_service.api_key_encrypted:
         try:
-            # Get Sonarr service config to fetch tags
-            sonarr_service = ServiceConfig.query.filter_by(service="SONARR").first()
-            if sonarr_service and sonarr_service.api_key_encrypted:
-                api_key = decrypt_data(sonarr_service.api_key_encrypted, instance_path=current_app.instance_path)
-                base_url = sonarr_service.base_url
+            api_key = decrypt_data(sonarr_service.api_key_encrypted, instance_path=current_app.instance_path)
+            base_url = sonarr_service.base_url
 
-                # Fetch all tags
+            # Look up root folder ID from stored path
+            if import_settings.root_folder:
+                folders = get_sonarr_root_folders(base_url, api_key)
+                for folder in folders:
+                    if folder.get("path") == import_settings.root_folder:
+                        root_folder_id = folder.get("id")
+                        break
+
+            # Get tag label if tag ID exists
+            if import_settings.default_tag_id:
                 tags = get_sonarr_tags(base_url, api_key)
-
-                # Find the tag with matching ID
                 for tag in tags:
                     if tag.get("id") == import_settings.default_tag_id:
                         tag_label = tag.get("label")
                         break
         except Exception as e:
-            current_app.logger.error(f"Error fetching tag label for Sonarr: {e}", exc_info=True)
+            current_app.logger.error(f"Error fetching Sonarr data: {e}", exc_info=True)
 
     return jsonify({
         "success": True,
         "settings": {
-            "root_folder_id": import_settings.root_folder,
+            "root_folder_id": root_folder_id,
             "quality_profile_id": import_settings.quality_profile_id,
             "monitored": import_settings.monitored,
             "season_folder": import_settings.season_folder,
@@ -607,6 +640,7 @@ def save_sonarr_import_settings():
     """
     Saves import settings for Sonarr to the database.
     Expects JSON with root_folder_id, quality_profile_id, monitored, season_folder, search_on_add, and tag_label.
+    Stores the actual root folder path (not ID) for use by import service.
     """
     data = request.json
     root_folder_id = data.get("root_folder_id")
@@ -629,22 +663,38 @@ def save_sonarr_import_settings():
     if search_on_add is None:
         return jsonify({"success": False, "message": "Search on Add option is required."}), 400
 
+    # Get Sonarr service config (needed for root folder lookup and tag handling)
+    sonarr_config = ServiceConfig.query.filter_by(service="SONARR").first()
+    if not sonarr_config or not sonarr_config.api_key_encrypted:
+        return jsonify({"success": False, "message": "Sonarr not configured."}), 400
+
+    try:
+        api_key = decrypt_data(sonarr_config.api_key_encrypted, instance_path=current_app.instance_path)
+        base_url = sonarr_config.base_url
+    except Exception as e:
+        current_app.logger.error(f"Error decrypting Sonarr API key: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to decrypt API key"}), 500
+
+    # Look up root folder path from ID
+    try:
+        folders = get_sonarr_root_folders(base_url, api_key)
+        root_folder_path = None
+        for folder in folders:
+            if str(folder.get("id")) == str(root_folder_id):
+                root_folder_path = folder.get("path")
+                break
+
+        if not root_folder_path:
+            return jsonify({"success": False, "message": f"Root folder ID {root_folder_id} not found in Sonarr"}), 400
+    except Exception as e:
+        current_app.logger.error(f"Error fetching root folders from Sonarr: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to fetch root folders"}), 500
+
     # Handle tag creation/lookup
     tag_id = None
     if tag_label and tag_label.strip():
         try:
-            # Get Sonarr service config
-            sonarr_service = ServiceConfig.query.filter_by(service="SONARR").first()
-            if not sonarr_service or not sonarr_service.api_key_encrypted:
-                return jsonify({"success": False, "message": "Sonarr not configured."}), 400
-
-            # Decrypt API key
-            api_key = decrypt_data(sonarr_service.api_key_encrypted, instance_path=current_app.instance_path)
-            base_url = sonarr_service.base_url
-
-            # Create or get tag ID
             tag_id = sonarr_create_or_get_tag_id(base_url, api_key, tag_label.strip())
-
             if tag_id is None:
                 return jsonify({"success": False, "message": "Failed to create/find tag in Sonarr"}), 500
         except Exception as e:
@@ -657,7 +707,7 @@ def save_sonarr_import_settings():
 
         if import_settings:
             # Update existing settings
-            import_settings.root_folder = str(root_folder_id)
+            import_settings.root_folder = root_folder_path
             import_settings.quality_profile_id = int(quality_profile_id)
             import_settings.monitored = bool(monitored)
             import_settings.season_folder = bool(season_folder)
@@ -667,7 +717,7 @@ def save_sonarr_import_settings():
             # Create new settings
             import_settings = MediaImportSettings(
                 service="SONARR",
-                root_folder=str(root_folder_id),
+                root_folder=root_folder_path,
                 quality_profile_id=int(quality_profile_id),
                 monitored=bool(monitored),
                 season_folder=bool(season_folder),
