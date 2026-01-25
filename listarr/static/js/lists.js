@@ -161,23 +161,281 @@ function deleteList(listId, button) {
     });
 }
 
-// Placeholder stubs - replaced by Plan 05-02
-function trackRunningJob(listId, startTime) {
-  console.log("trackRunningJob stub:", listId);
+// ----------------------
+// Job Tracking and Polling (Plan 05-02)
+// ----------------------
+
+// Constants
+const STORAGE_KEY = "listarr_running_jobs";
+const POLL_INTERVAL_MS = 2000; // 2 seconds
+const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+// Active polling controllers (listId -> AbortController)
+const activePollers = new Map();
+
+/**
+ * Get running jobs from localStorage.
+ * @returns {Object} Map of listId -> {startTime: number}
+ */
+function getRunningJobs() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    console.error("Error reading running jobs from localStorage:", e);
+    return {};
+  }
 }
+
+/**
+ * Save running jobs to localStorage.
+ * @param {Object} jobs - Map of listId -> {startTime: number}
+ */
+function saveRunningJobs(jobs) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+  } catch (e) {
+    console.error("Error saving running jobs to localStorage:", e);
+  }
+}
+
+/**
+ * Track a running job in localStorage.
+ * @param {number|string} listId - The list ID
+ * @param {number} startTime - Timestamp when job started
+ */
+function trackRunningJob(listId, startTime) {
+  const jobs = getRunningJobs();
+  jobs[listId] = { startTime };
+  saveRunningJobs(jobs);
+}
+
+/**
+ * Remove a job from tracking.
+ * @param {number|string} listId - The list ID
+ */
+function removeRunningJob(listId) {
+  const jobs = getRunningJobs();
+  delete jobs[listId];
+  saveRunningJobs(jobs);
+}
+
+/**
+ * Check if a job is being tracked.
+ * @param {number|string} listId - The list ID
+ * @returns {boolean}
+ */
+function isJobTracked(listId) {
+  const jobs = getRunningJobs();
+  return !!jobs[listId];
+}
+
+/**
+ * Get the Run button for a list.
+ * @param {number|string} listId - The list ID
+ * @returns {HTMLButtonElement|null}
+ */
+function getRunButton(listId) {
+  return document.querySelector(`[data-run-list="${listId}"]`);
+}
+
+/**
+ * Set button to running state.
+ * @param {HTMLButtonElement} button - The button element
+ */
+function setButtonRunning(button) {
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Running...";
+  }
+}
+
+/**
+ * Restore button to normal state.
+ * @param {HTMLButtonElement} button - The button element
+ */
+function restoreButton(button) {
+  if (button) {
+    button.disabled = false;
+    button.textContent = "Run";
+  }
+}
+
+/**
+ * Show color-coded result toast based on import outcome.
+ * @param {Object} result - Import result with added/skipped/failed counts
+ */
+function showResultToast(result) {
+  const added = result.added || 0;
+  const skipped = result.skipped || 0;
+  const failed = result.failed || 0;
+
+  // Determine toast type based on results
+  let toastType = "success";
+  if (failed > 0 && added === 0) {
+    toastType = "error";
+  } else if (failed > 0) {
+    toastType = "warning";
+  }
+
+  showToast(
+    `Import complete: ${added} added, ${skipped} skipped, ${failed} failed`,
+    toastType
+  );
+}
+
+/**
+ * Poll job status until completion or timeout.
+ * @param {number|string} listId - The list ID to poll
+ */
 function pollJobStatus(listId) {
-  console.log("pollJobStatus stub:", listId);
+  // Check if already polling this list
+  if (activePollers.has(listId)) {
+    console.log(`Already polling list ${listId}`);
+    return;
+  }
+
+  const jobs = getRunningJobs();
+  const job = jobs[listId];
+
+  if (!job) {
+    console.log(`No tracked job for list ${listId}`);
+    return;
+  }
+
+  const startTime = job.startTime;
+  const controller = new AbortController();
+  activePollers.set(listId, controller);
+
+  const poll = async () => {
+    // Check for timeout
+    const elapsed = Date.now() - startTime;
+    if (elapsed > TIMEOUT_MS) {
+      console.warn(`Polling timeout for list ${listId}`);
+      showToast(
+        "Import is taking longer than expected. Check the list later.",
+        "warning"
+      );
+      stopPolling(listId);
+      restoreButton(getRunButton(listId));
+      removeRunningJob(listId);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/lists/${listId}/status`, {
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === "completed") {
+        // Job finished successfully
+        stopPolling(listId);
+        removeRunningJob(listId);
+        restoreButton(getRunButton(listId));
+        if (data.result) {
+          showResultToast(data.result);
+        } else {
+          showToast("Import completed", "success");
+        }
+      } else if (data.status === "error") {
+        // Job failed
+        stopPolling(listId);
+        removeRunningJob(listId);
+        restoreButton(getRunButton(listId));
+        showToast(data.error || "Import failed", "error");
+      } else if (data.status === "running") {
+        // Still running, continue polling
+        setTimeout(poll, POLL_INTERVAL_MS);
+      } else {
+        // Idle - job not found in memory (server restart?)
+        // Remove from tracking but don't show error
+        stopPolling(listId);
+        removeRunningJob(listId);
+        restoreButton(getRunButton(listId));
+      }
+    } catch (error) {
+      if (error.name === "AbortError") {
+        // Polling was cancelled (page unload)
+        return;
+      }
+      console.error(`Error polling status for list ${listId}:`, error);
+      // Continue polling on transient errors
+      setTimeout(poll, POLL_INTERVAL_MS);
+    }
+  };
+
+  // Start polling
+  poll();
+}
+
+/**
+ * Stop polling for a list.
+ * @param {number|string} listId - The list ID
+ */
+function stopPolling(listId) {
+  const controller = activePollers.get(listId);
+  if (controller) {
+    controller.abort();
+    activePollers.delete(listId);
+  }
+}
+
+/**
+ * Restore running states from localStorage on page load.
+ * Called from initListsPage().
+ */
+function restoreRunningStates() {
+  const jobs = getRunningJobs();
+
+  for (const listId of Object.keys(jobs)) {
+    const button = getRunButton(listId);
+    const job = jobs[listId];
+
+    // Check if job has timed out
+    const elapsed = Date.now() - job.startTime;
+    if (elapsed > TIMEOUT_MS) {
+      // Job timed out while away - clean up
+      removeRunningJob(listId);
+      continue;
+    }
+
+    // Restore button state and start polling
+    setButtonRunning(button);
+    pollJobStatus(listId);
+  }
+}
+
+/**
+ * Cleanup polling on page unload.
+ */
+function cleanupPolling() {
+  for (const [listId, controller] of activePollers) {
+    controller.abort();
+  }
+  activePollers.clear();
 }
 
 /**
  * Runs an import for a list via AJAX.
+ * Handles 202 async response - tracks job and starts polling.
  * @param {number} listId - The ID of the list to run
  * @param {HTMLButtonElement} button - The button that was clicked
  */
 function runList(listId, button) {
+  // Check if already running (client-side)
+  if (isJobTracked(listId)) {
+    showToast("This list is already running", "warning");
+    return;
+  }
+
   // Immediately disable button and change text to prevent double-click
   button.disabled = true;
-  const originalText = button.textContent;
   button.textContent = "Running...";
 
   fetch(`/lists/${listId}/run`, {
@@ -188,27 +446,32 @@ function runList(listId, button) {
     },
   })
     .then((response) => {
-      if (!response.ok) {
-        return response.json().then((data) => {
+      // Handle both 202 (async) and potential errors
+      return response.json().then((data) => {
+        if (!response.ok) {
           throw new Error(data.error || `HTTP error! status: ${response.status}`);
-        });
-      }
-      return response.json();
+        }
+        return { data, status: response.status };
+      });
     })
-    .then((data) => {
+    .then(({ data, status }) => {
       if (data.success) {
-        // Show success toast with import results
-        const result = data.result || {};
-        const added = result.added || 0;
-        const skipped = result.skipped || 0;
-        const failed = result.failed || 0;
-        showToast(
-          `Import complete: ${added} added, ${skipped} skipped, ${failed} failed`,
-          "success"
-        );
-        // Track job and start polling (stubs for now, implemented in 05-02)
-        trackRunningJob(listId, Date.now());
-        pollJobStatus(listId);
+        if (status === 202) {
+          // Async - job started, track and poll
+          showToast("Import started", "info");
+          const startTime = Date.now();
+          trackRunningJob(listId, startTime);
+          pollJobStatus(listId);
+          // Button stays in "Running..." state until job completes
+        } else {
+          // Legacy sync response (shouldn't happen after 05-02)
+          if (data.result) {
+            showResultToast(data.result);
+          } else {
+            showToast("Import completed", "success");
+          }
+          restoreButton(button);
+        }
       } else {
         throw new Error(data.error || "Import failed");
       }
@@ -216,11 +479,7 @@ function runList(listId, button) {
     .catch((error) => {
       console.error("Error running list:", error);
       showToast(error.message || "Error running import. Please try again.", "error");
-    })
-    .finally(() => {
-      // Re-enable button and restore text
-      button.disabled = false;
-      button.textContent = originalText;
+      restoreButton(button);
     });
 }
 
@@ -279,7 +538,13 @@ function initListsPage() {
 
   // Initialize run buttons
   initRunButtons();
+
+  // Restore running states from localStorage (persists across navigation)
+  restoreRunningStates();
 }
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", initListsPage);
+
+// Cleanup polling on page unload
+window.addEventListener("beforeunload", cleanupPolling);
