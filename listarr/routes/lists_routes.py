@@ -801,3 +801,61 @@ def run_list_import(list_id):
         "job_id": list_id,
         "status": "started"
     }), 202
+
+
+@bp.route("/lists/<int:list_id>/status", methods=["GET"])
+def get_list_status(list_id):
+    """
+    Get the status of a list import job for polling.
+
+    Returns JSON with:
+    - list_id: int
+    - status: 'idle'|'running'|'completed'|'error'
+    - last_run_at: ISO timestamp string or null
+    - result: ImportResult dict (if completed)
+    - error: string (if error)
+    """
+    list_obj = List.query.get(list_id)
+    if not list_obj:
+        return jsonify({
+            "error": f"List with ID {list_id} not found"
+        }), 404
+
+    # Check in-memory job state
+    with _jobs_lock:
+        job = _running_jobs.get(list_id)
+
+    if job and job.get('status') == 'running':
+        return jsonify({
+            "list_id": list_id,
+            "status": "running",
+            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
+        })
+    elif job and job.get('status') == 'completed':
+        # Clear job from memory after reporting (client will stop polling)
+        result = job.get('result')
+        with _jobs_lock:
+            del _running_jobs[list_id]
+        return jsonify({
+            "list_id": list_id,
+            "status": "completed",
+            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+            "result": result
+        })
+    elif job and job.get('status') == 'error':
+        error = job.get('error')
+        with _jobs_lock:
+            del _running_jobs[list_id]
+        return jsonify({
+            "list_id": list_id,
+            "status": "error",
+            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+            "error": error
+        })
+    else:
+        # No job running
+        return jsonify({
+            "list_id": list_id,
+            "status": "idle",
+            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
+        })
