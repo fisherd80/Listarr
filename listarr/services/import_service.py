@@ -132,6 +132,8 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
     """
     Fetch TMDB items based on list type and filters.
 
+    Fetches multiple pages from TMDB when limit > 20 (TMDB returns 20 items per page).
+
     Args:
         list_obj: List model instance
         tmdb_api_key: TMDB API key
@@ -139,23 +141,19 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
     Returns:
         list: List of TMDB items
     """
+    import math
+
     tmdb_list_type = list_obj.tmdb_list_type
     filters = list_obj.filters_json or {}
     limit = list_obj.limit or 20
 
-    # Fetch based on list type
-    if tmdb_list_type == 'trending_movies':
-        items = get_trending_movies_cached(tmdb_api_key)
-    elif tmdb_list_type == 'trending_tv':
-        items = get_trending_tv_cached(tmdb_api_key)
-    elif tmdb_list_type == 'popular_movies':
-        items = get_popular_movies_cached(tmdb_api_key)
-    elif tmdb_list_type == 'popular_tv':
-        items = get_popular_tv_cached(tmdb_api_key)
-    elif tmdb_list_type == 'discovery':
-        # Build TMDB filters from list filters
-        tmdb_filters = {}
+    # Calculate pages needed (TMDB returns 20 items per page)
+    pages_needed = math.ceil(limit / 20)
+    all_items = []
 
+    # Build discovery filters once (used for discovery list type)
+    tmdb_filters = {}
+    if tmdb_list_type == 'discovery':
         if filters.get('genres_include'):
             tmdb_filters['with_genres'] = ','.join(map(str, filters['genres_include']))
         if filters.get('genres_exclude'):
@@ -175,24 +173,45 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
         if filters.get('rating_min'):
             tmdb_filters['vote_average.gte'] = filters['rating_min']
 
-        if list_obj.target_service == 'RADARR':
-            items = discover_movies_cached(tmdb_api_key, tmdb_filters)
+    # Fetch pages
+    for page in range(1, pages_needed + 1):
+        if tmdb_list_type == 'trending_movies':
+            items = get_trending_movies_cached(tmdb_api_key, page=page)
+        elif tmdb_list_type == 'trending_tv':
+            items = get_trending_tv_cached(tmdb_api_key, page=page)
+        elif tmdb_list_type == 'popular_movies':
+            items = get_popular_movies_cached(tmdb_api_key, page=page)
+        elif tmdb_list_type == 'popular_tv':
+            items = get_popular_tv_cached(tmdb_api_key, page=page)
+        elif tmdb_list_type == 'discovery':
+            if list_obj.target_service == 'RADARR':
+                items = discover_movies_cached(tmdb_api_key, tmdb_filters, page=page)
+            else:
+                items = discover_tv_cached(tmdb_api_key, tmdb_filters, page=page)
         else:
-            items = discover_tv_cached(tmdb_api_key, tmdb_filters)
-    else:
-        logger.warning(f"Unknown list type: {tmdb_list_type}")
-        return []
+            logger.warning(f"Unknown list type: {tmdb_list_type}")
+            return []
 
-    # Extract results from AsObj if needed
-    if hasattr(items, 'results') and items.results:
-        items_list = list(items.results)
-    elif isinstance(items, list):
-        items_list = items
-    else:
-        items_list = []
+        # Extract results from AsObj if needed
+        if hasattr(items, 'results') and items.results:
+            page_items = list(items.results)
+        elif isinstance(items, list):
+            page_items = items
+        else:
+            page_items = []
+
+        all_items.extend(page_items)
+
+        # Stop if we got fewer items than expected (no more pages available)
+        if len(page_items) < 20:
+            break
+
+        # Stop if we already have enough items
+        if len(all_items) >= limit:
+            break
 
     # Apply limit
-    return items_list[:limit]
+    return all_items[:limit]
 
 
 def _import_movies(
