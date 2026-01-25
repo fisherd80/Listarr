@@ -130,6 +130,16 @@ Plans:
 
 **Deliverable:** Jobs can be queued, executed, tracked, and their history (success/failure) is recorded and displayed
 
+**Plans:** 6 plans in 3 waves
+
+Plans:
+- [ ] 06-01-PLAN.md — Enhance Job model + WAL mode + tenacity
+- [ ] 06-02-PLAN.md — Job executor service with timeout/retry
+- [ ] 06-03-PLAN.md — Migrate lists_routes to job_executor
+- [ ] 06-04-PLAN.md — Jobs API endpoints
+- [ ] 06-05-PLAN.md — Jobs page UI
+- [ ] 06-06-PLAN.md — Dashboard recent jobs widget
+
 **Verification:**
 - Queue a list import job and verify it executes
 - View job execution history in the dashboard
