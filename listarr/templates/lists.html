@@ -139,6 +139,15 @@
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
               <button
                 type="button"
+                data-run-list="{{ list.id }}"
+                data-list-active="{{ 'true' if list.is_active else 'false' }}"
+                class="text-primary hover:text-indigo-900 dark:hover:text-indigo-300 mr-3"
+                {% if not list.is_active %}style="display: none;"{% endif %}
+              >
+                Run
+              </button>
+              <button
+                type="button"
                 data-toggle-list="{{ list.id }}"
                 class="text-yellow-600 hover:text-yellow-900 dark:hover:text-yellow-400 mr-3"
               >
