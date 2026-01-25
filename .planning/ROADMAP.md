@@ -165,6 +165,25 @@ Plans:
 
 ---
 
+### Phase 9: Migrate from pyarr to Direct API
+
+**Goal:** Replace pyarr library with direct Radarr/Sonarr API calls for full control and feature support
+
+**Deliverable:** All Radarr and Sonarr API interactions use direct HTTP requests instead of pyarr, enabling access to all API features including tags on series add
+
+**Research Required:**
+- Radarr API documentation: https://radarr.video/docs/api/
+- Sonarr API documentation: https://sonarr.tv/docs/api/
+
+**Verification:**
+- All existing Radarr functionality works (test connection, fetch profiles/folders/tags, add movie)
+- All existing Sonarr functionality works (test connection, fetch profiles/folders/tags, add series with tags)
+- Tags are properly applied when adding series to Sonarr
+- Error handling matches or improves upon pyarr behavior
+- All existing tests pass with new implementation
+
+---
+
 ## Milestone Complete When
 
 All phases delivered and verified:

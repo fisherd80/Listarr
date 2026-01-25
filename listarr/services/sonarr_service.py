@@ -327,21 +327,35 @@ def add_series(
     if not base_url.endswith("/"):
         base_url += "/"
 
-    sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-
     title = series_data.get('title', 'Unknown')
     tvdb_id = series_data.get('tvdbId', 'Unknown')
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
 
-    return sonarr.add_series(
-        series=series_data,
-        root_dir=root_folder,
-        quality_profile_id=quality_profile_id,
-        monitored=monitored,
-        season_folder=season_folder,
-        search_for_missing_episodes=search_on_add,
-        tags=tags or []
-    )
+    # Use direct API call instead of pyarr to support tags parameter
+    # pyarr's add_series doesn't support tags, but Sonarr API does
+    import requests
+
+    # Build the series payload
+    series_payload = series_data.copy()
+    series_payload['rootFolderPath'] = root_folder
+    series_payload['qualityProfileId'] = quality_profile_id
+    series_payload['monitored'] = monitored
+    series_payload['seasonFolder'] = season_folder
+    series_payload['tags'] = tags or []
+    series_payload['addOptions'] = {
+        'searchForMissingEpisodes': search_on_add
+    }
+
+    url = f"{base_url}api/v3/series"
+    headers = {'X-Api-Key': api_key}
+
+    response = requests.post(url, json=series_payload, headers=headers)
+
+    if response.status_code == 201:
+        return response.json()
+    else:
+        error_msg = response.text
+        raise Exception(f"Sonarr API error ({response.status_code}): {error_msg}")
 
 
 def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
