@@ -65,6 +65,33 @@ Create background job processing system with execution tracking and persistent h
 
 </specifics>
 
+<schema>
+## Database Schema Changes
+
+Existing `Job` model in `listarr/models/jobs_model.py` needs updates. Tables are currently empty — safe to modify.
+
+### Current Job fields (keep):
+- id, list_id, status, started_at, finished_at
+- items_found, items_added, items_skipped
+- error_message
+
+### Fields to ADD to Job:
+- `list_name` (String 255) — denormalized, survives list deletion
+- `duration` (Integer) — seconds, for display
+- `triggered_by` (String 20, default "manual") — manual/scheduled (prep for Phase 7)
+- `retry_count` (Integer, default 0)
+- `items_failed` (Integer, default 0) — count of failed items
+- `error_details` (Text) — technical stack trace, separate from user-friendly error_message
+
+### Optional rename:
+- `finished_at` → `completed_at` (consistency)
+
+### JobItem model (no changes needed):
+- Already has: id, job_id, tmdb_id, title, status, message
+- Sufficient for per-item tracking
+
+</schema>
+
 <deferred>
 ## Deferred Ideas
 
