@@ -56,7 +56,7 @@ def dashboard_stats():
 def recent_jobs():
     """
     Returns the last 5 executed jobs for dashboard display.
-    
+
     Returns:
         JSON response with structure:
         {
@@ -67,7 +67,7 @@ def recent_jobs():
                     "service": str,
                     "status": str,
                     "started_at": str,
-                    "finished_at": str | null,
+                    "completed_at": str | null,
                     "executed_at": str,
                     "summary": str,
                     "error_message": str | null
@@ -77,12 +77,12 @@ def recent_jobs():
     """
     try:
         # Query last 5 finished jobs, ordered by most recent first
-        # Only include jobs with finished_at (completed or failed jobs)
+        # Only include jobs with completed_at (completed or failed jobs)
         # Use outerjoin to include jobs even if their list doesn't exist
         jobs = Job.query.outerjoin(List).filter(
-            Job.finished_at.isnot(None)
+            Job.completed_at.isnot(None)
         ).order_by(
-            Job.finished_at.desc(),
+            Job.completed_at.desc(),
             Job.started_at.desc()
         ).limit(5).all()
         
@@ -131,21 +131,21 @@ def recent_jobs():
             else:
                 summary = f"Status: {job.status}"
             
-            # Determine executed_at (use finished_at if available, otherwise started_at)
-            executed_at = job.finished_at if job.finished_at else job.started_at
-            
+            # Determine executed_at (use completed_at if available, otherwise started_at)
+            executed_at = job.completed_at if job.completed_at else job.started_at
+
             # Format dates to ISO format strings
             started_at_str = job.started_at.isoformat() if job.started_at else None
-            finished_at_str = job.finished_at.isoformat() if job.finished_at else None
+            completed_at_str = job.completed_at.isoformat() if job.completed_at else None
             executed_at_str = executed_at.isoformat() if executed_at else None
-            
+
             jobs_data.append({
                 "id": job.id,
                 "job_name": job_name,
                 "service": service,
                 "status": job.status,
                 "started_at": started_at_str,
-                "finished_at": finished_at_str,
+                "completed_at": completed_at_str,
                 "executed_at": executed_at_str,
                 "summary": summary,
                 "error_message": job.error_message

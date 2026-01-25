@@ -280,7 +280,7 @@ class TestRecentJobsWorkflow:
                 items_added=45,
                 items_skipped=5,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             job2 = Job(
                 list_id=test_list.id,
@@ -289,7 +289,7 @@ class TestRecentJobsWorkflow:
                 items_added=28,
                 items_skipped=2,
                 started_at=datetime(2024, 1, 14, 9, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 14, 9, 3, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 14, 9, 3, 0, tzinfo=timezone.utc)
             )
             db.session.add(job1)
             db.session.add(job2)
@@ -300,7 +300,7 @@ class TestRecentJobsWorkflow:
         data = response.get_json()
 
         assert len(data['jobs']) == 2
-        # Jobs should be ordered by finished_at desc (newest first)
+        # Jobs should be ordered by completed_at desc (newest first)
         assert data['jobs'][0]['job_name'] == "Test Movie List"
         assert data['jobs'][0]['service'] == "RADARR"
         assert data['jobs'][0]['status'] == "completed"
@@ -329,7 +329,7 @@ class TestRecentJobsWorkflow:
                 items_skipped=0,
                 error_message="Connection to Sonarr failed: timeout",
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
@@ -364,7 +364,7 @@ class TestRecentJobsWorkflow:
                     items_added=10,
                     items_skipped=0,
                     started_at=datetime(2024, 1, i+1, 10, 0, 0, tzinfo=timezone.utc),
-                    finished_at=datetime(2024, 1, i+1, 10, 5, 0, tzinfo=timezone.utc)
+                    completed_at=datetime(2024, 1, i+1, 10, 5, 0, tzinfo=timezone.utc)
                 )
                 db.session.add(job)
             db.session.commit()
@@ -387,7 +387,7 @@ class TestRecentJobsWorkflow:
                 items_added=10,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()

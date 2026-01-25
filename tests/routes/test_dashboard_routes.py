@@ -174,7 +174,7 @@ class TestDashboardStatsGET:
                 items_added=45,
                 items_skipped=5,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             job2 = Job(
                 list_id=radarr_list.id,
@@ -183,7 +183,7 @@ class TestDashboardStatsGET:
                 items_added=25,
                 items_skipped=5,
                 started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc)
             )
             # Failed job should not be counted
             job3 = Job(
@@ -193,7 +193,7 @@ class TestDashboardStatsGET:
                 items_added=0,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 13, 10, 0, 30, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 13, 10, 0, 30, tzinfo=timezone.utc)
             )
             db.session.add_all([job1, job2, job3])
             db.session.commit()
@@ -247,7 +247,7 @@ class TestDashboardStatsGET:
                 items_added=95,
                 items_skipped=5,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             job2 = Job(
                 list_id=sonarr_list.id,
@@ -256,7 +256,7 @@ class TestDashboardStatsGET:
                 items_added=45,
                 items_skipped=5,
                 started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc)
             )
             db.session.add_all([job1, job2])
             db.session.commit()
@@ -599,7 +599,7 @@ class TestRecentJobsGET:
                 items_added=45,
                 items_skipped=5,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
@@ -639,7 +639,7 @@ class TestRecentJobsGET:
                 items_skipped=0,
                 error_message="Connection to Sonarr failed: timeout after 30 seconds",
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
@@ -653,8 +653,8 @@ class TestRecentJobsGET:
         assert data['jobs'][0]['status'] == "failed"
         assert "Connection to Sonarr failed" in data['jobs'][0]['summary']
 
-    def test_recent_jobs_orders_by_finished_at_desc(self, app, client):
-        """Test that recent jobs are ordered by finished_at descending."""
+    def test_recent_jobs_orders_by_completed_at_desc(self, app, client):
+        """Test that recent jobs are ordered by completed_at descending."""
         with app.app_context():
             # Create list
             test_list = List(
@@ -674,7 +674,7 @@ class TestRecentJobsGET:
                 items_added=10,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 10, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 10, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 10, 10, 5, 0, tzinfo=timezone.utc)
             )
             job2 = Job(
                 list_id=test_list.id,
@@ -683,7 +683,7 @@ class TestRecentJobsGET:
                 items_added=20,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             job3 = Job(
                 list_id=test_list.id,
@@ -692,7 +692,7 @@ class TestRecentJobsGET:
                 items_added=30,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 12, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 12, 10, 5, 0, tzinfo=timezone.utc)
             )
             db.session.add_all([job1, job2, job3])
             db.session.commit()
@@ -702,7 +702,7 @@ class TestRecentJobsGET:
         assert response.status_code == 200
         data = response.get_json()
 
-        # Should be ordered by finished_at desc (newest first)
+        # Should be ordered by completed_at desc (newest first)
         assert len(data['jobs']) == 3
         assert "20 added" in data['jobs'][0]['summary']  # job2 (Jan 15)
         assert "30 added" in data['jobs'][1]['summary']  # job3 (Jan 12)
@@ -730,7 +730,7 @@ class TestRecentJobsGET:
                     items_added=i+1,
                     items_skipped=0,
                     started_at=datetime(2024, 1, i+1, 10, 0, 0, tzinfo=timezone.utc),
-                    finished_at=datetime(2024, 1, i+1, 10, 5, 0, tzinfo=timezone.utc)
+                    completed_at=datetime(2024, 1, i+1, 10, 5, 0, tzinfo=timezone.utc)
                 )
                 db.session.add(job)
             db.session.commit()
@@ -754,7 +754,7 @@ class TestRecentJobsGET:
                 items_added=10,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
@@ -791,7 +791,7 @@ class TestRecentJobsGET:
                 items_added=10,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
@@ -811,7 +811,7 @@ class TestRecentJobsGET:
         assert data['jobs'][0]['job_name'] == f"Job #{job_id}"
 
     def test_recent_jobs_only_includes_finished_jobs(self, app, client):
-        """Test that recent jobs only includes jobs with finished_at timestamp."""
+        """Test that recent jobs only includes jobs with completed_at timestamp."""
         with app.app_context():
             # Create list
             test_list = List(
@@ -831,10 +831,10 @@ class TestRecentJobsGET:
                 items_added=10,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                finished_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
             )
 
-            # Create running job (no finished_at)
+            # Create running job (no completed_at)
             running_job = Job(
                 list_id=test_list.id,
                 status="running",
@@ -842,7 +842,7 @@ class TestRecentJobsGET:
                 items_added=0,
                 items_skipped=0,
                 started_at=datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc),
-                finished_at=None
+                completed_at=None
             )
 
             db.session.add_all([finished_job, running_job])
@@ -877,7 +877,7 @@ class TestRecentJobsGET:
                 items_found=10,
                 items_added=10,
                 items_skipped=0,
-                finished_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
             )
 
             # Create job with both added and skipped
@@ -887,7 +887,7 @@ class TestRecentJobsGET:
                 items_found=20,
                 items_added=15,
                 items_skipped=5,
-                finished_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc)
             )
 
             # Create job with only skipped
@@ -897,7 +897,7 @@ class TestRecentJobsGET:
                 items_found=5,
                 items_added=0,
                 items_skipped=5,
-                finished_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc)
             )
 
             # Create job with nothing processed
@@ -907,7 +907,7 @@ class TestRecentJobsGET:
                 items_found=0,
                 items_added=0,
                 items_skipped=0,
-                finished_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc)
             )
 
             db.session.add_all([job1, job2, job3, job4])
@@ -1078,7 +1078,7 @@ class TestDashboardDataFormats:
                 items_found=10,
                 items_added=10,
                 items_skipped=0,
-                finished_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
@@ -1138,7 +1138,7 @@ class TestDashboardDataFormats:
                 items_found=10,
                 items_added=10,
                 items_skipped=0,
-                finished_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+                completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
             )
             db.session.add(job)
             db.session.commit()
