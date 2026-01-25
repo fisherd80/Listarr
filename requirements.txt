@@ -25,6 +25,9 @@ tmdbv3api==1.9.0
 # Radarr/Sonarr API Client
 pyarr>=5.0.0
 
+# Retry Logic
+tenacity>=8.2.0
+
 # Production WSGI Server (required for Docker deployment)
 gunicorn==21.2.0
 
