@@ -1,5 +1,7 @@
 from flask import render_template, flash, request, redirect, url_for, current_app, jsonify
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+import threading
 from listarr.routes import bp
 from listarr import csrf
 from listarr.models.lists_model import List
@@ -16,6 +18,52 @@ from listarr.services.tmdb_cache import (
     discover_tv_cached,
 )
 from listarr import db
+
+# In-memory job tracking for Phase 5 MVP
+# Key: list_id, Value: {'status': 'running'|'completed'|'error', 'started_at': datetime, 'result': ImportResult|None}
+_running_jobs = {}
+_jobs_lock = threading.Lock()
+
+# Lazy-initialized executor (created on first use)
+_executor = None
+
+
+def get_executor():
+    """Get or create the ThreadPoolExecutor."""
+    global _executor
+    if _executor is None:
+        _executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix='listarr_import_')
+    return _executor
+
+
+def _run_import_job(list_id, app):
+    """Background job that runs the actual import."""
+    with app.app_context():
+        try:
+            result = import_list(list_id)
+
+            # Update last_run_at timestamp
+            list_obj = List.query.get(list_id)
+            if list_obj:
+                list_obj.last_run_at = datetime.now(timezone.utc)
+                db.session.commit()
+
+            # Store result
+            with _jobs_lock:
+                _running_jobs[list_id] = {
+                    'status': 'completed',
+                    'started_at': _running_jobs.get(list_id, {}).get('started_at'),
+                    'result': result.to_dict() if result else None
+                }
+        except Exception as e:
+            current_app.logger.error(f"Background import error for list {list_id}: {e}", exc_info=True)
+            with _jobs_lock:
+                _running_jobs[list_id] = {
+                    'status': 'error',
+                    'started_at': _running_jobs.get(list_id, {}).get('started_at'),
+                    'error': str(e)
+                }
+
 
 @bp.route("/lists")
 def lists_page():
@@ -701,18 +749,17 @@ def cache_stats():
 @csrf.exempt
 def run_list_import(list_id):
     """
-    Manually trigger import for a list.
-    Returns JSON with import results.
+    Manually trigger async import for a list.
+    Returns 202 immediately while job runs in background.
 
     Returns:
-        JSON response with:
-        - success: bool
-        - list_id: int
-        - list_name: string
-        - result: ImportResult.to_dict()
+        202 JSON response with:
+        - success: true
+        - job_id: int (same as list_id)
+        - status: "started"
         OR
-        - success: false
-        - error: string
+        400 if already running or inactive
+        404 if list not found
     """
     # Fetch list by ID
     list_obj = List.query.get(list_id)
@@ -729,25 +776,28 @@ def run_list_import(list_id):
             "error": f"List '{list_obj.name}' is not active"
         }), 400
 
-    try:
-        # Run the import
-        result = import_list(list_id)
+    # Check if already running
+    with _jobs_lock:
+        job = _running_jobs.get(list_id)
+        if job and job.get('status') == 'running':
+            return jsonify({
+                "success": False,
+                "error": f"List '{list_obj.name}' is already running"
+            }), 400
 
-        # Update last_run_at timestamp
-        list_obj.last_run_at = datetime.now(timezone.utc)
-        db.session.commit()
+        # Mark as running
+        _running_jobs[list_id] = {
+            'status': 'running',
+            'started_at': datetime.now(timezone.utc),
+            'result': None
+        }
 
-        return jsonify({
-            "success": True,
-            "list_id": list_id,
-            "list_name": list_obj.name,
-            "result": result.to_dict()
-        })
+    # Submit job to executor
+    app = current_app._get_current_object()
+    get_executor().submit(_run_import_job, list_id, app)
 
-    except Exception as e:
-        current_app.logger.error(f"Error running import for list {list_id}: {e}", exc_info=True)
-        db.session.rollback()
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+    return jsonify({
+        "success": True,
+        "job_id": list_id,
+        "status": "started"
+    }), 202
