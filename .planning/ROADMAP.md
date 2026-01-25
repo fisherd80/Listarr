@@ -105,17 +105,16 @@ Plans:
 
 ---
 
-### Phase 5: Manual Trigger UI
+### Phase 5: Manual Trigger UI (Complete)
 
 **Goal:** Add manual trigger capability to run any list on-demand from the UI
 
 **Deliverable:** Users can click a button to immediately execute any list import job using the existing `/lists/<id>/run` endpoint
 
-**Plans:** 2 plans in 2 waves
-
-Plans:
-- [ ] 05-01-PLAN.md — Run button UI + synchronous handler with toast feedback
-- [ ] 05-02-PLAN.md — Status endpoint + localStorage tracking + polling for async state
+**Status:** Complete (2026-01-25) - 2/2 plans executed + FIX
+- 05-01: Run button UI with toast feedback
+- 05-02: Async endpoint + localStorage polling
+- FIX: Result toast reads correct summary fields
 
 **Verification:**
 - Click "Run Now" button on a list and verify job executes immediately
@@ -230,5 +229,5 @@ All phases delivered and verified:
 
 *Roadmap created: 2026-01-12*
 *Last updated: 2026-01-25*
-*Phases: 10 (4 complete, 6 remaining)*
+*Phases: 10 (5 complete, 5 remaining)*
 *Depth: Standard (3-5 plans per phase)*

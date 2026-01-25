@@ -7,8 +7,8 @@
 ## Current Status
 
 **Phase:** 5 - Manual Trigger UI
-**Plan:** 2 of 2 complete
-**Status:** Phase complete - Ready for UAT
+**Plan:** 2 of 2 complete + FIX
+**Status:** Complete - Verified
 
 ## Phase Progress
 
@@ -19,7 +19,7 @@
 | 3. TMDB Caching Layer | Complete | 2/2 | Verified |
 | 3.1 Update Config Page Tags | Complete | 1/1 | Verified |
 | 4. Import Automation Engine | Complete | 3/3 + FIX | Verified |
-| 5. Manual Trigger UI | Complete | 2/2 | Pending UAT |
+| 5. Manual Trigger UI | Complete | 2/2 + FIX | Verified |
 | 6. Job Execution Framework | Not started | 0/? | - |
 | 7. Scheduler System | Not started | 0/? | - |
 | 8. Service Settings Caching & Background Refresh | Not started | 0/? | - |
@@ -28,6 +28,8 @@
 
 ## Recent Activity
 
+- 2026-01-25: Phase 5 verification passed (16/16 must-haves)
+  - Fixed result toast to read result.summary.*_count (f4a2f9f)
 - 2026-01-25: Completed 05-02-PLAN (Async run + polling)
   - Made run endpoint async (202 response)
   - Added ThreadPoolExecutor for background jobs
@@ -47,8 +49,9 @@
 
 ## Next Steps
 
-1. UAT Phase 5 (Manual Trigger UI)
-2. Plan Phase 6 (Job Execution Framework)
+1. Plan Phase 6 (Job Execution Framework)
+2. Execute Phase 6 plans
+3. Plan Phase 7 (Scheduler System)
 
 ## Blockers
 
@@ -57,7 +60,7 @@ None
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 05-02-PLAN - Async run and polling
+Stopped at: Completed Phase 5 - Manual Trigger UI verified
 Resume file: None
 
 ## Notes
