@@ -61,6 +61,12 @@ def create_app(test_config=None):
 
     # Initialize dashboard cache and recover interrupted jobs at startup
     with app.app_context():
+        # Import models so they are registered with SQLAlchemy
+        from listarr import models
+        
+        # Create tables if they don't exist
+        db.create_all()
+
         from .services.dashboard_cache import initialize_dashboard_cache
         initialize_dashboard_cache(app)
 

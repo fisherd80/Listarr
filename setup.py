@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from listarr import create_app, db
+from listarr import create_app
 from listarr.services.crypto_utils import generate_key
 
 def main():
@@ -22,19 +22,15 @@ def main():
     else:
         print(f">>> Encryption Key already exists at {key_path}.")
 
-    # STEP 2: Now create app (key exists, so it won't fail)
+    # STEP 2: Now create app
+    # This will automatically initialize the database tables via create_app() -> db.create_all()
     app = create_app()
-
-    # STEP 3: Create database if needed
+    
+    # Verify database file creation
     db_path = Path(app.instance_path) / "listarr.db"
-    if not db_path.exists():
-        print(">>> Creating database tables...")
-        with app.app_context():
-            db.create_all()
-        print(f">>> Database created at {db_path}")
-    else:
-        print(">>> Database already exists, skipping creation.")
-
+    if db_path.exists():
+         print(f">>> Database initialized at {db_path}")
+    
     print(">>> Setup complete. You can now run `python run.py` to start the app.")
 
 if __name__ =="__main__":

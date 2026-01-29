@@ -247,11 +247,8 @@ The `instance/` folder contains all runtime data:
   - Testing guidelines and patterns
 - **[CHANGELOG.md](docs/CHANGELOG.md)** - Detailed changelog of all changes
 - **[DASHBOARD_FEATURES.md](docs/DASHBOARD_FEATURES.md)** - Comprehensive dashboard features documentation
-- **Test Documentation**:
-  - [TEST_REVIEW.md](docs/TEST_REVIEW.md) - Comprehensive test suite review
-  - [TEST_STATUS.md](docs/TEST_STATUS.md) - Current test suite status (363 tests, 100% passing)
-  - [CONFIG_ROUTES_TEST_REVIEW.md](docs/CONFIG_ROUTES_TEST_REVIEW.md) - Config routes test analysis
-  - [CONFIG_ROUTES_TEST_IMPLEMENTATION.md](docs/CONFIG_ROUTES_TEST_IMPLEMENTATION.md) - Test implementation summary
+
+
 - **Project Philosophy**: Read-only stats + push actions (no full media management)
 - **Design Pattern**: Application factory with blueprint-based routing
 

@@ -230,3 +230,13 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+
+# ===========================
+# AI & Local Development (Safe Zones)
+# ===========================
+_ai/
+sandbox/
+*.local
+.claude/
+.planning/
+
