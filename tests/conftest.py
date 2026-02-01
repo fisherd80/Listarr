@@ -52,6 +52,15 @@ def app(temp_instance_path):
     Yields:
         Flask: Configured Flask application instance
     """
+    # Read the encryption key from the temp directory and set as env var
+    # This must be done BEFORE create_app() since it loads the key during init
+    key_path = os.path.join(temp_instance_path, ".fernet_key")
+    with open(key_path, "rb") as f:
+        key = f.read().decode()
+
+    old_fernet_key = os.environ.get("FERNET_KEY")
+    os.environ["FERNET_KEY"] = key
+
     test_config = {
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
@@ -59,14 +68,21 @@ def app(temp_instance_path):
         "SECRET_KEY": "test-secret-key",
     }
 
-    app = create_app(test_config=test_config)
-    app.instance_path = temp_instance_path
+    try:
+        app = create_app(test_config=test_config)
+        app.instance_path = temp_instance_path
 
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
+        with app.app_context():
+            db.create_all()
+            yield app
+            db.session.remove()
+            db.drop_all()
+    finally:
+        # Restore original FERNET_KEY env var
+        if old_fernet_key is None:
+            os.environ.pop("FERNET_KEY", None)
+        else:
+            os.environ["FERNET_KEY"] = old_fernet_key
 
 
 @pytest.fixture(scope="function")
@@ -82,6 +98,15 @@ def app_with_csrf(temp_instance_path):
     Yields:
         Flask: Configured Flask application with CSRF enabled
     """
+    # Read the encryption key from the temp directory and set as env var
+    # This must be done BEFORE create_app() since it loads the key during init
+    key_path = os.path.join(temp_instance_path, ".fernet_key")
+    with open(key_path, "rb") as f:
+        key = f.read().decode()
+
+    old_fernet_key = os.environ.get("FERNET_KEY")
+    os.environ["FERNET_KEY"] = key
+
     test_config = {
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
@@ -89,14 +114,21 @@ def app_with_csrf(temp_instance_path):
         "SECRET_KEY": "test-secret-key",
     }
 
-    app = create_app(test_config=test_config)
-    app.instance_path = temp_instance_path
+    try:
+        app = create_app(test_config=test_config)
+        app.instance_path = temp_instance_path
 
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
+        with app.app_context():
+            db.create_all()
+            yield app
+            db.session.remove()
+            db.drop_all()
+    finally:
+        # Restore original FERNET_KEY env var
+        if old_fernet_key is None:
+            os.environ.pop("FERNET_KEY", None)
+        else:
+            os.environ["FERNET_KEY"] = old_fernet_key
 
 
 @pytest.fixture(scope="function")
