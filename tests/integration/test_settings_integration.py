@@ -9,12 +9,14 @@ Tests cover:
 - Multi-step workflows (test -> save -> retrieve)
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
-from listarr.models.service_config_model import ServiceConfig
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from listarr import db
-from listarr.services.crypto_utils import encrypt_data, decrypt_data
+from listarr.models.service_config_model import ServiceConfig
+from listarr.services.crypto_utils import decrypt_data, encrypt_data
 
 
 class TestSettingsEndToEndWorkflow:

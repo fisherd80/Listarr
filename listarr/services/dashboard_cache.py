@@ -8,21 +8,16 @@ import logging
 import threading
 from typing import Dict
 from flask import current_app
+
 from listarr import db
-from listarr.models.service_config_model import ServiceConfig
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
-from listarr.services.radarr_service import (
-    get_system_status as get_radarr_system_status,
-    get_movie_count,
-    get_missing_movies_count
-)
-from listarr.services.sonarr_service import (
-    get_system_status as get_sonarr_system_status,
-    get_series_count,
-    get_missing_episodes_count
-)
+from listarr.models.service_config_model import ServiceConfig
 from listarr.services.crypto_utils import decrypt_data
+from listarr.services.radarr_service import get_missing_movies_count, get_movie_count
+from listarr.services.radarr_service import get_system_status as get_radarr_system_status
+from listarr.services.sonarr_service import get_missing_episodes_count, get_series_count
+from listarr.services.sonarr_service import get_system_status as get_sonarr_system_status
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +60,7 @@ def _calculate_radarr_stats() -> Dict:
         "missing_movies": 0,
         "added_by_listarr": 0
     }
-    
+
     try:
         # Check if Radarr is configured
         # Handle case where database tables don't exist yet (e.g., during test setup)
@@ -77,12 +72,12 @@ def _calculate_radarr_stats() -> Dict:
                 logger.debug("Database tables not yet initialized, returning not_configured status")
                 return result
             raise
-        
+
         if not radarr_service or not radarr_service.api_key_encrypted or not radarr_service.base_url:
             return result
-        
+
         result["configured"] = True
-        
+
         try:
             # Decrypt API key
             api_key = decrypt_data(
@@ -90,7 +85,7 @@ def _calculate_radarr_stats() -> Dict:
                 instance_path=current_app.instance_path
             )
             base_url = radarr_service.base_url
-            
+
             # Fetch Radarr System Status
             try:
                 system_status = get_radarr_system_status(base_url, api_key)
@@ -102,7 +97,7 @@ def _calculate_radarr_stats() -> Dict:
             except Exception as e:
                 logger.error(f"Error fetching Radarr system status: {e}", exc_info=True)
                 result["status"] = "offline"
-            
+
             # Fetch Movie Count (only if online)
             if result["status"] == "online":
                 try:
@@ -111,7 +106,7 @@ def _calculate_radarr_stats() -> Dict:
                 except Exception as e:
                     logger.error(f"Error fetching Radarr movie count: {e}", exc_info=True)
                     result["total_movies"] = 0
-                
+
                 # Fetch Missing Movies Count (only if online)
                 try:
                     missing_count = get_missing_movies_count(base_url, api_key)
@@ -119,12 +114,12 @@ def _calculate_radarr_stats() -> Dict:
                 except Exception as e:
                     logger.error(f"Error fetching Radarr missing movies count: {e}", exc_info=True)
                     result["missing_movies"] = 0
-            
+
         except Exception as e:
             # Handle decryption errors or other setup errors
             logger.error(f"Error setting up Radarr dashboard stats: {e}", exc_info=True)
             result["status"] = "offline"
-    
+
     except Exception as e:
         # If it's a database table error, keep status as not_configured
         if "no such table" in str(e).lower() or "operationalerror" in str(type(e).__name__).lower():
@@ -132,7 +127,7 @@ def _calculate_radarr_stats() -> Dict:
             return result
         logger.error(f"Unexpected error calculating Radarr stats: {e}", exc_info=True)
         result["status"] = "offline"
-    
+
     # Calculate total items added by Listarr for Radarr
     try:
         # Sum items_added from all completed jobs for Radarr lists
@@ -156,7 +151,7 @@ def _calculate_radarr_stats() -> Dict:
     except Exception as e:
         logger.error(f"Error calculating Radarr items added by Listarr: {e}", exc_info=True)
         result["added_by_listarr"] = 0
-    
+
     return result
 
 
@@ -175,7 +170,7 @@ def _calculate_sonarr_stats() -> Dict:
         "missing_episodes": 0,
         "added_by_listarr": 0
     }
-    
+
     try:
         # Check if Sonarr is configured
         # Handle case where database tables don't exist yet (e.g., during test setup)
@@ -187,12 +182,12 @@ def _calculate_sonarr_stats() -> Dict:
                 logger.debug("Database tables not yet initialized, returning not_configured status")
                 return result
             raise
-        
+
         if not sonarr_service or not sonarr_service.api_key_encrypted or not sonarr_service.base_url:
             return result
-        
+
         result["configured"] = True
-        
+
         try:
             # Decrypt API key
             api_key = decrypt_data(
@@ -200,7 +195,7 @@ def _calculate_sonarr_stats() -> Dict:
                 instance_path=current_app.instance_path
             )
             base_url = sonarr_service.base_url
-            
+
             # Fetch Sonarr System Status
             try:
                 system_status = get_sonarr_system_status(base_url, api_key)
@@ -212,7 +207,7 @@ def _calculate_sonarr_stats() -> Dict:
             except Exception as e:
                 logger.error(f"Error fetching Sonarr system status: {e}", exc_info=True)
                 result["status"] = "offline"
-            
+
             # Fetch Series Count (only if online)
             if result["status"] == "online":
                 try:
@@ -221,7 +216,7 @@ def _calculate_sonarr_stats() -> Dict:
                 except Exception as e:
                     logger.error(f"Error fetching Sonarr series count: {e}", exc_info=True)
                     result["total_series"] = 0
-                
+
                 # Fetch Missing Episodes Count (only if online)
                 # Uses get_wanted() function with totalRecords
                 try:
@@ -230,12 +225,12 @@ def _calculate_sonarr_stats() -> Dict:
                 except Exception as e:
                     logger.error(f"Error fetching Sonarr missing episodes count: {e}", exc_info=True)
                     result["missing_episodes"] = 0
-            
+
         except Exception as e:
             # Handle decryption errors or other setup errors
             logger.error(f"Error setting up Sonarr dashboard stats: {e}", exc_info=True)
             result["status"] = "offline"
-    
+
     except Exception as e:
         # If it's a database table error, keep status as not_configured
         if "no such table" in str(e).lower() or "operationalerror" in str(type(e).__name__).lower():
@@ -243,7 +238,7 @@ def _calculate_sonarr_stats() -> Dict:
             return result
         logger.error(f"Unexpected error calculating Sonarr stats: {e}", exc_info=True)
         result["status"] = "offline"
-    
+
     # Calculate total items added by Listarr for Sonarr
     try:
         # Sum items_added from all completed jobs for Sonarr lists
@@ -267,7 +262,7 @@ def _calculate_sonarr_stats() -> Dict:
     except Exception as e:
         logger.error(f"Error calculating Sonarr items added by Listarr: {e}", exc_info=True)
         result["added_by_listarr"] = 0
-    
+
     return result
 
 
@@ -283,16 +278,16 @@ def refresh_dashboard_cache() -> Dict:
     with _cache_lock:
         try:
             logger.info("Refreshing dashboard cache...")
-            
+
             # Calculate Radarr stats
             _dashboard_cache["radarr"] = _calculate_radarr_stats()
-            
+
             # Calculate Sonarr stats
             _dashboard_cache["sonarr"] = _calculate_sonarr_stats()
-            
+
             logger.info("Dashboard cache refreshed successfully")
             return _dashboard_cache.copy()
-        
+
         except Exception as e:
             logger.error(f"Error refreshing dashboard cache: {e}", exc_info=True)
             return _dashboard_cache.copy()

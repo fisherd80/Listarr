@@ -13,15 +13,17 @@ Tests cover:
 - Mock external PyArr API calls
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from listarr.services.sonarr_service import (
-    validate_sonarr_api_key,
+    get_missing_series_count,
     get_quality_profiles,
     get_root_folders,
-    get_system_status,
     get_series_count,
-    get_missing_series_count
+    get_system_status,
+    validate_sonarr_api_key,
 )
 
 
@@ -322,7 +324,7 @@ class TestGetMissingSeriesCount:
     def test_get_missing_series_count_counts_series_with_missing_episodes(self, mock_sonarr_class):
         """Test that missing series are counted correctly using get_wanted()."""
         mock_sonarr = MagicMock()
-        
+
         # Mock get_wanted() to return missing episodes from different series
         # Series 1 (ID: 1): Has 2 missing episodes
         # Series 2 (ID: 2): Has 1 missing episode

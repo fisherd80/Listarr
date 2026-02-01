@@ -8,15 +8,16 @@ Tests cover:
 - get_executor() function - ThreadPoolExecutor lazy initialization
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from listarr.services.job_executor import (
-    is_list_running,
-    get_job_status,
-    submit_job,
     get_executor,
+    get_job_status,
+    is_list_running,
+    submit_job,
 )
 
 
@@ -31,8 +32,8 @@ class TestIsListRunning:
 
     def test_returns_false_when_job_completed(self, app):
         """Job exists but is completed."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with app.app_context():
             job = Job(
@@ -49,8 +50,8 @@ class TestIsListRunning:
 
     def test_returns_true_when_job_running(self, app):
         """Job exists and is running."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with app.app_context():
             job = Job(
@@ -67,8 +68,8 @@ class TestIsListRunning:
 
     def test_returns_false_when_job_failed(self, app):
         """Failed job should not count as running."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with app.app_context():
             job = Job(
@@ -95,8 +96,8 @@ class TestGetJobStatus:
 
     def test_returns_most_recent_job(self, app):
         """Returns most recent job for list."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with app.app_context():
             # Create older job
@@ -125,8 +126,8 @@ class TestGetJobStatus:
 
     def test_returns_dict_with_all_fields(self, app):
         """Returns job dict with all expected fields."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with app.app_context():
             job = Job(
@@ -164,8 +165,8 @@ class TestSubmitJob:
 
     def test_raises_when_already_running(self, app):
         """Raises ValueError when job already running."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with app.app_context():
             # Create running job
@@ -183,8 +184,8 @@ class TestSubmitJob:
 
     def test_creates_job_record(self, app):
         """Creates job record in database."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with patch('listarr.services.job_executor.get_executor') as mock_executor:
             mock_executor.return_value.submit = MagicMock()
@@ -201,8 +202,8 @@ class TestSubmitJob:
 
     def test_creates_job_with_scheduled_trigger(self, app):
         """Creates job with scheduled trigger type."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with patch('listarr.services.job_executor.get_executor') as mock_executor:
             mock_executor.return_value.submit = MagicMock()
@@ -249,8 +250,8 @@ class TestJobLifecycle:
 
     def test_job_initialized_with_zero_counts(self, app):
         """Job is created with zero item counts."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with patch('listarr.services.job_executor.get_executor') as mock_executor:
             mock_executor.return_value.submit = MagicMock()
@@ -266,8 +267,8 @@ class TestJobLifecycle:
 
     def test_job_initialized_with_zero_retry_count(self, app):
         """Job is created with zero retry count."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with patch('listarr.services.job_executor.get_executor') as mock_executor:
             mock_executor.return_value.submit = MagicMock()
@@ -280,8 +281,8 @@ class TestJobLifecycle:
 
     def test_job_has_started_at_timestamp(self, app):
         """Job is created with started_at timestamp."""
-        from listarr.models.jobs_model import Job
         from listarr import db
+        from listarr.models.jobs_model import Job
 
         with patch('listarr.services.job_executor.get_executor') as mock_executor:
             mock_executor.return_value.submit = MagicMock()

@@ -1,4 +1,5 @@
 import logging
+
 from pyarr import RadarrAPI
 
 logger = logging.getLogger(__name__)

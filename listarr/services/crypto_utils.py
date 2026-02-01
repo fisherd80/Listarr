@@ -1,4 +1,5 @@
 import os
+
 from cryptography.fernet import Fernet, InvalidToken
 
 # Default key filename (path will be constructed from Flask's instance folder)

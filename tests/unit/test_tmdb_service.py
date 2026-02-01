@@ -12,22 +12,24 @@ Tests cover:
 - Mock external API calls
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from listarr.services.tmdb_service import (
-    validate_tmdb_api_key,
+    _init_tmdb,
+    discover_movies,
+    discover_tv,
     get_imdb_id_from_tmdb,
-    get_trending_movies,
-    get_trending_tv,
+    get_movie_details,
     get_popular_movies,
     get_popular_tv,
     get_top_rated_movies,
     get_top_rated_tv,
-    discover_movies,
-    discover_tv,
-    get_movie_details,
+    get_trending_movies,
+    get_trending_tv,
     get_tv_details,
-    _init_tmdb
+    validate_tmdb_api_key,
 )
 
 

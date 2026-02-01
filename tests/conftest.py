@@ -10,11 +10,13 @@ This module provides reusable fixtures for:
 """
 
 import os
-import pytest
 import tempfile
+
+import pytest
+from cryptography.fernet import Fernet
+
 from listarr import create_app, db
 from listarr.models.service_config_model import ServiceConfig
-from cryptography.fernet import Fernet
 
 
 @pytest.fixture(scope='function')
@@ -151,8 +153,9 @@ def sample_tmdb_config(app, temp_instance_path):
     Returns:
         ServiceConfig: TMDB configuration record
     """
-    from listarr.services.crypto_utils import encrypt_data
     from datetime import datetime, timezone
+
+    from listarr.services.crypto_utils import encrypt_data
 
     with app.app_context():
         encrypted_key = encrypt_data("test_tmdb_api_key_12345", instance_path=temp_instance_path)

@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField
+from wtforms import SelectField, StringField
 from wtforms.validators import DataRequired
 
 # Top 5 most common regions first, then extended list (sorted alphabetically)

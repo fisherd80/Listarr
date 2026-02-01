@@ -1,11 +1,14 @@
-from flask import render_template, request, redirect, url_for, flash, jsonify, current_app
 from datetime import datetime, timezone
-from listarr.routes import bp
+
+from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
+
+from listarr import db
 from listarr.forms.settings_forms import TmdbApiForm
 from listarr.models.service_config_model import ServiceConfig
-from listarr import db
+from listarr.routes import bp
+from listarr.services.crypto_utils import decrypt_data, encrypt_data
 from listarr.services.tmdb_service import validate_tmdb_api_key
-from listarr.services.crypto_utils import encrypt_data, decrypt_data
+
 
 # ----------------------
 # Helper Functions
@@ -89,7 +92,9 @@ def settings_page():
     existing = ServiceConfig.query.filter_by(service="TMDB").first()
     if existing and existing.api_key_encrypted:
         try:
-            tmdb_api_form.tmdb_api.data = decrypt_data(existing.api_key_encrypted, instance_path=current_app.instance_path)
+            tmdb_api_form.tmdb_api.data = decrypt_data(
+                existing.api_key_encrypted, instance_path=current_app.instance_path
+            )
         except (ValueError, Exception) as e:
             current_app.logger.error(f"Error decrypting TMDB API key: {e}", exc_info=True)
             tmdb_api_form.tmdb_api.data = ""

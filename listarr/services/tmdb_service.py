@@ -4,7 +4,8 @@ Handles all interactions with The Movie Database (TMDB) API using tmdbv3api libr
 """
 
 import logging
-from tmdbv3api import TMDb, Movie, TV, Trending, Discover
+
+from tmdbv3api import TV, Discover, Movie, TMDb, Trending
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,15 @@
 """Jobs routes - API endpoints for job history and management."""
 
-from flask import render_template, request, jsonify, current_app
+from flask import current_app, jsonify, render_template, request
+
+from listarr import csrf, db
+from listarr.models.jobs_model import Job, JobItem
+from listarr.models.lists_model import List
 from listarr.routes import bp
 from listarr import db, csrf
 from listarr.models.jobs_model import Job, JobItem
 from listarr.models.lists_model import List
+
 
 
 @bp.route("/jobs")
@@ -128,7 +133,11 @@ def rerun_job(job_id):
         }), 400
 
     # Import here to avoid circular import
+<<<<<<< HEAD
+    from listarr.services.job_executor import is_list_running, submit_job
+=======
     from listarr.services.job_executor import submit_job, is_list_running
+>>>>>>> origin/develop
 
     # Check if already running
     if is_list_running(list_obj.id):

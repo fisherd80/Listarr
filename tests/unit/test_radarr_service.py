@@ -13,15 +13,17 @@ Tests cover:
 - Mock external PyArr API calls
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from listarr.services.radarr_service import (
-    validate_radarr_api_key,
+    get_missing_movies_count,
+    get_movie_count,
     get_quality_profiles,
     get_root_folders,
     get_system_status,
-    get_movie_count,
-    get_missing_movies_count
+    validate_radarr_api_key,
 )
 
 

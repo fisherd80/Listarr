@@ -1,23 +1,53 @@
-from flask import render_template, flash, request, redirect, url_for, current_app, jsonify
 from datetime import datetime, timezone
-from listarr.routes import bp
-from listarr import csrf
+
+from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
+
+from listarr import csrf, db
+from listarr.forms.lists_forms import ListForm
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
-from listarr.forms.lists_forms import ListForm
+from listarr.routes import bp
 from listarr.services.crypto_utils import decrypt_data
-from listarr.services.job_executor import submit_job, is_list_running, get_job_status
+from listarr.services.job_executor import get_job_status, is_list_running, submit_job
 from listarr.services.tmdb_cache import (
-    get_trending_movies_cached,
-    get_trending_tv_cached,
+    discover_movies_cached,
+    discover_tv_cached,
     get_popular_movies_cached,
     get_popular_tv_cached,
     get_top_rated_movies_cached,
     get_top_rated_tv_cached,
-    discover_movies_cached,
-    discover_tv_cached,
+    get_trending_movies_cached,
+    get_trending_tv_cached,
 )
-from listarr import db
+
+# Helper functions for tri-state boolean conversion
+# Database stores: 0 (False), 1 (True), None (inherit/unset)
+# API uses: False, True, None
+# Form uses: "0", "1", ""
+
+def _db_to_bool(value):
+    """Convert database tri-state (0/1/None) to bool (False/True/None)."""
+    if value == 1:
+        return True
+    if value == 0:
+        return False
+    return None
+
+
+def _bool_to_db(value):
+    """Convert bool tri-state (False/True/None) to database (0/1/None)."""
+    if value is True:
+        return 1
+    if value is False:
+        return 0
+    return None
+
+
+def _db_to_form_str(value):
+    """Convert database tri-state (0/1/None) to form string ("0"/"1"/"")."""
+    if value is not None:
+        return str(value)
+    return ""
 
 
 @bp.route("/lists")
@@ -39,12 +69,12 @@ def get_lists_api():
     return jsonify({
         "lists": [
             {
-                "id": l.id,
-                "name": l.name,
-                "target_service": l.target_service,
-                "is_active": l.is_active
+                "id": lst.id,
+                "name": lst.name,
+                "target_service": lst.target_service,
+                "is_active": lst.is_active
             }
-            for l in lists
+            for lst in lists
         ]
     })
 
@@ -97,9 +127,17 @@ def edit_list(list_id):
 
             # Import correct service module
             if service_type == "RADARR":
-                from listarr.services.radarr_service import get_quality_profiles, get_root_folders, get_tags
+                from listarr.services.radarr_service import (
+                    get_quality_profiles,
+                    get_root_folders,
+                    get_tags,
+                )
             else:
-                from listarr.services.sonarr_service import get_quality_profiles, get_root_folders, get_tags
+                from listarr.services.sonarr_service import (
+                    get_quality_profiles,
+                    get_root_folders,
+                    get_tags,
+                )
 
             # Fetch options from service API
             quality_profiles = get_quality_profiles(base_url, api_key)
@@ -189,7 +227,9 @@ def edit_list(list_id):
         form.schedule_cron.data = list_obj.schedule_cron or ""
 
         # Convert stored values to form values
-        form.override_quality_profile.data = str(list_obj.override_quality_profile) if list_obj.override_quality_profile else ""
+        form.override_quality_profile.data = (
+            str(list_obj.override_quality_profile) if list_obj.override_quality_profile else ""
+        )
         form.override_root_folder.data = list_obj.override_root_folder or ""
 
         # Convert tag_id to tag name for display
@@ -214,9 +254,9 @@ def edit_list(list_id):
             form.override_tag.data = ""
 
         # Tri-state fields: None -> "", 1 -> "1", 0 -> "0"
-        form.override_monitored.data = str(list_obj.override_monitored) if list_obj.override_monitored is not None else ""
-        form.override_search_on_add.data = str(list_obj.override_search_on_add) if list_obj.override_search_on_add is not None else ""
-        form.override_season_folder.data = str(list_obj.override_season_folder) if list_obj.override_season_folder is not None else ""
+        form.override_monitored.data = _db_to_form_str(list_obj.override_monitored)
+        form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
+        form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
 
     return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type)
 
@@ -304,9 +344,9 @@ def list_wizard():
                 "quality_profile_id": list_obj.override_quality_profile,
                 "root_folder": list_obj.override_root_folder,
                 "tag": tag_name,
-                "monitored": True if list_obj.override_monitored == 1 else (False if list_obj.override_monitored == 0 else None),
-                "search_on_add": True if list_obj.override_search_on_add == 1 else (False if list_obj.override_search_on_add == 0 else None),
-                "season_folder": True if list_obj.override_season_folder == 1 else (False if list_obj.override_season_folder == 0 else None),
+                "monitored": _db_to_bool(list_obj.override_monitored),
+                "search_on_add": _db_to_bool(list_obj.override_search_on_add),
+                "season_folder": _db_to_bool(list_obj.override_season_folder),
             },
             "schedule": {
                 "cron": list_obj.schedule_cron,
@@ -601,9 +641,9 @@ def wizard_submit():
             list_obj.override_quality_profile = import_settings.get("quality_profile_id")
             list_obj.override_root_folder = import_settings.get("root_folder")
             list_obj.override_tag_id = tag_id
-            list_obj.override_monitored = 1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None)
-            list_obj.override_search_on_add = 1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None)
-            list_obj.override_season_folder = 1 if import_settings.get("season_folder") else (0 if import_settings.get("season_folder") is False else None)
+            list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
+            list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
+            list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
             list_obj.schedule_cron = schedule.get("cron")
             list_obj.is_active = schedule.get("is_active", True)
         else:
@@ -617,9 +657,9 @@ def wizard_submit():
                 override_quality_profile=import_settings.get("quality_profile_id"),
                 override_root_folder=import_settings.get("root_folder"),
                 override_tag_id=tag_id,
-                override_monitored=1 if import_settings.get("monitored") else (0 if import_settings.get("monitored") is False else None),
-                override_search_on_add=1 if import_settings.get("search_on_add") else (0 if import_settings.get("search_on_add") is False else None),
-                override_season_folder=1 if import_settings.get("season_folder") else (0 if import_settings.get("season_folder") is False else None),
+                override_monitored=_bool_to_db(import_settings.get("monitored")),
+                override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
+                override_season_folder=_bool_to_db(import_settings.get("season_folder")),
                 schedule_cron=schedule.get("cron"),
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
@@ -676,9 +716,17 @@ def wizard_defaults(service):
     # Get available options from service API
     try:
         if service == "radarr":
-            from listarr.services.radarr_service import get_quality_profiles, get_root_folders, get_tags
+            from listarr.services.radarr_service import (
+                get_quality_profiles,
+                get_root_folders,
+                get_tags,
+            )
         else:
-            from listarr.services.sonarr_service import get_quality_profiles, get_root_folders, get_tags
+            from listarr.services.sonarr_service import (
+                get_quality_profiles,
+                get_root_folders,
+                get_tags,
+            )
 
         quality_profiles = get_quality_profiles(base_url, api_key)
         root_folders = get_root_folders(base_url, api_key)

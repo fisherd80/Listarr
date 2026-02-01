@@ -9,10 +9,12 @@ Tests cover:
 - API error handling
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from listarr.services.import_service import _fetch_tmdb_items
+
 from listarr.models.lists_model import List
+from listarr.services.import_service import _fetch_tmdb_items
 
 
 class TestFetchTMDBItemsTopRated:

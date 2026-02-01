@@ -1,7 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, BooleanField
+from wtforms import BooleanField, SelectField, StringField
 from wtforms.validators import DataRequired, Length
-
 
 # Cron schedule presets - must match wizard options in list_wizard.html
 SCHEDULE_CHOICES = [

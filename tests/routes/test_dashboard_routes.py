@@ -11,13 +11,15 @@ Tests cover:
 - Parallel API calls and data aggregation
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
-from listarr.models.service_config_model import ServiceConfig
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from listarr import db
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
-from listarr import db
+from listarr.models.service_config_model import ServiceConfig
 from listarr.services.crypto_utils import encrypt_data
 
 
@@ -131,7 +133,7 @@ class TestDashboardStatsGET:
         response = client.get('/api/dashboard/stats?refresh=true')
         assert response.status_code == 200
         data = response.get_json()
-        
+
         # Should return valid structure
         assert 'radarr' in data
         assert 'sonarr' in data
@@ -155,7 +157,7 @@ class TestDashboardStatsGET:
                 api_key_encrypted=encrypted
             )
             db.session.add(config)
-            
+
             # Create a Radarr list
             radarr_list = List(
                 name="Test Movies",
@@ -165,7 +167,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(radarr_list)
             db.session.flush()
-            
+
             # Create completed jobs with items_added
             job1 = Job(
                 list_id=radarr_list.id,
@@ -197,7 +199,7 @@ class TestDashboardStatsGET:
             )
             db.session.add_all([job1, job2, job3])
             db.session.commit()
-            
+
             # Refresh cache to calculate stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -228,7 +230,7 @@ class TestDashboardStatsGET:
                 api_key_encrypted=encrypted
             )
             db.session.add(config)
-            
+
             # Create a Sonarr list
             sonarr_list = List(
                 name="Test TV Shows",
@@ -238,7 +240,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(sonarr_list)
             db.session.flush()
-            
+
             # Create completed jobs with items_added
             job1 = Job(
                 list_id=sonarr_list.id,
@@ -260,7 +262,7 @@ class TestDashboardStatsGET:
             )
             db.session.add_all([job1, job2])
             db.session.commit()
-            
+
             # Refresh cache to calculate stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -292,7 +294,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -330,7 +332,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -364,7 +366,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -397,7 +399,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -429,7 +431,7 @@ class TestDashboardStatsGET:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -510,7 +512,7 @@ class TestDashboardStatsGET:
             db.session.add(radarr_config)
             db.session.add(sonarr_config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -551,7 +553,7 @@ class TestDashboardStatsGET:
             db.session.add(radarr_config)
             db.session.add(sonarr_config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -953,7 +955,7 @@ class TestDashboardErrorHandling:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -998,7 +1000,7 @@ class TestDashboardErrorHandling:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -1030,7 +1032,7 @@ class TestDashboardErrorHandling:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()

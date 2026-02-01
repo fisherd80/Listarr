@@ -1,6 +1,8 @@
-from listarr import db
 from datetime import datetime, timezone
+
+from listarr import db
 from listarr.models.custom_types import TZDateTime
+
 
 class List(db.Model):
     __tablename__ = "lists"

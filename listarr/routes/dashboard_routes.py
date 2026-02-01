@@ -1,8 +1,10 @@
-from flask import render_template, jsonify, current_app, request
-from listarr.routes import bp
-from listarr.services.dashboard_cache import get_dashboard_cache, refresh_dashboard_cache
+from flask import current_app, jsonify, render_template, request
+
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
+from listarr.routes import bp
+from listarr.services.dashboard_cache import get_dashboard_cache, refresh_dashboard_cache
+
 
 @bp.route("/")
 def dashboard_page():
@@ -40,7 +42,7 @@ def dashboard_stats():
     """
     # Check if refresh is requested
     refresh = request.args.get("refresh", "false").lower() == "true"
-    
+
     if refresh:
         # Force refresh of cache
         current_app.logger.info("Dashboard cache refresh requested")
@@ -48,7 +50,7 @@ def dashboard_stats():
     else:
         # Return cached data (calculated at startup)
         cache_data = get_dashboard_cache()
-    
+
     return jsonify(cache_data)
 
 
@@ -85,7 +87,7 @@ def recent_jobs():
             Job.completed_at.desc(),
             Job.started_at.desc()
         ).limit(5).all()
-        
+
         jobs_data = []
         for job in jobs:
             # Get list information - handle None list_id or deleted lists
@@ -102,7 +104,7 @@ def recent_jobs():
                 # No list_id
                 job_name = f"Job #{job.id}"
                 service = "Unknown"
-            
+
             # Format summary based on status
             if job.status == "completed":
                 # Build summary parts conditionally
@@ -111,7 +113,7 @@ def recent_jobs():
                     parts.append(f"{job.items_added} added")
                 if job.items_skipped > 0:
                     parts.append(f"{job.items_skipped} skipped")
-                
+
                 if len(parts) == 0:
                     # No items processed
                     summary = "No items processed"
@@ -130,7 +132,7 @@ def recent_jobs():
                 summary = "Pending..."
             else:
                 summary = f"Status: {job.status}"
-            
+
             # Determine executed_at (use completed_at if available, otherwise started_at)
             executed_at = job.completed_at if job.completed_at else job.started_at
 
@@ -150,9 +152,9 @@ def recent_jobs():
                 "summary": summary,
                 "error_message": job.error_message
             })
-        
+
         return jsonify({"jobs": jobs_data})
-    
+
     except Exception as e:
         current_app.logger.error(f"Error fetching recent jobs: {e}", exc_info=True)
         # Return empty jobs array on error

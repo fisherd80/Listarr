@@ -1,14 +1,24 @@
-from flask import render_template, flash, request, redirect, url_for, current_app, jsonify
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from listarr.routes import bp
-from listarr.forms.config_forms import RadarrAPIForm, SonarrAPIForm
-from listarr.services.radarr_service import validate_radarr_api_key, get_quality_profiles as get_radarr_quality_profiles, get_root_folders as get_radarr_root_folders, get_tags as get_radarr_tags, create_or_get_tag_id as radarr_create_or_get_tag_id
-from listarr.services.sonarr_service import validate_sonarr_api_key, get_quality_profiles as get_sonarr_quality_profiles, get_root_folders as get_sonarr_root_folders, get_tags as get_sonarr_tags, create_or_get_tag_id as sonarr_create_or_get_tag_id
-from listarr.models.service_config_model import ServiceConfig, MediaImportSettings
-from listarr.services.crypto_utils import encrypt_data, decrypt_data
+
+from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from listarr import db
+from listarr.forms.config_forms import RadarrAPIForm, SonarrAPIForm
+from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
+from listarr.routes import bp
+from listarr.services.crypto_utils import decrypt_data, encrypt_data
+from listarr.services.radarr_service import create_or_get_tag_id as radarr_create_or_get_tag_id
+from listarr.services.radarr_service import get_quality_profiles as get_radarr_quality_profiles
+from listarr.services.radarr_service import get_root_folders as get_radarr_root_folders
+from listarr.services.radarr_service import get_tags as get_radarr_tags
+from listarr.services.radarr_service import validate_radarr_api_key
+from listarr.services.sonarr_service import create_or_get_tag_id as sonarr_create_or_get_tag_id
+from listarr.services.sonarr_service import get_quality_profiles as get_sonarr_quality_profiles
+from listarr.services.sonarr_service import get_root_folders as get_sonarr_root_folders
+from listarr.services.sonarr_service import get_tags as get_sonarr_tags
+from listarr.services.sonarr_service import validate_sonarr_api_key
+
 
 # ----------------------
 # Helper Functions
@@ -100,17 +110,24 @@ def config_page():
             if not radarr_url_data or not radarr_api_data:
                 flash("URL and API Key cannot be empty.", "warning")
             elif not _is_valid_url(radarr_url_data):
-                flash("Invalid URL format. Please enter a valid URL (e.g., http://localhost:7878).", "warning")
+                flash(
+                    "Invalid URL format. Please enter a valid URL (e.g., http://localhost:7878).",
+                    "warning"
+                )
             else:
                 # Test the API connection using helper function
-                test_result, test_timestamp, test_status = _test_and_update_radarr_status(radarr_url_data, radarr_api_data)
+                test_result, test_timestamp, test_status = _test_and_update_radarr_status(
+                    radarr_url_data, radarr_api_data
+                )
 
                 if not test_result:
                     flash("Invalid Radarr URL or API Key. Please check and try again.", "error")
                 else:
                     try:
                         # Encrypt the API key
-                        enc_key = encrypt_data(radarr_api_data, instance_path=current_app.instance_path)
+                        enc_key = encrypt_data(
+                            radarr_api_data, instance_path=current_app.instance_path
+                        )
 
                         radarr_service = ServiceConfig.query.filter_by(service="RADARR").first()
                         if not radarr_service:
@@ -132,7 +149,9 @@ def config_page():
                         flash("Radarr URL and API Key saved successfully.", "success")
                     except Exception as e:
                         db.session.rollback()
-                        current_app.logger.error(f"Error saving Radarr configuration: {e}", exc_info=True)
+                        current_app.logger.error(
+                            f"Error saving Radarr configuration: {e}", exc_info=True
+                        )
                         flash("Failed to save Radarr configuration. Please try again.", "error")
 
         if "save_sonarr_api" in request.form:
@@ -142,17 +161,24 @@ def config_page():
             if not sonarr_url_data or not sonarr_api_data:
                 flash("URL and API Key cannot be empty.", "warning")
             elif not _is_valid_url(sonarr_url_data):
-                flash("Invalid URL format. Please enter a valid URL (e.g., http://localhost:8989).", "warning")
+                flash(
+                    "Invalid URL format. Please enter a valid URL (e.g., http://localhost:8989).",
+                    "warning"
+                )
             else:
                 # Test the API connection using helper function
-                test_result, test_timestamp, test_status = _test_and_update_sonarr_status(sonarr_url_data, sonarr_api_data)
+                test_result, test_timestamp, test_status = _test_and_update_sonarr_status(
+                    sonarr_url_data, sonarr_api_data
+                )
 
                 if not test_result:
                     flash("Invalid Sonarr URL or API Key. Please check and try again.", "error")
                 else:
                     try:
                         # Encrypt the API key
-                        enc_key = encrypt_data(sonarr_api_data, instance_path=current_app.instance_path)
+                        enc_key = encrypt_data(
+                            sonarr_api_data, instance_path=current_app.instance_path
+                        )
 
                         sonarr_service = ServiceConfig.query.filter_by(service="SONARR").first()
                         if not sonarr_service:
@@ -174,22 +200,31 @@ def config_page():
                         flash("Sonarr URL and API Key saved successfully.", "success")
                     except Exception as e:
                         db.session.rollback()
-                        current_app.logger.error(f"Error saving Sonarr configuration: {e}", exc_info=True)
+                        current_app.logger.error(
+                            f"Error saving Sonarr configuration: {e}", exc_info=True
+                        )
                         flash("Failed to save Sonarr configuration. Please try again.", "error")
 
         return redirect(url_for("main.config_page"))
 
-   
+
     # Populate form with existing key for GET requests
     radarr_existing = ServiceConfig.query.filter_by(service="RADARR").first()
     if radarr_existing and radarr_existing.api_key_encrypted:
         radarr_api_form.radarr_url.data = radarr_existing.base_url
         try:
-            radarr_api_form.radarr_api.data = decrypt_data(radarr_existing.api_key_encrypted, instance_path=current_app.instance_path)
+            radarr_api_form.radarr_api.data = decrypt_data(
+                radarr_existing.api_key_encrypted, instance_path=current_app.instance_path
+            )
         except (ValueError, Exception) as e:
-            current_app.logger.error(f"Error decrypting Radarr API key: {e}", exc_info=True)
+            current_app.logger.error(
+                f"Error decrypting Radarr API key: {e}", exc_info=True
+            )
             radarr_api_form.radarr_api.data = ""
-            flash("Unable to decrypt stored Radarr API key. Please re-enter your Radarr API key.", "warning")
+            flash(
+                "Unable to decrypt stored Radarr API key. Please re-enter your Radarr API key.",
+                "warning"
+            )
 
     # Pass last test data to template
     last_radarr_test_at = radarr_existing.last_tested_at if radarr_existing else None
@@ -207,11 +242,18 @@ def config_page():
     if sonarr_existing and sonarr_existing.api_key_encrypted:
         sonarr_api_form.sonarr_url.data = sonarr_existing.base_url
         try:
-            sonarr_api_form.sonarr_api.data = decrypt_data(sonarr_existing.api_key_encrypted, instance_path=current_app.instance_path)
+            sonarr_api_form.sonarr_api.data = decrypt_data(
+                sonarr_existing.api_key_encrypted, instance_path=current_app.instance_path
+            )
         except (ValueError, Exception) as e:
-            current_app.logger.error(f"Error decrypting Sonarr API key: {e}", exc_info=True)
+            current_app.logger.error(
+                f"Error decrypting Sonarr API key: {e}", exc_info=True
+            )
             sonarr_api_form.sonarr_api.data = ""
-            flash("Unable to decrypt stored Sonarr API key. Please re-enter your Sonarr API key.", "warning")
+            flash(
+                "Unable to decrypt stored Sonarr API key. Please re-enter your Sonarr API key.",
+                "warning"
+            )
 
     # Pass Sonarr last test data to template
     last_sonarr_test_at = sonarr_existing.last_tested_at if sonarr_existing else None
@@ -247,7 +289,7 @@ def test_radarr_api():
 
     if not base_url or not api_key:
         return jsonify({"success": False, "message": "URL and API key cannot be empty."})
-    
+
     if not _is_valid_url(base_url):
         return jsonify({"success": False, "message": "Invalid URL format. Please enter a valid URL (e.g., http://localhost:7878)."})
 
@@ -271,7 +313,7 @@ def test_sonarr_api():
 
     if not base_url or not api_key:
         return jsonify({"success": False, "message": "URL and API key cannot be empty."})
-    
+
     if not _is_valid_url(base_url):
         return jsonify({"success": False, "message": "Invalid URL format. Please enter a valid URL (e.g., http://localhost:8989)."})
 

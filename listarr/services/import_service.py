@@ -9,14 +9,18 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from listarr.models.lists_model import List
-from listarr.models.service_config_model import ServiceConfig, MediaImportSettings
-from listarr.services.crypto_utils import decrypt_data
+from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services import radarr_service, sonarr_service, tmdb_service
+from listarr.services.crypto_utils import decrypt_data
 from listarr.services.tmdb_cache import (
-    get_trending_movies_cached, get_trending_tv_cached,
-    get_popular_movies_cached, get_popular_tv_cached,
-    get_top_rated_movies_cached, get_top_rated_tv_cached,
-    discover_movies_cached, discover_tv_cached
+    discover_movies_cached,
+    discover_tv_cached,
+    get_popular_movies_cached,
+    get_popular_tv_cached,
+    get_top_rated_movies_cached,
+    get_top_rated_tv_cached,
+    get_trending_movies_cached,
+    get_trending_tv_cached,
 )
 
 logger = logging.getLogger(__name__)
@@ -317,7 +321,10 @@ def _import_movies(
 
         time.sleep(API_CALL_DELAY)
 
-    logger.info(f"Import complete: {len(result.added)} added, {len(result.skipped)} skipped, {len(result.failed)} failed")
+    logger.info(
+        f"Import complete: {len(result.added)} added, "
+        f"{len(result.skipped)} skipped, {len(result.failed)} failed"
+    )
     return result
 
 
@@ -428,7 +435,10 @@ def _import_series(
 
         time.sleep(API_CALL_DELAY)
 
-    logger.info(f"Import complete: {len(result.added)} added, {len(result.skipped)} skipped, {len(result.failed)} failed")
+    logger.info(
+        f"Import complete: {len(result.added)} added, "
+        f"{len(result.skipped)} skipped, {len(result.failed)} failed"
+    )
     return result
 
 

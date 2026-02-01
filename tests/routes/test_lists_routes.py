@@ -6,12 +6,14 @@ Tests cover:
 - GET /lists/<id>/status - Get job status from database
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
-from listarr.models.lists_model import List
-from listarr.models.jobs_model import Job
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from listarr import db
+from listarr.models.jobs_model import Job
+from listarr.models.lists_model import List
 
 
 def create_test_list(name, is_active=True, last_run_at=None):

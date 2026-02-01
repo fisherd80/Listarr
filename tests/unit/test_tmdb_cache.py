@@ -9,16 +9,18 @@ Tests cover:
 - Region-aware cache keys
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from listarr.services.tmdb_cache import (
     _get_tmdb_region,
-    get_top_rated_movies_cached,
-    get_top_rated_tv_cached,
-    get_popular_movies_cached,
+    clear_all_caches,
     discover_movies_cached,
     discover_tv_cached,
-    clear_all_caches
+    get_popular_movies_cached,
+    get_top_rated_movies_cached,
+    get_top_rated_tv_cached,
 )
 
 

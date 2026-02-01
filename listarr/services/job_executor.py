@@ -6,8 +6,8 @@ Orchestrates background job execution with database persistence, retry logic, an
 import logging
 import threading
 import traceback
-from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 from listarr import db
 from listarr.models.jobs_model import Job, JobItem
@@ -186,7 +186,10 @@ def _mark_job_completed(job_id, result, start_time):
         _store_job_items(job_id, result)
 
     db.session.commit()
-    logger.info(f"Job {job_id} completed: {job.items_added} added, {job.items_skipped} skipped, {job.items_failed} failed")
+    logger.info(
+        f"Job {job_id} completed: {job.items_added} added, "
+        f"{job.items_skipped} skipped, {job.items_failed} failed"
+    )
 
 
 def _mark_job_failed(job_id, error_message, error_details, start_time=None):

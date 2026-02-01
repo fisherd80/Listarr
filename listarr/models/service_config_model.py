@@ -1,6 +1,8 @@
-from listarr import db
 from datetime import datetime, timezone
+
+from listarr import db
 from listarr.models.custom_types import TZDateTime
+
 
 class ServiceConfig(db.Model):
     __tablename__="service_config"
@@ -25,13 +27,13 @@ class MediaImportSettings(db.Model):
     __tablename__ = "media_import_settings"
 
     id = db.Column(db.Integer, primary_key=True)
-    service = db.Column(db.String(20), nullable=False)  
+    service = db.Column(db.String(20), nullable=False)
 
     root_folder = db.Column(db.String(255), nullable=False)
     quality_profile_id = db.Column(db.Integer, nullable=False)
 
     monitored = db.Column(db.Boolean, default=True)
     search_on_add = db.Column(db.Boolean, default=True)
-    season_folder = db.Column(db.Boolean, default=True)  
+    season_folder = db.Column(db.Boolean, default=True)
 
     default_tag_id = db.Column(db.Integer)  # Radarr/Sonarr service tag ID

@@ -9,10 +9,12 @@ Tests cover:
 - Field types and nullable constraints
 """
 
-import pytest
 from datetime import datetime, timezone
-from listarr.models.service_config_model import ServiceConfig
+
+import pytest
+
 from listarr import db
+from listarr.models.service_config_model import ServiceConfig
 
 
 class TestServiceConfigModel:

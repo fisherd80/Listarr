@@ -1,10 +1,12 @@
-import os
 import logging
+import os
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+
 from listarr.services.crypto_utils import load_encryption_key
 
 db = SQLAlchemy()
@@ -86,9 +88,11 @@ def create_app(test_config=None):
 
 def recover_interrupted_jobs(app):
     """Mark any 'running' jobs as failed on startup."""
-    from listarr.models.jobs_model import Job
     from datetime import datetime, timezone
+
     from sqlalchemy.exc import OperationalError
+
+    from listarr.models.jobs_model import Job
 
     try:
         running_jobs = Job.query.filter_by(status='running').all()

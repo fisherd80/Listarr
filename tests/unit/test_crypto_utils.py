@@ -10,16 +10,18 @@ Tests cover:
 """
 
 import os
-import pytest
 import tempfile
+
+import pytest
 from cryptography.fernet import Fernet
+
 from listarr.services.crypto_utils import (
-    generate_key,
-    load_encryption_key,
-    get_fernet,
-    encrypt_data,
+    _get_key_path,
     decrypt_data,
-    _get_key_path
+    encrypt_data,
+    generate_key,
+    get_fernet,
+    load_encryption_key,
 )
 
 

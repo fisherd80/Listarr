@@ -1,4 +1,5 @@
 import logging
+
 from pyarr import SonarrAPI
 
 logger = logging.getLogger(__name__)
@@ -176,15 +177,15 @@ def get_missing_series_count(base_url: str, api_key: str):
         # Use get_wanted() to directly fetch missing episodes
         # This is much more efficient than iterating through all series
         wanted_response = sonarr.get_wanted()
-        
+
         if not wanted_response:
             return 0
-        
+
         # Extract records from response (get_wanted returns a dict with 'records' key)
         records = wanted_response.get("records", [])
         if not records:
             return 0
-        
+
         # Extract unique series IDs from missing episodes
         # Each episode should have a 'seriesId' field
         unique_series_ids = set()
@@ -198,7 +199,7 @@ def get_missing_series_count(base_url: str, api_key: str):
                 series = episode.get("series")
                 if series and series.get("id"):
                     unique_series_ids.add(series.get("id"))
-        
+
         return len(unique_series_ids)
     except Exception as e:
         logger.error(f"Error fetching missing series count: {e}", exc_info=True)

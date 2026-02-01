@@ -1,13 +1,14 @@
 [tool.ruff]
-line-length = 100
+line-length = 120  # 120 is common for modern projects (PEP 8 suggests 79, black uses 88)
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = [
-  "F403", # star imports (Flask pattern)
+  "F403",  # star imports (Flask pattern)
+  "W293",  # blank line contains whitespace (cosmetic, auto-fixed by formatters)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
-"tests/**" = ["F401", "F841"]
+"tests/**" = ["F401", "F841", "E501"]  # E501: line length relaxed for test assertions

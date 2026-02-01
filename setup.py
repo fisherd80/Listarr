@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
+
 from listarr import create_app
 from listarr.services.crypto_utils import generate_key
+
 
 def main():
     # Determine instance path (Flask default: <project_root>/instance)
@@ -25,12 +27,12 @@ def main():
     # STEP 2: Now create app
     # This will automatically initialize the database tables via create_app() -> db.create_all()
     app = create_app()
-    
+
     # Verify database file creation
     db_path = Path(app.instance_path) / "listarr.db"
     if db_path.exists():
          print(f">>> Database initialized at {db_path}")
-    
+
     print(">>> Setup complete. You can now run `python run.py` to start the app.")
 
 if __name__ =="__main__":

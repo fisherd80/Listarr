@@ -1,6 +1,7 @@
 from listarr import db
 from listarr.models.custom_types import TZDateTime
 
+
 class Job(db.Model):
     __tablename__ = "jobs"
 

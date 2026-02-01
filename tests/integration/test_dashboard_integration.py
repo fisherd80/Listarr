@@ -11,13 +11,15 @@ Tests cover:
 - Recent jobs display
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
-from listarr.models.service_config_model import ServiceConfig
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from listarr import db
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
-from listarr import db
+from listarr.models.service_config_model import ServiceConfig
 from listarr.services.crypto_utils import encrypt_data
 
 
@@ -45,7 +47,7 @@ class TestDashboardEndToEndWorkflow:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -94,7 +96,7 @@ class TestDashboardEndToEndWorkflow:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -161,7 +163,7 @@ class TestDashboardEndToEndWorkflow:
             db.session.add(radarr_config)
             db.session.add(sonarr_config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -229,7 +231,7 @@ class TestDashboardEndToEndWorkflow:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -420,7 +422,7 @@ class TestDashboardErrorRecovery:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -454,7 +456,7 @@ class TestDashboardErrorRecovery:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -485,7 +487,7 @@ class TestDashboardErrorRecovery:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to get updated stats
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -536,7 +538,7 @@ class TestMultipleRequestsScenarios:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache once to populate it
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -564,7 +566,7 @@ class TestMultipleRequestsScenarios:
             )
             db.session.add(config)
             db.session.commit()
-            
+
             # Refresh cache to populate it
             from listarr.services.dashboard_cache import refresh_dashboard_cache
             refresh_dashboard_cache()
@@ -627,15 +629,15 @@ class TestDashboardCacheRefresh:
         # First request (may trigger initial cache)
         response1 = client.get('/api/dashboard/stats')
         assert response1.status_code == 200
-        
+
         # Second request should use cache (no refresh)
         response2 = client.get('/api/dashboard/stats')
         assert response2.status_code == 200
-        
+
         # Both should return valid structure
         data1 = response1.get_json()
         data2 = response2.get_json()
-        
+
         assert 'radarr' in data1
         assert 'sonarr' in data1
         assert 'radarr' in data2
