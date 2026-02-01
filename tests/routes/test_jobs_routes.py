@@ -41,13 +41,8 @@ class TestGetJobs:
 
     def test_filters_by_status(self, client, app):
         """Filters jobs by status."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for status in ['completed', 'completed', 'failed']:
@@ -67,13 +62,8 @@ class TestGetJobs:
 
     def test_filters_by_list_id(self, client, app):
         """Filters jobs by list_id."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for list_id in [1, 1, 2]:
@@ -92,13 +82,8 @@ class TestGetJobs:
 
     def test_enforces_max_per_page(self, client, app):
         """Enforces max 50 per_page limit."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for i in range(60):
@@ -122,13 +107,8 @@ class TestGetRecentJobs:
 
     def test_returns_max_5_jobs(self, client, app):
         """Returns at most 5 recent jobs."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for i in range(10):
@@ -155,15 +135,9 @@ class TestGetRecentJobs:
 
     def test_includes_target_service(self, client, app):
         """Includes target_service from related list."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
         from listarr.models.lists_model import List
-=======
-        from listarr.models.jobs_model import Job
-        from listarr.models.lists_model import List
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             list_obj = List(
@@ -202,13 +176,8 @@ class TestGetJobDetail:
 
     def test_returns_job_with_items(self, client, app):
         """Returns job detail with items."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job, JobItem
-=======
-        from listarr.models.jobs_model import Job, JobItem
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             job = Job(
@@ -240,13 +209,8 @@ class TestGetJobDetail:
 
     def test_returns_job_without_items(self, client, app):
         """Returns job even when no items exist."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             job = Job(
@@ -275,13 +239,8 @@ class TestRerunJob:
 
     def test_rejects_non_failed_job(self, client, app):
         """Cannot rerun completed jobs."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             job = Job(
@@ -302,13 +261,8 @@ class TestRerunJob:
 
     def test_rejects_when_list_deleted(self, client, app):
         """Cannot rerun when list no longer exists."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             job = Job(
@@ -328,15 +282,9 @@ class TestRerunJob:
 
     def test_rejects_inactive_list(self, client, app):
         """Cannot rerun when list is inactive."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
         from listarr.models.lists_model import List
-=======
-        from listarr.models.jobs_model import Job
-        from listarr.models.lists_model import List
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             list_obj = List(
@@ -371,13 +319,8 @@ class TestClearJobs:
 
     def test_clear_all_jobs(self, client, app):
         """Clears all non-running jobs."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for status in ['completed', 'failed', 'running']:
@@ -403,13 +346,8 @@ class TestClearJobs:
 
     def test_clear_list_jobs(self, client, app):
         """Clears jobs for specific list."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for list_id in [1, 1, 2]:
@@ -435,13 +373,8 @@ class TestClearJobs:
 
     def test_clear_list_jobs_preserves_running(self, client, app):
         """Clear per-list preserves running jobs."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for status in ['completed', 'running']:
@@ -476,13 +409,8 @@ class TestGetRunningJobs:
 
     def test_returns_running_jobs(self, client, app):
         """Returns list of running jobs."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             for status in ['running', 'completed', 'running']:
@@ -501,13 +429,8 @@ class TestGetRunningJobs:
 
     def test_includes_job_metadata(self, client, app):
         """Running jobs include job_id, list_id, list_name."""
-<<<<<<< HEAD
         from listarr import db
         from listarr.models.jobs_model import Job
-=======
-        from listarr.models.jobs_model import Job
-        from listarr import db
->>>>>>> origin/develop
 
         with app.app_context():
             job = Job(
