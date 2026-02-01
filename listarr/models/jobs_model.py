@@ -1,5 +1,4 @@
 from listarr import db
-from datetime import datetime, timezone
 from listarr.models.custom_types import TZDateTime
 
 class Job(db.Model):
@@ -50,7 +49,7 @@ class JobItem(db.Model):
     __tablename__ = "job_items"
 
     id = db.Column(db.Integer, primary_key=True)
-    job_id = db.Column(db.Integer, db.ForeignKey("jobs.id"), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
 
     tmdb_id = db.Column(db.Integer)
     title = db.Column(db.String(255))

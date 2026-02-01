@@ -9,16 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+### Planned (Phases 7-10)
 
-- List generation wizard UI
-- Job execution engine (background task runner)
-- Jobs page for activity monitoring
-- Import queue logic with conflict handling
-- Scheduling system with cron integration
-- Cache management for cached lists (TTL-based)
-- Global blacklist system
-- Tag functionality for import settings
+- **Phase 7: Scheduler System** - Cron-based automated list refresh
+- **Phase 8: Settings Caching** - Background refresh of Radarr/Sonarr settings
+- **Phase 9: User Authentication** - Login system to secure web interface
+- **Phase 10: Direct API** - Replace pyarr with direct Radarr/Sonarr API calls
+
+---
+
+## Phase 6.3 - Test Coverage Enhancement (2025-02-01)
+
+### Added
+
+- **29 new tests** for Phase 6.2 features (415 to 444 tests, +7%)
+- **test_tmdb_cache.py** - 15 unit tests for TMDB caching layer
+  - Cache hit/miss scenarios
+  - Region filtering validation
+  - Cache key generation
+- **test_import_integration.py** - 7 integration tests for import flows
+  - Top Rated import flow testing
+- **TEST_SUMMARY.md** - Comprehensive test documentation with full breakdown
+
+### Changed
+
+- **Test coverage improved** from 52% to 56% (+4%)
+- **tmdb_cache.py coverage** increased from 14% to 40% (+26%)
+- **tmdb_service.py coverage** increased from 71% to 83% (+12%)
+- **import_service.py coverage** increased from 9% to 22% (+13%)
 
 ---
 
@@ -443,12 +461,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Development Status
 
-**Current Completion: ~65%**
+**Current Completion: ~80%** (10 of 13 phases complete)
 
-- ✅ **Phase 1**: Complete - API integration (TMDB, Radarr, Sonarr) and Import Settings
-- ✅ **Phase 2**: Complete - Dashboard stats with live data and recent jobs
-- 📋 **Phase 3**: Planned - List generation UI, job execution engine, and monitoring
-- 🔮 **Phase 4**: Planned - Scheduling, caching, and advanced features
+### Completed Phases
+- ✅ **Phase 1**: List Management System - CRUD operations for TMDB lists
+- ✅ **Phase 2**: List Creation Wizard - Multi-step wizard with presets and live preview
+- ✅ **Phase 3**: TMDB Caching Layer - Smart caching to respect rate limits
+- ✅ **Phase 3.1**: Config Page Tags - Tag storage with create-if-missing pattern
+- ✅ **Phase 4**: Import Automation Engine - Radarr/Sonarr import with error handling
+- ✅ **Phase 5**: Manual Trigger UI - Run lists on-demand from UI
+- ✅ **Phase 6**: Job Execution Framework - Background processing with history
+- ✅ **Phase 6.1**: Bug Fixes - Tag override, logging, UI feedback
+- ✅ **Phase 6.2**: List Enhancements - Top Rated, region filtering, larger limits
+- ✅ **Phase 6.3**: Test Coverage - 444 tests, 52% → 56% coverage
+
+### Planned Phases
+- 📋 **Phase 7**: Scheduler System - Cron-based automated list refresh
+- 📋 **Phase 8**: Settings Caching - Background refresh of service settings
+- 🔮 **Phase 9**: User Authentication - Login system for web interface
+- 🔮 **Phase 10**: Direct API - Replace pyarr with direct API calls
 
 ---
 
@@ -460,7 +491,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instance folder contains runtime data (database, encryption key)
 - Docker-first deployment with persistent volume support
 - Comprehensive documentation in `CLAUDE.md`
+- Test suite: 444 tests with 56% coverage
 
 ---
 
-**Last Updated:** 2025-01-09
+**Last Updated:** 2025-02-01

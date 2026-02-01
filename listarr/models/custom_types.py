@@ -1,7 +1,7 @@
 """
 Custom SQLAlchemy column types for the Listarr application.
 """
-from datetime import datetime, timezone
+from datetime import timezone
 from sqlalchemy.types import TypeDecorator, DateTime as SQLAlchemyDateTime
 
 

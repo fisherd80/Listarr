@@ -2,9 +2,9 @@ from flask import Blueprint
 
 bp = Blueprint("main", __name__)
 
-# Import all model classes
-from listarr.routes.dashboard_routes import *
-from listarr.routes.lists_routes import *
-from listarr.routes.jobs_routes import *
-from listarr.routes.config_routes import *
-from listarr.routes.settings_routes import *
+# Import route modules to register routes with blueprint  # noqa: E402
+from listarr.routes.dashboard_routes import *  # noqa: E402, F403
+from listarr.routes.lists_routes import *  # noqa: E402, F403
+from listarr.routes.jobs_routes import *  # noqa: E402, F403
+from listarr.routes.config_routes import *  # noqa: E402, F403
+from listarr.routes.settings_routes import *  # noqa: E402, F403

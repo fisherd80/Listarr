@@ -124,21 +124,19 @@ Plans:
 
 ---
 
-### Phase 6: Job Execution Framework
+### Phase 6: Job Execution Framework (Complete)
 
 **Goal:** Create background job processing system with execution tracking and history
 
 **Deliverable:** Jobs can be queued, executed, tracked, and their history (success/failure) is recorded and displayed
 
-**Plans:** 6 plans in 3 waves
-
-Plans:
-- [ ] 06-01-PLAN.md — Enhance Job model + WAL mode + tenacity
-- [ ] 06-02-PLAN.md — Job executor service with timeout/retry
-- [ ] 06-03-PLAN.md — Migrate lists_routes to job_executor
-- [ ] 06-04-PLAN.md — Jobs API endpoints
-- [ ] 06-05-PLAN.md — Jobs page UI
-- [ ] 06-06-PLAN.md — Dashboard recent jobs widget
+**Status:** Complete (2026-01-30) - 6/6 plans executed
+- 06-01: Enhanced Job model + WAL mode + tenacity
+- 06-02: Job executor service with timeout/retry
+- 06-03: Migrated lists_routes to job_executor
+- 06-04: Jobs API endpoints (7 endpoints)
+- 06-05: Jobs page UI (paginated table, filters, expandable rows)
+- 06-06: Dashboard recent jobs widget
 
 **Verification:**
 - Queue a list import job and verify it executes
@@ -146,6 +144,72 @@ Plans:
 - Verify failed jobs are logged with error details
 - Check that job status updates correctly (pending -> running -> completed/failed)
 - Confirm job history persists across application restarts
+
+---
+
+### Phase 6.1: Bug Fixes (Complete)
+
+**Goal:** Fix bugs discovered during manual testing of Phases 1-6
+
+**Deliverable:** All identified bugs resolved, application stable for continued development
+
+**Status:** Complete (2026-01-31) - 2/2 plans executed
+- 06.1-01: Tag override logic + logging configuration
+- 06.1-02: UI feedback bugs verification and fix
+
+**Verification:**
+- Create list with override tag, verify only override tag applied (not default + override)
+- Set LOG_LEVEL environment variable, verify logs respect it
+- Run a list, verify status shows "Running" throughout execution
+- Run multiple lists, verify result toasts appear consistently
+- Edit a list and save, verify redirect to lists page with success notification
+
+---
+
+### Phase 6.2: List Enhancements (Complete)
+
+**Goal:** Enhance list creation with additional presets, expanded options, and region filtering
+
+**Deliverable:** Wizard supports Top/Popular/Trending presets, larger list limits, and TMDB region filtering
+
+**Status:** Complete (2026-01-31) - 3/3 plans executed
+- 06.2-01: Top Rated presets backend (TMDB service, cache, routes, import)
+- 06.2-02: Limit options update and TMDB region setting
+- 06.2-03: Preset UI layout and region integration
+
+**Verification:**
+- Create list using "Top Movies" preset, verify TMDB Top Rated endpoint used
+- Verify wizard UI displays all 3 preset categories clearly
+- Create new list, verify default limit is 100
+- Select MAX (1000) limit, verify warning text appears
+- Set region in Settings, verify TMDB API calls include region parameter
+- Create list with region set, verify results are region-appropriate
+
+---
+
+### Phase 6.3: Update Testing with Comprehensive Test Generator (Complete)
+
+**Goal:** Enhance test coverage using pytest-cov analysis and systematic test generation to ensure robust testing across all Phase 6.2 features
+
+**Deliverable:** Updated and expanded test suite with comprehensive coverage for Phase 6.2 functionality (top_rated presets, region filtering, cache keys)
+
+**Status:** Complete (2026-02-01) - 4/4 plans executed
+- 06.3-01: Coverage baseline (52%) and gap analysis
+- 06.3-02: TMDB top_rated tests (15 tests added)
+- 06.3-03: Region filtering and import tests (14 tests added)
+- 06.3-04: Final coverage verification (56%, +4% improvement)
+
+**Results:**
+- Test count: 415 → 444 (+29 tests)
+- Overall coverage: 52% → 56%
+- tmdb_cache.py: 14% → 40% (+26%)
+- tmdb_service.py: 71% → 83% (+12%)
+
+**Verification:**
+- Run full test suite and verify all tests pass (430+)
+- Check test coverage metrics have improved from baseline
+- Verify Phase 6.2 critical paths have dedicated test coverage
+- Confirm edge cases are tested (region filtering, cache keys, error handling)
 
 ---
 
@@ -228,6 +292,8 @@ All phases delivered and verified:
 - Import automation reliably sends items to Radarr/Sonarr
 - Manual triggers allow on-demand execution from UI
 - Job execution framework tracks all operations
+- Bug fixes from manual testing resolved
+- List enhancements (Top preset, expanded limits, region filtering) complete
 - Scheduler runs lists automatically on cron schedules
 - Service settings cached on launch with background refresh
 - User authentication secures web interface
@@ -237,7 +303,17 @@ All phases delivered and verified:
 
 ---
 
+## Documentation Standard
+
+**Effective from Phase 6 onwards:** At the completion of each phase, update:
+- **README.md** - Reflect current features and capabilities
+- **CHANGELOG.md** - Document changes made in the phase
+
+This ensures documentation stays current with development progress.
+
+---
+
 *Roadmap created: 2026-01-12*
-*Last updated: 2026-01-25*
-*Phases: 10 (5 complete, 5 remaining)*
+*Last updated: 2026-02-01*
+*Phases: 13 (10 complete, 3 remaining)*
 *Depth: Standard (3-5 plans per phase)*

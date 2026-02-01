@@ -129,6 +129,28 @@ content %}
           </div>
         </div>
 
+        <!-- Region Setting -->
+        <div class="relative max-w-lg">
+          <label
+            for="tmdb_region"
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
+            Region
+          </label>
+          <select
+            id="tmdb_region"
+            name="{{ tmdb_api_form.tmdb_region.name }}"
+            class="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
+          >
+            {% for value, label in tmdb_api_form.tmdb_region.choices %}
+            <option value="{{ value }}" {% if tmdb_api_form.tmdb_region.data == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Filter TMDB results by region. Leave as "Worldwide" for all regions.
+          </p>
+        </div>
+
         <!-- Action Buttons -->
         <div class="flex gap-3 items-center">
           <button

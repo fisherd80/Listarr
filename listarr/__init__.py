@@ -36,11 +36,19 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
-    # Configure logging
+    # Configure logging from LOG_LEVEL environment variable
+    log_level_str = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    log_level = getattr(logging, log_level_str, logging.INFO)
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format='%(asctime)s %(name)s %(levelname)s: %(message)s'
     )
+
+    # Suppress noisy library logs unless DEBUG mode
+    if log_level > logging.DEBUG:
+        for logger_name in ['httpx', 'httpcore', 'urllib3', 'werkzeug']:
+            logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     # Ensure instance folder exists
     os.makedirs(app.instance_path, exist_ok=True)
@@ -62,8 +70,8 @@ def create_app(test_config=None):
     # Initialize dashboard cache and recover interrupted jobs at startup
     with app.app_context():
         # Import models so they are registered with SQLAlchemy
-        from listarr import models
-        
+        from listarr import models  # noqa: F401
+
         # Create tables if they don't exist
         db.create_all()
 

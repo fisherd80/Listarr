@@ -88,7 +88,7 @@ const wizardState = {
         year_min: null,
         year_max: null,
         rating_min: null,
-        limit: 20,
+        limit: 100,
     },
     // UI state for genre selector
     genresExpanded: false,  // Track if "Show more" is expanded
@@ -215,7 +215,12 @@ function loadExistingListData() {
             wizardState.filters.year_max = existingList.filters.year_max;
             wizardState.filters.rating_min = existingList.filters.rating_min;
         }
-        wizardState.filters.limit = existingList.limit || 20;
+        // Migrate legacy limits (10, 20 -> 25)
+        let limit = existingList.limit || 100;
+        if (limit === 10 || limit === 20) {
+            limit = 25;  // Silent migration
+        }
+        wizardState.filters.limit = limit;
 
         // Populate import settings
         if (existingList.import_settings) {
@@ -512,13 +517,25 @@ function handleRatingChange() {
 }
 
 /**
- * Handle limit select change
+ * Handle limit select change with warning for large values
  */
 function handleLimitChange() {
     const limitSelect = document.getElementById("filter-limit");
-    if (limitSelect) {
-        wizardState.filters.limit = parseInt(limitSelect.value, 10);
+    const warningEl = document.getElementById("limit-warning");
+    if (!limitSelect) return;
+
+    const limit = parseInt(limitSelect.value, 10);
+    wizardState.filters.limit = limit;
+
+    // Show warning for large limits (500 or 1000)
+    if (warningEl) {
+        if (limit >= 500) {
+            warningEl.classList.remove("hidden");
+        } else {
+            warningEl.classList.add("hidden");
+        }
     }
+
     onFiltersChanged();
 }
 
@@ -774,10 +791,21 @@ function populateStep2EditMode() {
         }
     }
 
-    // Limit select
+    // Limit select - handle migrated values
     const limitSelect = document.getElementById("filter-limit");
     if (limitSelect && wizardState.filters.limit) {
-        limitSelect.value = wizardState.filters.limit;
+        // If the limit doesn't exist in dropdown options, it was migrated
+        const optionExists = Array.from(limitSelect.options).some(
+            opt => parseInt(opt.value, 10) === wizardState.filters.limit
+        );
+        if (optionExists) {
+            limitSelect.value = wizardState.filters.limit;
+        } else {
+            // Migrated value - set to closest option
+            limitSelect.value = '25';
+        }
+        // Trigger warning check
+        handleLimitChange();
     }
 }
 
@@ -1489,6 +1517,8 @@ function populateStep4() {
             "trending_tv": "Trending TV Shows",
             "popular_movies": "Popular Movies",
             "popular_tv": "Popular TV Shows",
+            "top_rated_movies": "Top Rated Movies",
+            "top_rated_tv": "Top Rated TV Shows",
         };
         wizardState.schedule.name = presetNames[wizardState.preset] || "";
     }
@@ -1541,6 +1571,8 @@ function updateSummaryType() {
             "trending_tv": "Preset: Trending TV",
             "popular_movies": "Preset: Popular Movies",
             "popular_tv": "Preset: Popular TV",
+            "top_rated_movies": "Preset: Top Rated Movies",
+            "top_rated_tv": "Preset: Top Rated TV",
         };
         el.textContent = presetLabels[wizardState.preset] || "Preset";
     } else {

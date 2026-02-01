@@ -39,7 +39,7 @@ def validate_tmdb_api_key(api_key: str) -> bool:
         return False
 
     try:
-        tmdb = _init_tmdb(api_key)
+        _init_tmdb(api_key)
         # Test by fetching configuration
         # tmdbv3api will raise exception if API key is invalid
         movie = Movie()
@@ -156,13 +156,14 @@ def get_trending_tv(api_key: str, time_window: str = 'week', page: int = 1) -> l
         return []
 
 
-def get_popular_movies(api_key: str, page: int = 1) -> list:
+def get_popular_movies(api_key: str, page: int = 1, region: str = None) -> list:
     """
     Fetch popular movies from TMDB.
 
     Args:
         api_key (str): TMDB API key
         page (int): Page number (default: 1)
+        region (str): ISO 3166-1 Alpha-2 region code (optional)
 
     Returns:
         list: List of movie dicts
@@ -173,7 +174,8 @@ def get_popular_movies(api_key: str, page: int = 1) -> list:
     try:
         _init_tmdb(api_key)
         movie = Movie()
-        results = movie.popular(page=page)
+        # tmdbv3api popular() accepts region parameter
+        results = movie.popular(page=page, region=region) if region else movie.popular(page=page)
         return results
     except Exception as e:
         logger.error(f"Error fetching popular movies: {e}", exc_info=True)
@@ -204,7 +206,57 @@ def get_popular_tv(api_key: str, page: int = 1) -> list:
         return []
 
 
-def discover_movies(api_key: str, filters: dict = None, page: int = 1) -> list:
+def get_top_rated_movies(api_key: str, page: int = 1, region: str = None) -> list:
+    """
+    Fetch top rated movies from TMDB.
+
+    Args:
+        api_key (str): TMDB API key
+        page (int): Page number (default: 1)
+        region (str): ISO 3166-1 Alpha-2 region code (optional)
+
+    Returns:
+        list: List of movie dicts
+    """
+    if not api_key:
+        return []
+
+    try:
+        _init_tmdb(api_key)
+        movie = Movie()
+        # tmdbv3api top_rated() accepts region parameter
+        results = movie.top_rated(page=page, region=region) if region else movie.top_rated(page=page)
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching top rated movies: {e}", exc_info=True)
+        return []
+
+
+def get_top_rated_tv(api_key: str, page: int = 1) -> list:
+    """
+    Fetch top rated TV shows from TMDB.
+
+    Args:
+        api_key (str): TMDB API key
+        page (int): Page number (default: 1)
+
+    Returns:
+        list: List of TV show dicts
+    """
+    if not api_key:
+        return []
+
+    try:
+        _init_tmdb(api_key)
+        tv = TV()
+        results = tv.top_rated(page=page)
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching top rated TV shows: {e}", exc_info=True)
+        return []
+
+
+def discover_movies(api_key: str, filters: dict = None, page: int = 1, region: str = None) -> list:
     """
     Discover movies with optional filters.
 
@@ -218,6 +270,7 @@ def discover_movies(api_key: str, filters: dict = None, page: int = 1) -> list:
                 'with_original_language': 'en'
             }
         page (int): Page number (default: 1)
+        region (str): ISO 3166-1 Alpha-2 region code (optional)
 
     Returns:
         list: List of movie dicts matching filters
@@ -231,6 +284,8 @@ def discover_movies(api_key: str, filters: dict = None, page: int = 1) -> list:
 
         # Build discover parameters
         params = {'page': page}
+        if region:
+            params['region'] = region
         if filters:
             params.update(filters)
 
@@ -241,7 +296,7 @@ def discover_movies(api_key: str, filters: dict = None, page: int = 1) -> list:
         return []
 
 
-def discover_tv(api_key: str, filters: dict = None, page: int = 1) -> list:
+def discover_tv(api_key: str, filters: dict = None, page: int = 1, region: str = None) -> list:
     """
     Discover TV shows with optional filters.
 
@@ -254,6 +309,7 @@ def discover_tv(api_key: str, filters: dict = None, page: int = 1) -> list:
                 'vote_average.gte': 7.5
             }
         page (int): Page number (default: 1)
+        region (str): ISO 3166-1 Alpha-2 region code (optional)
 
     Returns:
         list: List of TV show dicts matching filters
@@ -267,6 +323,8 @@ def discover_tv(api_key: str, filters: dict = None, page: int = 1) -> list:
 
         # Build discover parameters
         params = {'page': page}
+        if region:
+            params['region'] = region
         if filters:
             params.update(filters)
 

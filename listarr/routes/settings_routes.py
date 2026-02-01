@@ -74,6 +74,8 @@ def settings_page():
                             tmdb_service.api_key_encrypted = enc_key
                             tmdb_service.last_tested_at = test_timestamp
                             tmdb_service.last_test_status = test_status
+                        # Save region setting
+                        tmdb_service.tmdb_region = tmdb_api_form.tmdb_region.data or None
                         db.session.commit()
                         flash("TMDB API Key saved successfully.", "success")
                     except Exception as e:
@@ -83,7 +85,7 @@ def settings_page():
 
             return redirect(url_for("main.settings_page"))
 
-    # Populate form with existing key for GET requests
+    # Populate form with existing key and region for GET requests
     existing = ServiceConfig.query.filter_by(service="TMDB").first()
     if existing and existing.api_key_encrypted:
         try:
@@ -92,6 +94,8 @@ def settings_page():
             current_app.logger.error(f"Error decrypting TMDB API key: {e}", exc_info=True)
             tmdb_api_form.tmdb_api.data = ""
             flash("Unable to decrypt stored API key. Please re-enter your TMDB API key.", "warning")
+    if existing:
+        tmdb_api_form.tmdb_region.data = existing.tmdb_region or ''
 
     # Pass last test data to template
     last_test_at = existing.last_tested_at if existing else None

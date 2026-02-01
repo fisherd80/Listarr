@@ -30,6 +30,22 @@ _details_cache: TTLCache = TTLCache(maxsize=1000, ttl=TTL_DETAILS)
 _cache_lock = threading.Lock()
 
 
+def _get_tmdb_region() -> str | None:
+    """
+    Get the configured TMDB region from ServiceConfig.
+    Returns None if not configured (worldwide results).
+
+    Note: This function must be called within a Flask app context.
+    """
+    try:
+        from listarr.models.service_config_model import ServiceConfig
+        tmdb_config = ServiceConfig.query.filter_by(service='TMDB').first()
+        return tmdb_config.tmdb_region if tmdb_config else None
+    except Exception:
+        # Outside app context or error - return None (no region filter)
+        return None
+
+
 def _hash_filters(filters: dict) -> str:
     """
     Generate a stable hash key from a filter dictionary.
@@ -115,6 +131,7 @@ def get_trending_tv_cached(api_key: str, time_window: str = 'week', page: int = 
 def get_popular_movies_cached(api_key: str, page: int = 1) -> list:
     """
     Fetch popular movies with caching.
+    Region is automatically fetched from ServiceConfig if configured.
 
     Args:
         api_key: TMDB API key
@@ -123,14 +140,15 @@ def get_popular_movies_cached(api_key: str, page: int = 1) -> list:
     Returns:
         list: List of popular movie dicts
     """
-    cache_key = f"popular_movies:{page}"
+    region = _get_tmdb_region()
+    cache_key = f"popular_movies:{page}:{region or 'WW'}"
 
     with _cache_lock:
         if cache_key in _popular_cache:
             logger.debug(f"Cache HIT for {cache_key}")
             return _popular_cache[cache_key]
 
-    result = tmdb_service.get_popular_movies(api_key, page)
+    result = tmdb_service.get_popular_movies(api_key, page, region=region)
 
     if result:
         with _cache_lock:
@@ -172,9 +190,72 @@ def get_popular_tv_cached(api_key: str, page: int = 1) -> list:
     return result
 
 
+def get_top_rated_movies_cached(api_key: str, page: int = 1) -> list:
+    """
+    Fetch top rated movies with caching.
+    Region is automatically fetched from ServiceConfig if configured.
+
+    Args:
+        api_key: TMDB API key
+        page: Page number
+
+    Returns:
+        list: List of top rated movie dicts
+    """
+    region = _get_tmdb_region()
+    cache_key = f"top_rated_movies:{page}:{region or 'WW'}"
+
+    with _cache_lock:
+        if cache_key in _popular_cache:
+            logger.debug(f"Cache HIT for {cache_key}")
+            return _popular_cache[cache_key]
+
+    result = tmdb_service.get_top_rated_movies(api_key, page, region=region)
+
+    if result:
+        with _cache_lock:
+            _popular_cache[cache_key] = result
+        logger.debug(f"Cache MISS for {cache_key} - cached {len(result)} items")
+    else:
+        logger.debug(f"Cache MISS for {cache_key} - empty result, not cached")
+
+    return result
+
+
+def get_top_rated_tv_cached(api_key: str, page: int = 1) -> list:
+    """
+    Fetch top rated TV shows with caching.
+
+    Args:
+        api_key: TMDB API key
+        page: Page number
+
+    Returns:
+        list: List of top rated TV show dicts
+    """
+    cache_key = f"top_rated_tv:{page}"
+
+    with _cache_lock:
+        if cache_key in _popular_cache:
+            logger.debug(f"Cache HIT for {cache_key}")
+            return _popular_cache[cache_key]
+
+    result = tmdb_service.get_top_rated_tv(api_key, page)
+
+    if result:
+        with _cache_lock:
+            _popular_cache[cache_key] = result
+        logger.debug(f"Cache MISS for {cache_key} - cached {len(result)} items")
+    else:
+        logger.debug(f"Cache MISS for {cache_key} - empty result, not cached")
+
+    return result
+
+
 def discover_movies_cached(api_key: str, filters: dict = None, page: int = 1) -> list:
     """
     Discover movies with caching.
+    Region is automatically fetched from ServiceConfig if configured.
 
     Args:
         api_key: TMDB API key
@@ -184,15 +265,16 @@ def discover_movies_cached(api_key: str, filters: dict = None, page: int = 1) ->
     Returns:
         list: List of discovered movie dicts
     """
+    region = _get_tmdb_region()
     filter_hash = _hash_filters(filters)
-    cache_key = f"discover_movies:{filter_hash}:{page}"
+    cache_key = f"discover_movies:{filter_hash}:{page}:{region or 'WW'}"
 
     with _cache_lock:
         if cache_key in _discover_cache:
             logger.debug(f"Cache HIT for {cache_key}")
             return _discover_cache[cache_key]
 
-    result = tmdb_service.discover_movies(api_key, filters, page)
+    result = tmdb_service.discover_movies(api_key, filters, page, region=region)
 
     if result:
         with _cache_lock:
@@ -207,6 +289,7 @@ def discover_movies_cached(api_key: str, filters: dict = None, page: int = 1) ->
 def discover_tv_cached(api_key: str, filters: dict = None, page: int = 1) -> list:
     """
     Discover TV shows with caching.
+    Region is automatically fetched from ServiceConfig if configured.
 
     Args:
         api_key: TMDB API key
@@ -216,15 +299,16 @@ def discover_tv_cached(api_key: str, filters: dict = None, page: int = 1) -> lis
     Returns:
         list: List of discovered TV show dicts
     """
+    region = _get_tmdb_region()
     filter_hash = _hash_filters(filters)
-    cache_key = f"discover_tv:{filter_hash}:{page}"
+    cache_key = f"discover_tv:{filter_hash}:{page}:{region or 'WW'}"
 
     with _cache_lock:
         if cache_key in _discover_cache:
             logger.debug(f"Cache HIT for {cache_key}")
             return _discover_cache[cache_key]
 
-    result = tmdb_service.discover_tv(api_key, filters, page)
+    result = tmdb_service.discover_tv(api_key, filters, page, region=region)
 
     if result:
         with _cache_lock:

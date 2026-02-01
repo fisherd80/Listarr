@@ -1,10 +1,11 @@
 # Import the db instance (SQLAlchemy) from your main app package
-from listarr import db
+from listarr import db as db
 
-# Import all model classes
-from listarr.models.user_model import User
-from listarr.models.service_config_model import ServiceConfig, MediaImportSettings
-from listarr.models.tag_model import Tag
-from listarr.models.lists_model import List
-from listarr.models.jobs_model import Job, JobItem
+# Import all model classes - explicit re-exports for ruff F401
+from listarr.models.user_model import User as User
+from listarr.models.service_config_model import ServiceConfig as ServiceConfig
+from listarr.models.service_config_model import MediaImportSettings as MediaImportSettings
+from listarr.models.lists_model import List as List
+from listarr.models.jobs_model import Job as Job
+from listarr.models.jobs_model import JobItem as JobItem
 

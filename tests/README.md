@@ -8,14 +8,29 @@ Comprehensive test suite for the Listarr application, covering unit tests, integ
 tests/
 ├── conftest.py                 # Pytest fixtures and configuration
 ├── requirements-test.txt       # Test dependencies
+├── coverage-baseline.txt       # Coverage baseline (Phase 6.3)
+├── coverage-final.txt          # Final coverage report (Phase 6.3)
+├── TEST_SUMMARY.md             # Test suite summary and metrics
 ├── unit/                       # Unit tests for individual functions
 │   ├── test_crypto_utils.py   # Encryption/decryption utilities
 │   ├── test_tmdb_service.py   # TMDB API service
-│   └── test_service_config_model.py  # Database model tests
+│   ├── test_tmdb_cache.py     # TMDB caching layer (Phase 6.2)
+│   ├── test_radarr_service.py # Radarr API service
+│   ├── test_sonarr_service.py # Sonarr API service
+│   ├── test_service_config_model.py  # Database model tests
+│   └── services/
+│       └── test_job_executor.py      # Job execution service
 ├── integration/                # Integration tests
-│   └── test_settings_integration.py  # End-to-end settings workflows
+│   ├── test_settings_integration.py  # End-to-end settings workflows
+│   ├── test_config_integration.py    # End-to-end config workflows
+│   ├── test_dashboard_integration.py # End-to-end dashboard workflows
+│   └── test_import_integration.py    # Import service integration (Phase 6.2)
 └── routes/                     # Route handler tests
-    └── test_settings_routes.py  # Settings page endpoints
+    ├── test_settings_routes.py  # Settings page endpoints
+    ├── test_config_routes.py    # Config page endpoints
+    ├── test_dashboard_routes.py # Dashboard endpoints
+    ├── test_jobs_routes.py      # Jobs API endpoints
+    └── test_lists_routes.py     # Lists page endpoints
 ```
 
 ## Setup
@@ -112,7 +127,8 @@ pytest -n 4 tests/
 | Component | Test File | Coverage |
 |-----------|-----------|----------|
 | Encryption utilities | `unit/test_crypto_utils.py` | Key generation, loading, encryption/decryption, error handling |
-| TMDB service | `unit/test_tmdb_service.py` | API key validation, trending, popular, discover, IMDB ID mapping |
+| TMDB service | `unit/test_tmdb_service.py` | API key validation, trending, popular, discover, top_rated, IMDB ID mapping |
+| TMDB caching | `unit/test_tmdb_cache.py` | Cache hit/miss, region filtering, cache key segregation |
 | ServiceConfig model | `unit/test_service_config_model.py` | Model fields, constraints, timestamps, CRUD operations |
 | Settings routes | `routes/test_settings_routes.py` | GET/POST endpoints, AJAX testing, CSRF protection, error handling |
 | Settings integration | `integration/test_settings_integration.py` | End-to-end workflows, database operations, error recovery |
@@ -133,6 +149,15 @@ pytest -n 4 tests/
 |-----------|-----------|----------|
 | Config routes | `routes/test_config_routes.py` | Radarr/Sonarr config, quality profiles, root folders, import settings |
 | Config integration | `integration/test_config_integration.py` | End-to-end workflows, encryption, database operations |
+
+### Import & Job Functionality
+
+| Component | Test File | Coverage |
+|-----------|-----------|----------|
+| Import service | `integration/test_import_integration.py` | Top rated imports, limit handling, multi-page fetching |
+| Job executor | `unit/services/test_job_executor.py` | Job submission, status tracking, lifecycle |
+| Jobs routes | `routes/test_jobs_routes.py` | Jobs listing, filtering, detail, rerun, clear |
+| Lists routes | `routes/test_lists_routes.py` | Import triggers, status polling |
 
 ## Key Testing Patterns
 
@@ -305,20 +330,33 @@ jobs:
 
 ## Test Metrics
 
-Current test status:
-- **Total tests**: 363
+Current test status (Phase 6.3 - Feb 2026):
+- **Total tests**: 444 tests
 - **Pass rate**: 100% (all tests passing)
-- **Overall coverage**: >85% (estimated)
+- **Overall coverage**: 56% (baseline was 52%)
 - **Critical paths** (encryption, authentication): >95%
-- **Unit tests**: >90%
-- **Integration tests**: >85%
-- **Route tests**: >90%
+- **Phase 6.2 modules** (tmdb_cache, top_rated features): 40-83%
+
+Coverage by module type:
+- **Models**: >95%
+- **Services (Core)**: 75%+
+- **Services (Phase 6.2)**: 40%+ (newly added tests)
+- **Routes (Settings/Config)**: 85%+
+- **Routes (Dashboard/Jobs)**: 80%+
+- **Routes (Lists)**: 16% (future improvement target)
 
 Test categories:
-- **Dashboard**: 38 route tests + 18 integration tests = 56 tests
-- **Config**: 140+ route tests + 30+ integration tests = 170+ tests
-- **Settings**: 50+ route tests + 35+ integration tests = 85+ tests
-- **Unit tests**: 145+ tests (crypto, services, models)
+- **Unit tests**: 178 tests (40%)
+- **Integration tests**: 65 tests (15%)
+- **Route tests**: 201 tests (45%)
+
+Recent additions (Phase 6.3):
+- **Phase 6.2 TMDB top_rated tests**: 15 unit tests (tmdb_service + tmdb_cache)
+- **Phase 6.2 region filtering tests**: 7 unit tests (tmdb_cache)
+- **Phase 6.2 import integration tests**: 7 integration tests
+- **Total added**: 29 tests, +4% coverage
+
+For detailed metrics and test distribution, see [TEST_SUMMARY.md](./TEST_SUMMARY.md).
 
 ## Contributing
 

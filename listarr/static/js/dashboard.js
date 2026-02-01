@@ -6,12 +6,28 @@
 // Dashboard JavaScript - Recent Jobs Implementation
 // ----------------------
 
+// Jobs polling state
+let jobsPollingInterval = null;
+const JOBS_POLLING_INTERVAL_MS = 2000; // 2 seconds
+
+/**
+ * Escapes HTML to prevent XSS.
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string
+ */
+function escapeHtml(str) {
+  if (!str) return "";
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 /**
  * Fetches recent jobs from the API.
  * @returns {Promise<Array>} Promise that resolves with jobs array
  */
 function fetchRecentJobs() {
-  return fetch("/api/dashboard/recent-jobs", {
+  return fetch("/api/jobs/recent", {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -38,7 +54,7 @@ function fetchRecentJobs() {
  * @param {string} dateStr - ISO format date string
  * @returns {string} Formatted date string
  */
-function formatJobDate(dateStr) {
+function formatDate(dateStr) {
   if (!dateStr) return "—";
 
   try {
@@ -75,6 +91,33 @@ function formatJobDate(dateStr) {
 }
 
 /**
+ * Formats job summary based on status.
+ * @param {Object} job - Job object from API
+ * @returns {string} Formatted summary string
+ */
+function formatJobSummary(job) {
+  if (!job) return "—";
+
+  switch (job.status) {
+    case "running":
+      return '<span class="inline-flex items-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Running...</span>';
+    case "completed":
+      const added = job.items_added || 0;
+      const skipped = job.items_skipped || 0;
+      return `${added} added, ${skipped} skipped`;
+    case "failed":
+      const errMsg = job.error_message || "Unknown error";
+      // Truncate long error messages
+      const truncated = errMsg.length > 50 ? errMsg.substring(0, 47) + "..." : errMsg;
+      return escapeHtml(truncated);
+    case "pending":
+      return "Pending...";
+    default:
+      return "—";
+  }
+}
+
+/**
  * Gets status color class based on job status.
  * @param {string} status - Job status
  * @returns {string} Tailwind CSS color class
@@ -92,6 +135,77 @@ function getStatusColorClass(status) {
     default:
       return "text-gray-600 dark:text-gray-400";
   }
+}
+
+/**
+ * Capitalizes first letter of a string.
+ * @param {string} str - String to capitalize
+ * @returns {string} Capitalized string
+ */
+function capitalize(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Checks if any jobs are running and starts/stops polling accordingly.
+ * @param {Array} jobs - Array of job objects
+ */
+function checkAndManagePolling(jobs) {
+  const hasRunningJobs = jobs && jobs.some((job) => job.status === "running");
+
+  if (hasRunningJobs && !jobsPollingInterval) {
+    startJobsPolling();
+  } else if (!hasRunningJobs && jobsPollingInterval) {
+    stopJobsPolling();
+  }
+}
+
+/**
+ * Starts polling for job updates.
+ */
+function startJobsPolling() {
+  if (jobsPollingInterval) {
+    return; // Already polling
+  }
+
+  console.log("Starting jobs polling (running job detected)");
+  jobsPollingInterval = setInterval(() => {
+    fetchRecentJobs()
+      .then((jobs) => {
+        updateJobsTable(jobs);
+        checkAndManagePolling(jobs);
+      })
+      .catch((error) => {
+        console.error("Error polling jobs:", error);
+      });
+  }, JOBS_POLLING_INTERVAL_MS);
+}
+
+/**
+ * Stops polling for job updates.
+ */
+function stopJobsPolling() {
+  if (jobsPollingInterval) {
+    console.log("Stopping jobs polling (no running jobs)");
+    clearInterval(jobsPollingInterval);
+    jobsPollingInterval = null;
+  }
+}
+
+/**
+ * Loads and displays recent jobs.
+ */
+function loadRecentJobs() {
+  fetchRecentJobs()
+    .then((jobs) => {
+      updateJobsTable(jobs);
+      checkAndManagePolling(jobs);
+    })
+    .catch((error) => {
+      console.error("Error loading recent jobs:", error);
+      updateJobsTable([]);
+    });
 }
 
 /**
@@ -113,7 +227,7 @@ function updateJobsTable(jobs) {
     const emptyRow = document.createElement("tr");
     emptyRow.innerHTML = `
       <td colspan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-        No jobs executed yet
+        No jobs have been executed yet
       </td>
     `;
     tableBody.appendChild(emptyRow);
@@ -124,20 +238,23 @@ function updateJobsTable(jobs) {
   jobs.forEach((job) => {
     const row = document.createElement("tr");
     const statusColorClass = getStatusColorClass(job.status);
-    const executedAt = formatJobDate(job.executed_at);
+    const executedAt = formatDate(job.started_at);
+    const summary = formatJobSummary(job);
+    const service = job.target_service ? capitalize(job.target_service) : "—";
+    const listName = escapeHtml(job.list_name) || "Unknown List";
 
     row.innerHTML = `
       <td class="px-6 py-4 text-gray-800 dark:text-gray-100">
-        ${job.job_name || "Unknown Job"}
+        ${listName}
       </td>
       <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
-        ${job.service || "Unknown"}
+        ${service}
       </td>
       <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
         ${executedAt}
       </td>
       <td class="px-6 py-4 ${statusColorClass}">
-        ${job.summary || "—"}
+        ${summary}
       </td>
     `;
 
@@ -446,20 +563,16 @@ function refreshDashboard(isManual = true) {
   showRadarrLoadingState();
   showSonarrLoadingState();
 
-  // Fetch with refresh
-  Promise.all([
-    fetchDashboardStats(true),
-    fetchRecentJobs()
-  ])
-    .then(([data, jobs]) => {
+  // Fetch stats with refresh and load jobs
+  fetchDashboardStats(true)
+    .then((data) => {
       console.log("Dashboard stats refreshed:", data);
       updateRadarrCard(data);
       updateSonarrCard(data);
-      updateJobsTable(jobs);
     })
     .catch((error) => {
       console.error("Error refreshing dashboard data:", error);
-      // On error, try to update what we can
+      // On error, show offline state
       updateRadarrCard({
         radarr: {
           status: "offline",
@@ -478,30 +591,25 @@ function refreshDashboard(isManual = true) {
           error: true
         }
       });
-      // Try to fetch jobs separately
-      fetchRecentJobs()
-        .then((jobs) => {
-          updateJobsTable(jobs);
-        })
-        .catch((jobsError) => {
-          console.error("Error refreshing jobs:", jobsError);
-          updateJobsTable([]);
-        });
-    })
-    .finally(() => {
-      // Re-enable button and restore text (only for manual refreshes)
-      if (isManual) {
-        if (refreshBtn) {
-          refreshBtn.disabled = false;
-        }
-        if (refreshBtnText) {
-          refreshBtnText.textContent = "Refresh";
-        }
-        if (refreshIcon) {
-          refreshIcon.classList.remove("animate-spin");
-        }
-      }
     });
+
+  // Load recent jobs
+  loadRecentJobs();
+
+  // Re-enable button and restore text after a short delay (only for manual refreshes)
+  if (isManual) {
+    setTimeout(() => {
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+      }
+      if (refreshBtnText) {
+        refreshBtnText.textContent = "Refresh";
+      }
+      if (refreshIcon) {
+        refreshIcon.classList.remove("animate-spin");
+      }
+    }, 500);
+  }
 }
 
 // Auto-refresh interval (5 minutes = 300000 milliseconds)
@@ -615,23 +723,16 @@ function initDashboard() {
   startAutoRefresh();
 
   // Load recent jobs
-  fetchRecentJobs()
-    .then((jobs) => {
-      updateJobsTable(jobs);
-    })
-    .catch((error) => {
-      console.error("Error loading recent jobs:", error);
-      // Show empty state on error
-      updateJobsTable([]);
-    });
+  loadRecentJobs();
 }
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", initDashboard);
 
-// Clean up interval when page is unloaded to prevent memory leaks
+// Clean up intervals when page is unloaded to prevent memory leaks
 window.addEventListener("beforeunload", () => {
   stopAutoRefresh();
+  stopJobsPolling();
 });
 
 // Pause auto-refresh when page is hidden, resume when visible (optional optimization)

@@ -3,14 +3,13 @@ from wtforms import StringField, SelectField, BooleanField
 from wtforms.validators import DataRequired, Length
 
 
-# Cron schedule presets
+# Cron schedule presets - must match wizard options in list_wizard.html
 SCHEDULE_CHOICES = [
-    ("", "Use Default"),
+    ("", "Manual only"),
+    ("0 * * * *", "Every hour"),
     ("0 */6 * * *", "Every 6 hours"),
-    ("0 */12 * * *", "Every 12 hours"),
-    ("0 0 * * *", "Daily at midnight"),
-    ("0 0 * * 0", "Weekly on Sunday"),
-    ("0 0 1 * *", "Monthly on 1st"),
+    ("0 0 * * *", "Daily (midnight)"),
+    ("0 0 * * 0", "Weekly (Sunday midnight)"),
 ]
 
 # Tri-state choices for Yes/No/Default
@@ -70,5 +69,6 @@ class ListForm(FlaskForm):
     override_season_folder = SelectField(
         label="Season Folder",
         choices=TRI_STATE_CHOICES,
-        validators=[]
+        validators=[],
+        validate_choice=False  # Don't validate choice - field only rendered for Sonarr
     )

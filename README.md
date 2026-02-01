@@ -124,64 +124,29 @@ listarr/
 
 ## Development Status
 
-**~70% Complete** - Phase 1 and Phase 2 complete. Dashboard with live stats, caching, and recent jobs fully implemented. Working on list generation and job execution.
+**~80% Complete** - 10 of 13 phases complete. All core features implemented including list management, wizard UI, TMDB caching, import automation, job execution framework, and comprehensive test coverage. Remaining: scheduler, settings caching, authentication, and pyarr migration.
 
-### ✅ Phase 1: Complete (Config & API Integration)
+### Completed Phases (1-6.3)
 
-- ✅ Flask application factory with SQLAlchemy
-- ✅ Fernet encryption for API keys with instance_path support
-- ✅ Database models for all core entities (ServiceConfig, MediaImportSettings, List, Job, etc.)
-- ✅ **Settings page**: TMDB API key management with test connection
-- ✅ **Config page**: Radarr/Sonarr URL and API key configuration
-- ✅ **Import Settings**: Fully functional dropdowns for:
-  - Quality Profiles (fetched from Radarr/Sonarr)
-  - Root Folders (fetched from Radarr/Sonarr)
-  - Monitoring, Search on Add, Season Folder (Sonarr only)
-  - Save/load functionality with database persistence
-  - Client and server-side validation
-  - Flag-based caching to prevent redundant API calls
-- ✅ **TMDB Service**: Complete integration using tmdbv3api library
-  - Trending movies/TV (day/week)
-  - Popular movies/TV
-  - Discover with filters (genre, year, rating, language)
-  - Movie/TV details retrieval
-  - **IMDB ID mapping** via TMDB external_ids (legal, no web scraping)
-- ✅ **PyArr Integration**: Full Radarr/Sonarr API client integration
-- ✅ **CSRF Protection**: All forms and AJAX requests protected
-- ✅ **Docker Configuration**: Production-ready containerization
-- ✅ **Comprehensive Documentation**: CLAUDE.md with architecture and patterns
+- ✅ **Phase 1: List Management** - CRUD operations for TMDB lists
+- ✅ **Phase 2: List Creation Wizard** - 4-step wizard with presets, filters, live preview
+- ✅ **Phase 3: TMDB Caching** - TTL-based caching to respect rate limits
+- ✅ **Phase 3.1: Config Tags** - Tag storage with create-if-missing pattern
+- ✅ **Phase 4: Import Engine** - Radarr/Sonarr import with error handling
+- ✅ **Phase 5: Manual Trigger UI** - Run Now button with status feedback
+- ✅ **Phase 6: Job Framework** - Background processing, Jobs page, dashboard widget
+- ✅ **Phase 6.1: Bug Fixes** - Tag override logic, logging, UI feedback
+- ✅ **Phase 6.2: List Enhancements** - Top Rated presets, region filtering, larger limits
+- ✅ **Phase 6.3: Test Coverage** - 444 tests, 56% coverage
 
-### ✅ Phase 2: Complete (Dashboard & Stats)
+### Planned Phases (7-10)
 
-- ✅ Dashboard with live stats from Radarr/Sonarr
-  - System status, media counts, missing counts
-  - **"Added by Listarr"** counter (total items added from completed jobs)
-  - Manual and auto-refresh functionality (5-minute interval)
-  - Status indicators (online/offline/not configured)
-  - Recent jobs table with execution history (last 5 jobs)
-  - **In-memory caching** for fast page loads (calculated at startup)
-  - Cache refresh on-demand via `?refresh=true` parameter
-- 🚧 List generation wizard UI (In Progress)
-  - Multi-step form for creating lists
-  - Preview with pagination
-  - Integration with TMDB service
-  - IMDB link display
+- 📋 **Phase 7: Scheduler** - Cron-based automated list refresh
+- 📋 **Phase 8: Settings Caching** - Background refresh of service settings
+- 🔮 **Phase 9: Authentication** - User login to secure web interface
+- 🔮 **Phase 10: Direct API** - Replace pyarr with direct Radarr/Sonarr API calls
 
-### 📋 Phase 3: Planned (Job Execution & Monitoring)
-
-- Job execution engine (background task runner)
-- Import queue logic with conflict handling
-- Jobs page for activity monitoring
-- Inline logs with retry/cancel support
-
-### 🔮 Phase 4: Planned (Advanced Features)
-
-- Scheduling system with cron integration
-- Cache management for cached lists (TTL-based)
-- Global blacklist system
-- Tag functionality for import settings
-
-See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
+See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
 
 ## Technology Stack
 
@@ -246,20 +211,28 @@ The `instance/` folder contains all runtime data:
   - Security considerations
   - Testing guidelines and patterns
 - **[CHANGELOG.md](docs/CHANGELOG.md)** - Detailed changelog of all changes
-- **[DASHBOARD_FEATURES.md](docs/DASHBOARD_FEATURES.md)** - Comprehensive dashboard features documentation
-
 
 - **Project Philosophy**: Read-only stats + push actions (no full media management)
 - **Design Pattern**: Application factory with blueprint-based routing
 
 ## Roadmap
 
-| Phase   | Status      | Description                                                |
-| ------- | ----------- | ---------------------------------------------------------- |
-| Phase 1 | ✅ Complete | API integration (TMDB, Radarr, Sonarr) and Import Settings |
-| Phase 2 | ✅ Complete | Dashboard stats with caching, "Added by Listarr", and recent jobs |
-| Phase 3 | 📋 Planned  | List generation UI, job execution engine, and monitoring   |
-| Phase 4 | 🔮 Planned  | Scheduling, caching, and advanced features                 |
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 1. List Management | ✅ Complete | CRUD operations for TMDB lists through web interface |
+| 2. List Creation Wizard | ✅ Complete | Multi-step wizard with presets, filters, and live preview |
+| 3. TMDB Caching | ✅ Complete | Smart caching to respect API rate limits |
+| 3.1 Config Tags | ✅ Complete | Tag storage with create-if-missing pattern |
+| 4. Import Engine | ✅ Complete | Import system for Radarr/Sonarr with error handling |
+| 5. Manual Trigger UI | ✅ Complete | Run lists on-demand from UI |
+| 6. Job Framework | ✅ Complete | Background job processing with history tracking |
+| 6.1 Bug Fixes | ✅ Complete | Bugs from manual testing resolved |
+| 6.2 List Enhancements | ✅ Complete | Top Rated presets, region filtering, larger limits |
+| 6.3 Test Coverage | ✅ Complete | Enhanced coverage (52% → 56%, 444 tests) |
+| 7. Scheduler | 📋 Planned | Cron-based automated list refresh |
+| 8. Settings Caching | 📋 Planned | Background refresh of Radarr/Sonarr settings |
+| 9. Authentication | 🔮 Planned | Login system to secure web interface |
+| 10. Direct API | 🔮 Planned | Replace pyarr with direct Radarr/Sonarr API calls |
 
 ## License
 

@@ -1,6 +1,5 @@
 from listarr import db
 from datetime import datetime, timezone
-from sqlalchemy.sql import func
 from listarr.models.custom_types import TZDateTime
 
 class ServiceConfig(db.Model):
@@ -15,6 +14,9 @@ class ServiceConfig(db.Model):
     is_enabled = db.Column(db.Boolean, default=True, nullable=False)
     last_tested_at = db.Column(TZDateTime)
     last_test_status = db.Column(db.String(20))
+
+    # TMDB-specific settings
+    tmdb_region = db.Column(db.String(2), nullable=True)  # ISO 3166-1 Alpha-2 code
 
     created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -32,4 +34,4 @@ class MediaImportSettings(db.Model):
     search_on_add = db.Column(db.Boolean, default=True)
     season_folder = db.Column(db.Boolean, default=True)  
 
-    default_tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"))
+    default_tag_id = db.Column(db.Integer)  # Radarr/Sonarr service tag ID

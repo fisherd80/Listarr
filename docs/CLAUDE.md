@@ -791,18 +791,22 @@ The `instance/` directory at the project root stores all runtime data:
 
 ### Testing
 
-- **Test Suite**: Comprehensive pytest-based test suite with ~95% coverage
+- **Test Suite**: Comprehensive pytest-based test suite with 56% coverage (444 tests)
   - **Test Organization**: Tests organized by component (unit, routes, integration)
-  - **Test Count**: 84+ tests covering all critical functionality
+  - **Test Count**: 444 tests covering all critical functionality
   - **Test Files**: Located in `tests/` directory with clear separation of concerns
     - `tests/unit/` - Unit tests for services and utilities
+      - `test_tmdb_cache.py` - 15 tests for TMDB caching layer (cache hit/miss, region filtering, cache keys)
     - `tests/routes/` - Route handler tests
     - `tests/integration/` - End-to-end integration tests
+      - `test_import_integration.py` - 7 tests for import flows (Top Rated import)
   - **Test Coverage**: Comprehensive coverage including:
     - Error handling (decryption errors, DB errors, API failures)
     - Validation (field validation, type validation, URL validation)
     - Edge cases (concurrent operations, special characters, Unicode)
     - Security (CSRF protection, encryption verification)
+    - TMDB caching (cache hits, misses, region filtering, TTL)
+    - Import flows (Top Rated movies/TV import)
 - **Running Tests**:
 
   ```bash
@@ -822,7 +826,7 @@ The `instance/` directory at the project root stores all runtime data:
   - Database operations use in-memory SQLite for speed
   - Comprehensive error scenario testing
   - Parameterized tests for similar scenarios
-- **Test Documentation**: See `docs/TEST_REVIEW.md` and `docs/CONFIG_ROUTES_TEST_REVIEW.md` for detailed test coverage analysis
+- **Test Documentation**: See `tests/TEST_SUMMARY.md` for comprehensive test breakdown, `docs/TEST_REVIEW.md` and `docs/CONFIG_ROUTES_TEST_REVIEW.md` for detailed test coverage analysis
 
 ## Dependencies
 

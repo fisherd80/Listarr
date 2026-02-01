@@ -1,68 +1,23 @@
 from flask import render_template, flash, request, redirect, url_for, current_app, jsonify
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor
-import threading
 from listarr.routes import bp
 from listarr import csrf
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
 from listarr.forms.lists_forms import ListForm
 from listarr.services.crypto_utils import decrypt_data
-from listarr.services.import_service import import_list
+from listarr.services.job_executor import submit_job, is_list_running, get_job_status
 from listarr.services.tmdb_cache import (
     get_trending_movies_cached,
     get_trending_tv_cached,
     get_popular_movies_cached,
     get_popular_tv_cached,
+    get_top_rated_movies_cached,
+    get_top_rated_tv_cached,
     discover_movies_cached,
     discover_tv_cached,
 )
 from listarr import db
-
-# In-memory job tracking for Phase 5 MVP
-# Key: list_id, Value: {'status': 'running'|'completed'|'error', 'started_at': datetime, 'result': ImportResult|None}
-_running_jobs = {}
-_jobs_lock = threading.Lock()
-
-# Lazy-initialized executor (created on first use)
-_executor = None
-
-
-def get_executor():
-    """Get or create the ThreadPoolExecutor."""
-    global _executor
-    if _executor is None:
-        _executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix='listarr_import_')
-    return _executor
-
-
-def _run_import_job(list_id, app):
-    """Background job that runs the actual import."""
-    with app.app_context():
-        try:
-            result = import_list(list_id)
-
-            # Update last_run_at timestamp
-            list_obj = List.query.get(list_id)
-            if list_obj:
-                list_obj.last_run_at = datetime.now(timezone.utc)
-                db.session.commit()
-
-            # Store result
-            with _jobs_lock:
-                _running_jobs[list_id] = {
-                    'status': 'completed',
-                    'started_at': _running_jobs.get(list_id, {}).get('started_at'),
-                    'result': result.to_dict() if result else None
-                }
-        except Exception as e:
-            current_app.logger.error(f"Background import error for list {list_id}: {e}", exc_info=True)
-            with _jobs_lock:
-                _running_jobs[list_id] = {
-                    'status': 'error',
-                    'started_at': _running_jobs.get(list_id, {}).get('started_at'),
-                    'error': str(e)
-                }
 
 
 @bp.route("/lists")
@@ -70,6 +25,29 @@ def lists_page():
     lists = db.session.query(List).all()
     form = ListForm()
     return render_template("lists.html", lists=lists, form=form)
+
+
+@bp.route("/api/lists")
+def get_lists_api():
+    """
+    Get all lists for API consumption (filter dropdowns, etc.).
+
+    Returns JSON:
+        lists: array of {id, name, target_service, is_active}
+    """
+    lists = db.session.query(List).order_by(List.name).all()
+    return jsonify({
+        "lists": [
+            {
+                "id": l.id,
+                "name": l.name,
+                "target_service": l.target_service,
+                "is_active": l.is_active
+            }
+            for l in lists
+        ]
+    })
+
 
 @bp.route("/lists/create", methods=["POST"])
 def create_list():
@@ -193,8 +171,19 @@ def edit_list(list_id):
             db.session.rollback()
             current_app.logger.error(f"Error updating list: {e}", exc_info=True)
             flash("Error updating list. Please try again.", "error")
+    elif request.method == "POST":
+        # POST but validation failed - show error with details
+        errors = []
+        for field, field_errors in form.errors.items():
+            for error in field_errors:
+                errors.append(f"{field}: {error}")
+        if errors:
+            flash(f"Form validation failed: {', '.join(errors)}", "error")
+        else:
+            flash("Form validation failed. Please check your input.", "error")
+        # Form already has submitted data, don't overwrite
     else:
-        # Pre-populate form with current values (GET request)
+        # GET request - pre-populate form with current values
         form.name.data = list_obj.name
         form.is_active.data = list_obj.is_active
         form.schedule_cron.data = list_obj.schedule_cron or ""
@@ -338,11 +327,11 @@ def list_wizard():
     # Create mode - determine wizard mode based on preset
     is_preset = False
 
-    if preset in ["trending_movies", "popular_movies"]:
+    if preset in ["trending_movies", "popular_movies", "top_rated_movies"]:
         # Movie presets always use Radarr
         service = "radarr"
         is_preset = True
-    elif preset in ["trending_tv", "popular_tv"]:
+    elif preset in ["trending_tv", "popular_tv", "top_rated_tv"]:
         # TV presets always use Sonarr
         service = "sonarr"
         is_preset = True
@@ -435,6 +424,10 @@ def wizard_preview():
             items = get_popular_movies_cached(api_key)
         elif preset == "popular_tv":
             items = get_popular_tv_cached(api_key)
+        elif preset == "top_rated_movies":
+            items = get_top_rated_movies_cached(api_key)
+        elif preset == "top_rated_tv":
+            items = get_top_rated_tv_cached(api_key)
         else:
             # Custom discovery with filters
             tmdb_filters = {}
@@ -751,15 +744,6 @@ def run_list_import(list_id):
     """
     Manually trigger async import for a list.
     Returns 202 immediately while job runs in background.
-
-    Returns:
-        202 JSON response with:
-        - success: true
-        - job_id: int (same as list_id)
-        - status: "started"
-        OR
-        400 if already running or inactive
-        404 if list not found
     """
     # Fetch list by ID
     list_obj = List.query.get(list_id)
@@ -776,44 +760,41 @@ def run_list_import(list_id):
             "error": f"List '{list_obj.name}' is not active"
         }), 400
 
-    # Check if already running
-    with _jobs_lock:
-        job = _running_jobs.get(list_id)
-        if job and job.get('status') == 'running':
-            return jsonify({
-                "success": False,
-                "error": f"List '{list_obj.name}' is already running"
-            }), 400
+    # Check if already running (database check)
+    if is_list_running(list_id):
+        return jsonify({
+            "success": False,
+            "error": f"List '{list_obj.name}' is already running"
+        }), 400
 
-        # Mark as running
-        _running_jobs[list_id] = {
-            'status': 'running',
-            'started_at': datetime.now(timezone.utc),
-            'result': None
-        }
+    # Submit job via executor
+    try:
+        app = current_app._get_current_object()
+        job_id = submit_job(list_id, list_obj.name, app, triggered_by='manual')
 
-    # Submit job to executor
-    app = current_app._get_current_object()
-    get_executor().submit(_run_import_job, list_id, app)
-
-    return jsonify({
-        "success": True,
-        "job_id": list_id,
-        "status": "started"
-    }), 202
+        return jsonify({
+            "success": True,
+            "job_id": job_id,
+            "status": "started"
+        }), 202
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+    except Exception as e:
+        current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": "Failed to start job"
+        }), 500
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])
 def get_list_status(list_id):
     """
     Get the status of a list import job for polling.
-
-    Returns JSON with:
-    - list_id: int
-    - status: 'idle'|'running'|'completed'|'error'
-    - last_run_at: ISO timestamp string or null
-    - result: ImportResult dict (if completed)
-    - error: string (if error)
+    Returns the most recent job status from database.
     """
     list_obj = List.query.get(list_id)
     if not list_obj:
@@ -821,41 +802,35 @@ def get_list_status(list_id):
             "error": f"List with ID {list_id} not found"
         }), 404
 
-    # Check in-memory job state
-    with _jobs_lock:
-        job = _running_jobs.get(list_id)
+    # Get job status from database
+    job_info = get_job_status(list_id)
 
-    if job and job.get('status') == 'running':
-        return jsonify({
-            "list_id": list_id,
-            "status": "running",
-            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
-        })
-    elif job and job.get('status') == 'completed':
-        # Clear job from memory after reporting (client will stop polling)
-        result = job.get('result')
-        with _jobs_lock:
-            del _running_jobs[list_id]
-        return jsonify({
-            "list_id": list_id,
-            "status": "completed",
-            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
-            "result": result
-        })
-    elif job and job.get('status') == 'error':
-        error = job.get('error')
-        with _jobs_lock:
-            del _running_jobs[list_id]
-        return jsonify({
-            "list_id": list_id,
-            "status": "error",
-            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
-            "error": error
-        })
-    else:
-        # No job running
+    if not job_info:
         return jsonify({
             "list_id": list_id,
             "status": "idle",
             "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
         })
+
+    # Map job status for frontend compatibility
+    status = job_info['status']
+    response = {
+        "list_id": list_id,
+        "status": status if status in ['running', 'completed', 'failed'] else 'idle',
+        "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
+    }
+
+    # Include result/error info based on status
+    if status == 'completed':
+        response['result'] = {
+            'summary': {
+                'total': job_info.get('items_found', 0),
+                'added_count': job_info.get('items_added', 0),
+                'skipped_count': job_info.get('items_skipped', 0),
+                'failed_count': job_info.get('items_failed', 0),
+            }
+        }
+    elif status == 'failed':
+        response['error'] = job_info.get('error_message', 'Unknown error')
+
+    return jsonify(response)

@@ -8,7 +8,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from listarr import db
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig, MediaImportSettings
 from listarr.services.crypto_utils import decrypt_data
@@ -16,6 +15,7 @@ from listarr.services import radarr_service, sonarr_service, tmdb_service
 from listarr.services.tmdb_cache import (
     get_trending_movies_cached, get_trending_tv_cached,
     get_popular_movies_cached, get_popular_tv_cached,
+    get_top_rated_movies_cached, get_top_rated_tv_cached,
     discover_movies_cached, discover_tv_cached
 )
 
@@ -73,6 +73,11 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
     """
     Resolve import settings, preferring list overrides over service defaults.
 
+    Tag Resolution Logic:
+    - If list has override_tag_id: Use ONLY the override tag (replaces default)
+    - Else if service has default_tag_id: Use the service default tag
+    - Else: No tag applied (empty tags list)
+
     Args:
         list_obj: List model instance
         import_settings: MediaImportSettings model instance
@@ -111,12 +116,15 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
     else:
         season_folder = import_settings.season_folder if import_settings else True
 
-    # Build tags list from default and override
+    # Resolve tags - override REPLACES default (not merges)
     tags = []
-    if import_settings and import_settings.default_tag_id:
-        tags.append(import_settings.default_tag_id)
-    if list_obj.override_tag_id and list_obj.override_tag_id not in tags:
+    if list_obj.override_tag_id:
+        # Use override tag only
         tags.append(list_obj.override_tag_id)
+    elif import_settings and import_settings.default_tag_id:
+        # Fall back to service default tag
+        tags.append(import_settings.default_tag_id)
+    # If neither: tags stays empty (no tag applied)
 
     return {
         'root_folder': root_folder,
@@ -183,6 +191,10 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
             items = get_popular_movies_cached(tmdb_api_key, page=page)
         elif tmdb_list_type == 'popular_tv':
             items = get_popular_tv_cached(tmdb_api_key, page=page)
+        elif tmdb_list_type == 'top_rated_movies':
+            items = get_top_rated_movies_cached(tmdb_api_key, page=page)
+        elif tmdb_list_type == 'top_rated_tv':
+            items = get_top_rated_tv_cached(tmdb_api_key, page=page)
         elif tmdb_list_type == 'discovery':
             if list_obj.target_service == 'RADARR':
                 items = discover_movies_cached(tmdb_api_key, tmdb_filters, page=page)

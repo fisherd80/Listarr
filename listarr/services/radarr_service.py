@@ -4,14 +4,13 @@ from pyarr import RadarrAPI
 logger = logging.getLogger(__name__)
 
 
-def validate_radarr_api_key(base_url: str, api_key: str, timeout: int = 5):
+def validate_radarr_api_key(base_url: str, api_key: str):
     """
     Validates Radarr API URL and API key by calling the /api/v3/system/status endpoint.
 
     Args:
         base_url (str): Base URL of Radarr (e.g., "http://localhost:7878/").
         api_key (str): Radarr API key from Settings > General.
-        timeout (int): Timeout in seconds for the request.
 
     Returns:
         bool: True if valid, False otherwise.

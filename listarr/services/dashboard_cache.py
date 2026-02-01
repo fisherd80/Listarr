@@ -6,7 +6,7 @@ Stats are calculated at application startup and can be refreshed on-demand.
 """
 import logging
 import threading
-from typing import Dict, Optional
+from typing import Dict
 from flask import current_app
 from listarr import db
 from listarr.models.service_config_model import ServiceConfig

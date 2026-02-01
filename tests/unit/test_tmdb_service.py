@@ -21,6 +21,8 @@ from listarr.services.tmdb_service import (
     get_trending_tv,
     get_popular_movies,
     get_popular_tv,
+    get_top_rated_movies,
+    get_top_rated_tv,
     discover_movies,
     discover_tv,
     get_movie_details,
@@ -324,6 +326,104 @@ class TestGetPopularTV:
         assert len(result) == 1
         assert result[0]['name'] == 'Popular TV Show'
         mock_tv.popular.assert_called_once_with(page=1)
+
+
+class TestGetTopRatedMovies:
+    """Tests for top rated movies retrieval (Phase 6.2)."""
+
+    @patch('listarr.services.tmdb_service.Movie')
+    @patch('listarr.services.tmdb_service._init_tmdb')
+    def test_get_top_rated_movies_returns_results(self, mock_init, mock_movie_class):
+        """Test fetching top rated movies successfully."""
+        mock_movie = MagicMock()
+        mock_movie.top_rated.return_value = [
+            {'id': 238, 'title': 'The Godfather', 'vote_average': 8.7},
+            {'id': 278, 'title': 'The Shawshank Redemption', 'vote_average': 8.7}
+        ]
+        mock_movie_class.return_value = mock_movie
+
+        result = get_top_rated_movies("test_key", page=1)
+
+        assert len(result) == 2
+        assert result[0]['title'] == 'The Godfather'
+        mock_movie.top_rated.assert_called_once_with(page=1)
+
+    def test_get_top_rated_movies_with_empty_api_key(self):
+        """Test that empty API key returns empty list."""
+        result = get_top_rated_movies("")
+        assert result == []
+
+    @patch('listarr.services.tmdb_service.Movie')
+    @patch('listarr.services.tmdb_service._init_tmdb')
+    def test_get_top_rated_movies_handles_exception(self, mock_init, mock_movie_class):
+        """Test that API exceptions return empty list."""
+        mock_movie = MagicMock()
+        mock_movie.top_rated.side_effect = Exception("API error")
+        mock_movie_class.return_value = mock_movie
+
+        result = get_top_rated_movies("test_key")
+        assert result == []
+
+    @patch('listarr.services.tmdb_service.Movie')
+    @patch('listarr.services.tmdb_service._init_tmdb')
+    def test_get_top_rated_movies_with_pagination(self, mock_init, mock_movie_class):
+        """Test fetching top rated movies with specific page."""
+        mock_movie = MagicMock()
+        mock_movie.top_rated.return_value = [{'id': 1}]
+        mock_movie_class.return_value = mock_movie
+
+        get_top_rated_movies("test_key", page=5)
+
+        mock_movie.top_rated.assert_called_once_with(page=5)
+
+
+class TestGetTopRatedTV:
+    """Tests for top rated TV shows retrieval (Phase 6.2)."""
+
+    @patch('listarr.services.tmdb_service.TV')
+    @patch('listarr.services.tmdb_service._init_tmdb')
+    def test_get_top_rated_tv_returns_results(self, mock_init, mock_tv_class):
+        """Test fetching top rated TV shows successfully."""
+        mock_tv = MagicMock()
+        mock_tv.top_rated.return_value = [
+            {'id': 1396, 'name': 'Breaking Bad', 'vote_average': 8.9},
+            {'id': 1399, 'name': 'Game of Thrones', 'vote_average': 8.4}
+        ]
+        mock_tv_class.return_value = mock_tv
+
+        result = get_top_rated_tv("test_key", page=1)
+
+        assert len(result) == 2
+        assert result[0]['name'] == 'Breaking Bad'
+        mock_tv.top_rated.assert_called_once_with(page=1)
+
+    def test_get_top_rated_tv_with_empty_api_key(self):
+        """Test that empty API key returns empty list."""
+        result = get_top_rated_tv("")
+        assert result == []
+
+    @patch('listarr.services.tmdb_service.TV')
+    @patch('listarr.services.tmdb_service._init_tmdb')
+    def test_get_top_rated_tv_handles_exception(self, mock_init, mock_tv_class):
+        """Test that API exceptions return empty list."""
+        mock_tv = MagicMock()
+        mock_tv.top_rated.side_effect = Exception("API error")
+        mock_tv_class.return_value = mock_tv
+
+        result = get_top_rated_tv("test_key")
+        assert result == []
+
+    @patch('listarr.services.tmdb_service.TV')
+    @patch('listarr.services.tmdb_service._init_tmdb')
+    def test_get_top_rated_tv_with_pagination(self, mock_init, mock_tv_class):
+        """Test fetching top rated TV with specific page."""
+        mock_tv = MagicMock()
+        mock_tv.top_rated.return_value = []
+        mock_tv_class.return_value = mock_tv
+
+        get_top_rated_tv("test_key", page=3)
+
+        mock_tv.top_rated.assert_called_once_with(page=3)
 
 
 class TestDiscoverMovies:
