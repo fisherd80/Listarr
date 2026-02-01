@@ -10,9 +10,9 @@ on:
 
 env:
   FLASK_ENV: testing
-  DATABASE_URL: sqlite:///:memory:
-  PYTHONDONTWRITEBYTECODE: 1
-  PYTHONUNBUFFERED: 1
+  DATABASE_URL: "sqlite:///:memory:"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
 
 jobs:
   ci:
