@@ -67,9 +67,7 @@ def _hash_filters(filters: dict) -> str:
     return hashlib.md5(filter_str.encode()).hexdigest()
 
 
-def get_trending_movies_cached(
-    api_key: str, time_window: str = "week", page: int = 1
-) -> list:
+def get_trending_movies_cached(api_key: str, time_window: str = "week", page: int = 1) -> list:
     """
     Fetch trending movies with caching.
 
@@ -101,9 +99,7 @@ def get_trending_movies_cached(
     return result
 
 
-def get_trending_tv_cached(
-    api_key: str, time_window: str = "week", page: int = 1
-) -> list:
+def get_trending_tv_cached(api_key: str, time_window: str = "week", page: int = 1) -> list:
     """
     Fetch trending TV shows with caching.
 

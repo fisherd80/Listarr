@@ -197,14 +197,10 @@ class TestRegionAwareCacheKeys:
 
     @patch("listarr.services.tmdb_cache.tmdb_service")
     @patch("listarr.services.tmdb_cache._get_tmdb_region")
-    def test_different_regions_use_different_cache_keys(
-        self, mock_get_region, mock_tmdb_service
-    ):
+    def test_different_regions_use_different_cache_keys(self, mock_get_region, mock_tmdb_service):
         """Test that different regions generate different cache keys."""
         # Mock TMDB service response
-        mock_tmdb_service.get_popular_movies.return_value = [
-            {"id": 1, "title": "Movie 1"}
-        ]
+        mock_tmdb_service.get_popular_movies.return_value = [{"id": 1, "title": "Movie 1"}]
 
         # First call with US region
         mock_get_region.return_value = "US"
@@ -234,9 +230,7 @@ class TestRegionAwareCacheKeys:
     def test_same_region_reuses_cached_result(self, mock_get_region, mock_tmdb_service):
         """Test that same region reuses cached result."""
         # Mock TMDB service response
-        mock_tmdb_service.get_popular_movies.return_value = [
-            {"id": 1, "title": "Movie 1"}
-        ]
+        mock_tmdb_service.get_popular_movies.return_value = [{"id": 1, "title": "Movie 1"}]
 
         # Clear cache to start fresh
         from listarr.services.tmdb_cache import _popular_cache
@@ -254,14 +248,10 @@ class TestRegionAwareCacheKeys:
 
     @patch("listarr.services.tmdb_cache.tmdb_service")
     @patch("listarr.services.tmdb_cache._get_tmdb_region")
-    def test_no_region_uses_worldwide_cache_key(
-        self, mock_get_region, mock_tmdb_service
-    ):
+    def test_no_region_uses_worldwide_cache_key(self, mock_get_region, mock_tmdb_service):
         """Test that no region configuration uses worldwide cache key."""
         # Mock TMDB service response
-        mock_tmdb_service.get_popular_movies.return_value = [
-            {"id": 1, "title": "Movie 1"}
-        ]
+        mock_tmdb_service.get_popular_movies.return_value = [{"id": 1, "title": "Movie 1"}]
 
         # Clear cache to start fresh
         from listarr.services.tmdb_cache import _popular_cache
@@ -273,9 +263,7 @@ class TestRegionAwareCacheKeys:
         result = get_popular_movies_cached("test_api_key", page=1)
 
         # Should call TMDB service with region=None
-        mock_tmdb_service.get_popular_movies.assert_called_once_with(
-            "test_api_key", 1, region=None
-        )
+        mock_tmdb_service.get_popular_movies.assert_called_once_with("test_api_key", 1, region=None)
 
         # Verify result
         assert len(result) == 1

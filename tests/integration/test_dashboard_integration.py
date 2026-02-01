@@ -171,9 +171,6 @@ class TestDashboardEndToEndWorkflow:
                 base_url="http://localhost:7878",
                 api_key_encrypted=radarr_encrypted,
             )
-            sonarr_encrypted = encrypt_data(
-                "sonarr_key", instance_path=temp_instance_path
-            )
             sonarr_config = ServiceConfig(
                 service="SONARR",
                 base_url="http://localhost:8989",
@@ -387,9 +384,7 @@ class TestRecentJobsWorkflow:
                     items_added=10,
                     items_skipped=0,
                     started_at=datetime(2024, 1, i + 1, 10, 0, 0, tzinfo=timezone.utc),
-                    completed_at=datetime(
-                        2024, 1, i + 1, 10, 5, 0, tzinfo=timezone.utc
-                    ),
+                    completed_at=datetime(2024, 1, i + 1, 10, 5, 0, tzinfo=timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
@@ -432,9 +427,7 @@ class TestDashboardErrorRecovery:
     """Integration tests for error recovery scenarios."""
 
     @patch("listarr.services.dashboard_cache.decrypt_data")
-    def test_dashboard_handles_decryption_error(
-        self, mock_decrypt, app, client, temp_instance_path
-    ):
+    def test_dashboard_handles_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
         """Test that dashboard handles decryption errors gracefully."""
         mock_decrypt.side_effect = ValueError("Decryption failed")
 
@@ -467,9 +460,7 @@ class TestDashboardErrorRecovery:
         assert data["radarr"]["status"] == "offline"
 
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_handles_api_timeout(
-        self, mock_status, app, client, temp_instance_path
-    ):
+    def test_dashboard_handles_api_timeout(self, mock_status, app, client, temp_instance_path):
         """Test that dashboard handles API timeouts gracefully."""
         mock_status.side_effect = TimeoutError("Request timeout")
 
@@ -498,9 +489,7 @@ class TestDashboardErrorRecovery:
 
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
     @patch("listarr.services.dashboard_cache.get_movie_count")
-    def test_dashboard_handles_partial_api_failure(
-        self, mock_count, mock_status, app, client, temp_instance_path
-    ):
+    def test_dashboard_handles_partial_api_failure(self, mock_count, mock_status, app, client, temp_instance_path):
         """Test dashboard handles partial API failures (status succeeds, count fails)."""
         mock_status.return_value = {"version": "4.5.2.7388"}
         mock_count.side_effect = Exception("Count API failed")
@@ -580,9 +569,7 @@ class TestMultipleRequestsScenarios:
             assert data["radarr"]["total_movies"] == 150
 
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_interleaved_dashboard_and_jobs_requests(
-        self, mock_status, app, client, temp_instance_path
-    ):
+    def test_interleaved_dashboard_and_jobs_requests(self, mock_status, app, client, temp_instance_path):
         """Test handling of interleaved dashboard and jobs requests."""
         mock_status.return_value = {"version": "4.5.2.7388"}
 

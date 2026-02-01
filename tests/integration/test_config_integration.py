@@ -24,9 +24,7 @@ class TestRadarrConfigEndToEndWorkflow:
     """Integration tests for complete Radarr configuration workflows."""
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_full_radarr_save_and_retrieve_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_full_radarr_save_and_retrieve_workflow(self, mock_test, app, client, temp_instance_path):
         """Test complete Radarr workflow: save API key, reload page, verify displayed."""
         mock_test.return_value = True
 
@@ -57,15 +55,11 @@ class TestRadarrConfigEndToEndWorkflow:
             config = ServiceConfig.query.filter_by(service="RADARR").first()
             assert config is not None
             assert config.base_url == "http://localhost:7878"
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "radarr_test_key_12345"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_radarr_ajax_test_then_save_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_radarr_ajax_test_then_save_workflow(self, mock_test, app, client, temp_instance_path):
         """Test workflow: AJAX test Radarr connection, then save."""
         mock_test.return_value = True
 
@@ -101,9 +95,7 @@ class TestRadarrConfigEndToEndWorkflow:
             assert len(configs) <= 1
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_update_existing_radarr_key_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_update_existing_radarr_key_workflow(self, mock_test, app, client, temp_instance_path):
         """Test workflow: save Radarr key, update with new key, verify update."""
         mock_test.return_value = True
 
@@ -135,15 +127,11 @@ class TestRadarrConfigEndToEndWorkflow:
             configs = ServiceConfig.query.filter_by(service="RADARR").all()
             assert len(configs) == 1
             assert configs[0].base_url == "http://192.168.1.100:7878"
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_radarr_key"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_failed_radarr_test_then_successful_test_workflow(
-        self, mock_test, app, client
-    ):
+    def test_failed_radarr_test_then_successful_test_workflow(self, mock_test, app, client):
         """Test workflow: failed Radarr test, fix credentials, successful test."""
         # Step 1: Test with invalid credentials
         mock_test.return_value = False
@@ -172,9 +160,7 @@ class TestSonarrConfigEndToEndWorkflow:
     """Integration tests for complete Sonarr configuration workflows."""
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_full_sonarr_save_and_retrieve_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_full_sonarr_save_and_retrieve_workflow(self, mock_test, app, client, temp_instance_path):
         """Test complete Sonarr workflow: save API key, reload page, verify displayed."""
         mock_test.return_value = True
 
@@ -205,15 +191,11 @@ class TestSonarrConfigEndToEndWorkflow:
             config = ServiceConfig.query.filter_by(service="SONARR").first()
             assert config is not None
             assert config.base_url == "http://localhost:8989"
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "sonarr_test_key_12345"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_sonarr_ajax_test_then_save_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_sonarr_ajax_test_then_save_workflow(self, mock_test, app, client, temp_instance_path):
         """Test workflow: AJAX test Sonarr connection, then save."""
         mock_test.return_value = True
 
@@ -249,9 +231,7 @@ class TestSonarrConfigEndToEndWorkflow:
             assert len(configs) <= 1
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_update_existing_sonarr_key_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_update_existing_sonarr_key_workflow(self, mock_test, app, client, temp_instance_path):
         """Test workflow: save Sonarr key, update with new key, verify update."""
         mock_test.return_value = True
 
@@ -283,9 +263,7 @@ class TestSonarrConfigEndToEndWorkflow:
             configs = ServiceConfig.query.filter_by(service="SONARR").all()
             assert len(configs) == 1
             assert configs[0].base_url == "http://192.168.1.100:8989"
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_sonarr_key"
 
 
@@ -576,9 +554,7 @@ class TestDatabaseIntegration:
     """Integration tests for database operations."""
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_concurrent_radarr_config_updates_are_handled(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_concurrent_radarr_config_updates_are_handled(self, mock_test, app, client, temp_instance_path):
         """Test that multiple updates to same Radarr config work correctly."""
         mock_test.return_value = True
 
@@ -611,15 +587,11 @@ class TestDatabaseIntegration:
             assert len(configs) == 1
             assert configs[0].id == config_id
             assert configs[0].base_url == "http://localhost:7872"
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "key_version_2"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_database_rollback_on_radarr_save_error(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_database_rollback_on_radarr_save_error(self, mock_test, app, client, temp_instance_path):
         """Test that database rollback works on Radarr save errors."""
         mock_test.return_value = True
 
@@ -647,15 +619,11 @@ class TestDatabaseIntegration:
 
             # Verify original key is still intact (rollback worked)
             config = ServiceConfig.query.filter_by(service="RADARR").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "original_key"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_database_rollback_on_sonarr_test_error(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_database_rollback_on_sonarr_test_error(self, mock_test, app, client, temp_instance_path):
         """Test that database rollback works on Sonarr AJAX test errors."""
         mock_test.return_value = True
 
@@ -725,9 +693,7 @@ class TestEncryptionIntegration:
     """Integration tests for encryption workflows."""
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_radarr_encryption_roundtrip_through_database(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_radarr_encryption_roundtrip_through_database(self, mock_test, app, client, temp_instance_path):
         """Test full Radarr encryption roundtrip: encrypt → save → retrieve → decrypt."""
         mock_test.return_value = True
         original_key = "secret_radarr_key_12345"
@@ -755,9 +721,7 @@ class TestEncryptionIntegration:
             assert decrypted == original_key
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_sonarr_multiple_keys_encrypted_differently(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_sonarr_multiple_keys_encrypted_differently(self, mock_test, app, client, temp_instance_path):
         """Test that same Sonarr key encrypted multiple times produces different ciphertext."""
         mock_test.return_value = True
         api_key = "same_sonarr_key"
@@ -797,9 +761,7 @@ class TestTimestampTracking:
     """Integration tests for timestamp tracking."""
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_radarr_timestamp_updated_on_each_test(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_radarr_timestamp_updated_on_each_test(self, mock_test, app, client, temp_instance_path):
         """Test that Radarr last_tested_at is updated on each test."""
         mock_test.return_value = True
 
@@ -830,9 +792,7 @@ class TestTimestampTracking:
             assert config.last_tested_at > old_time
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_sonarr_status_changes_from_success_to_failed(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_sonarr_status_changes_from_success_to_failed(self, mock_test, app, client, temp_instance_path):
         """Test that Sonarr status correctly changes when test fails."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -864,9 +824,7 @@ class TestErrorRecovery:
     """Integration tests for error recovery scenarios."""
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_recovery_from_invalid_radarr_key_save_attempt(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_recovery_from_invalid_radarr_key_save_attempt(self, mock_test, app, client, temp_instance_path):
         """Test that application recovers from invalid Radarr key save attempt."""
         # Step 1: Try to save invalid key
         mock_test.return_value = False
@@ -899,16 +857,12 @@ class TestErrorRecovery:
         # Step 3: Verify valid key is in database
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="RADARR").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "valid_key"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
     @patch("listarr.routes.config_routes.encrypt_data")
-    def test_recovery_from_sonarr_encryption_failure(
-        self, mock_encrypt, mock_test, app, client, temp_instance_path
-    ):
+    def test_recovery_from_sonarr_encryption_failure(self, mock_encrypt, mock_test, app, client, temp_instance_path):
         """Test that application recovers from Sonarr encryption failure."""
         mock_test.return_value = True
 
@@ -997,9 +951,7 @@ class TestMultipleRequestsScenarios:
             assert sonarr_key == "sonarr_key"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_rapid_succession_radarr_save_requests(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_rapid_succession_radarr_save_requests(self, mock_test, app, client, temp_instance_path):
         """Test handling of rapid succession Radarr save requests."""
         mock_test.return_value = True
 
@@ -1018,8 +970,6 @@ class TestMultipleRequestsScenarios:
         with app.app_context():
             configs = ServiceConfig.query.filter_by(service="RADARR").all()
             assert len(configs) == 1
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "key_4"
             assert configs[0].base_url == "http://localhost:7874"

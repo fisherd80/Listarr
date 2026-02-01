@@ -151,9 +151,7 @@ def config_page():
                 else:
                     try:
                         # Encrypt the API key
-                        enc_key = encrypt_data(
-                            radarr_api_data, instance_path=current_app.instance_path
-                        )
+                        enc_key = encrypt_data(radarr_api_data, instance_path=current_app.instance_path)
 
                         radarr_service = ServiceConfig.query.filter_by(
                             service="RADARR"
@@ -177,9 +175,7 @@ def config_page():
                         flash("Radarr URL and API Key saved successfully.", "success")
                     except Exception as e:
                         db.session.rollback()
-                        current_app.logger.error(
-                            f"Error saving Radarr configuration: {e}", exc_info=True
-                        )
+                        current_app.logger.error(f"Error saving Radarr configuration: {e}", exc_info=True)
                         flash(
                             "Failed to save Radarr configuration. Please try again.",
                             "error",
@@ -212,9 +208,7 @@ def config_page():
                 else:
                     try:
                         # Encrypt the API key
-                        enc_key = encrypt_data(
-                            sonarr_api_data, instance_path=current_app.instance_path
-                        )
+                        enc_key = encrypt_data(sonarr_api_data, instance_path=current_app.instance_path)
 
                         sonarr_service = ServiceConfig.query.filter_by(
                             service="SONARR"
@@ -238,9 +232,7 @@ def config_page():
                         flash("Sonarr URL and API Key saved successfully.", "success")
                     except Exception as e:
                         db.session.rollback()
-                        current_app.logger.error(
-                            f"Error saving Sonarr configuration: {e}", exc_info=True
-                        )
+                        current_app.logger.error(f"Error saving Sonarr configuration: {e}", exc_info=True)
                         flash(
                             "Failed to save Sonarr configuration. Please try again.",
                             "error",
@@ -258,9 +250,7 @@ def config_page():
                 instance_path=current_app.instance_path,
             )
         except (ValueError, Exception) as e:
-            current_app.logger.error(
-                f"Error decrypting Radarr API key: {e}", exc_info=True
-            )
+            current_app.logger.error(f"Error decrypting Radarr API key: {e}", exc_info=True)
             radarr_api_form.radarr_api.data = ""
             flash(
                 "Unable to decrypt stored Radarr API key. Please re-enter your Radarr API key.",
@@ -274,11 +264,7 @@ def config_page():
     )
 
     # Check if Radarr is properly configured (has URL and API key saved)
-    radarr_configured = bool(
-        radarr_existing
-        and radarr_existing.base_url
-        and radarr_existing.api_key_encrypted
-    )
+    radarr_configured = bool(radarr_existing and radarr_existing.base_url and radarr_existing.api_key_encrypted)
 
     # Populate Sonarr form with existing key for GET requests
     sonarr_existing = ServiceConfig.query.filter_by(service="SONARR").first()
@@ -290,9 +276,7 @@ def config_page():
                 instance_path=current_app.instance_path,
             )
         except (ValueError, Exception) as e:
-            current_app.logger.error(
-                f"Error decrypting Sonarr API key: {e}", exc_info=True
-            )
+            current_app.logger.error(f"Error decrypting Sonarr API key: {e}", exc_info=True)
             sonarr_api_form.sonarr_api.data = ""
             flash(
                 "Unable to decrypt stored Sonarr API key. Please re-enter your Sonarr API key.",
@@ -306,11 +290,7 @@ def config_page():
     )
 
     # Check if Sonarr is properly configured (has URL and API key saved)
-    sonarr_configured = bool(
-        sonarr_existing
-        and sonarr_existing.base_url
-        and sonarr_existing.api_key_encrypted
-    )
+    sonarr_configured = bool(sonarr_existing and sonarr_existing.base_url and sonarr_existing.api_key_encrypted)
 
     return render_template(
         "config.html",
@@ -354,9 +334,7 @@ def test_radarr_api():
     return jsonify(
         {
             "success": test_result,
-            "message": "Radarr connection successful."
-            if test_result
-            else "Invalid Radarr URL or API Key.",
+            "message": "Radarr connection successful." if test_result else "Invalid Radarr URL or API Key.",
             "timestamp": test_timestamp.isoformat(),
         }
     )
@@ -391,9 +369,7 @@ def test_sonarr_api():
     return jsonify(
         {
             "success": test_result,
-            "message": "Sonarr connection successful."
-            if test_result
-            else "Invalid Sonarr URL or API Key.",
+            "message": "Sonarr connection successful." if test_result else "Invalid Sonarr URL or API Key.",
             "timestamp": test_timestamp.isoformat(),
         }
     )
@@ -425,9 +401,7 @@ def fetch_radarr_quality_profiles():
 
         if not profiles:
             return (
-                jsonify(
-                    {"success": False, "message": "Failed to fetch quality profiles."}
-                ),
+                jsonify({"success": False, "message": "Failed to fetch quality profiles."}),
                 500,
             )
 
@@ -439,9 +413,7 @@ def fetch_radarr_quality_profiles():
         )
         return jsonify({"success": False, "message": "Failed to decrypt API key."}), 500
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching Radarr quality profiles: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching Radarr quality profiles: {e}", exc_info=True)
         return (
             jsonify({"success": False, "message": "Failed to fetch quality profiles."}),
             500,
@@ -486,9 +458,7 @@ def fetch_radarr_root_folders():
         )
         return jsonify({"success": False, "message": "Failed to decrypt API key."}), 500
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching Radarr root folders: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching Radarr root folders: {e}", exc_info=True)
         return (
             jsonify({"success": False, "message": "Failed to fetch root folders."}),
             500,
@@ -630,9 +600,7 @@ def save_radarr_import_settings():
                 400,
             )
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching root folders from Radarr: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching root folders from Radarr: {e}", exc_info=True)
         return (
             jsonify({"success": False, "message": "Failed to fetch root folders"}),
             500,
@@ -690,9 +658,7 @@ def save_radarr_import_settings():
     except Exception as e:
         db.session.rollback()
         return (
-            jsonify(
-                {"success": False, "message": f"Failed to save settings: {str(e)}"}
-            ),
+            jsonify({"success": False, "message": f"Failed to save settings: {str(e)}"}),
             500,
         )
 
@@ -723,9 +689,7 @@ def fetch_sonarr_quality_profiles():
 
         if not profiles:
             return (
-                jsonify(
-                    {"success": False, "message": "Failed to fetch quality profiles."}
-                ),
+                jsonify({"success": False, "message": "Failed to fetch quality profiles."}),
                 500,
             )
 
@@ -737,9 +701,7 @@ def fetch_sonarr_quality_profiles():
         )
         return jsonify({"success": False, "message": "Failed to decrypt API key."}), 500
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching Sonarr quality profiles: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching Sonarr quality profiles: {e}", exc_info=True)
         return (
             jsonify({"success": False, "message": "Failed to fetch quality profiles."}),
             500,
@@ -784,9 +746,7 @@ def fetch_sonarr_root_folders():
         )
         return jsonify({"success": False, "message": "Failed to decrypt API key."}), 500
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching Sonarr root folders: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching Sonarr root folders: {e}", exc_info=True)
         return (
             jsonify({"success": False, "message": "Failed to fetch root folders."}),
             500,
@@ -936,9 +896,7 @@ def save_sonarr_import_settings():
                 400,
             )
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching root folders from Sonarr: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching root folders from Sonarr: {e}", exc_info=True)
         return (
             jsonify({"success": False, "message": "Failed to fetch root folders"}),
             500,
@@ -998,8 +956,6 @@ def save_sonarr_import_settings():
     except Exception as e:
         db.session.rollback()
         return (
-            jsonify(
-                {"success": False, "message": f"Failed to save settings: {str(e)}"}
-            ),
+            jsonify({"success": False, "message": f"Failed to save settings: {str(e)}"}),
             500,
         )

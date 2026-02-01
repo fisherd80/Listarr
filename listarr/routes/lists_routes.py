@@ -157,14 +157,10 @@ def edit_list(list_id):
             tags = get_tags(base_url, api_key)
 
             # Build choices
-            quality_profile_choices.extend(
-                [(str(p["id"]), p["name"]) for p in quality_profiles]
-            )
+            quality_profile_choices.extend([(str(p["id"]), p["name"]) for p in quality_profiles])
             root_folder_choices.extend([(f["path"], f["path"]) for f in root_folders])
         except Exception as e:
-            current_app.logger.error(
-                f"Error fetching {service_type} options: {e}", exc_info=True
-            )
+            current_app.logger.error(f"Error fetching {service_type} options: {e}", exc_info=True)
             flash(
                 f"Could not load {service_type} options. Some dropdowns may be empty.",
                 "warning",
@@ -296,6 +292,7 @@ def edit_list(list_id):
     )
 
 
+
 @bp.route("/lists/delete/<int:list_id>", methods=["POST"])
 def delete_list(list_id):
     """
@@ -311,16 +308,12 @@ def delete_list(list_id):
         list_name = list_obj.name
         db.session.delete(list_obj)
         db.session.commit()
-        return jsonify(
-            {"success": True, "message": f"List '{list_name}' deleted successfully!"}
-        )
+        return jsonify({"success": True, "message": f"List '{list_name}' deleted successfully!"})
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting list: {e}", exc_info=True)
         return (
-            jsonify(
-                {"success": False, "message": "Error deleting list. Please try again."}
-            ),
+            jsonify({"success": False, "message": "Error deleting list. Please try again."}),
             500,
         )
 
@@ -457,9 +450,7 @@ def toggle_list(list_id):
         db.session.rollback()
         current_app.logger.error(f"Error toggling list: {e}", exc_info=True)
         return (
-            jsonify(
-                {"success": False, "message": "Error toggling list. Please try again."}
-            ),
+            jsonify({"success": False, "message": "Error toggling list. Please try again."}),
             500,
         )
 
@@ -690,9 +681,7 @@ def wizard_submit():
 
                 tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
             except Exception as e:
-                current_app.logger.error(
-                    f"Error creating/getting tag: {e}", exc_info=True
-                )
+                current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
                 return (
                     jsonify(
                         {
@@ -794,9 +783,7 @@ def wizard_defaults(service):
     try:
         api_key = decrypt_data(config.api_key_encrypted)
     except Exception as e:
-        current_app.logger.error(
-            f"Error decrypting {service} API key: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error decrypting {service} API key: {e}", exc_info=True)
         return jsonify(
             {
                 "error": f"Failed to decrypt {service.title()} API key",
@@ -834,19 +821,11 @@ def wizard_defaults(service):
                 "configured": True,
                 "error": f"Failed to fetch options from {service.title()}",
                 "defaults": {
-                    "root_folder": import_settings.root_folder
-                    if import_settings
-                    else None,
-                    "quality_profile_id": import_settings.quality_profile_id
-                    if import_settings
-                    else None,
+                    "root_folder": import_settings.root_folder if import_settings else None,
+                    "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
                     "monitored": import_settings.monitored if import_settings else True,
-                    "search_on_add": import_settings.search_on_add
-                    if import_settings
-                    else True,
-                    "tag_id": import_settings.default_tag_id
-                    if import_settings
-                    else None,
+                    "search_on_add": import_settings.search_on_add if import_settings else True,
+                    "tag_id": import_settings.default_tag_id if import_settings else None,
                 },
                 "options": {
                     "quality_profiles": [],
@@ -858,11 +837,7 @@ def wizard_defaults(service):
 
     # Season folder default - only relevant for Sonarr
     season_folder_default = True  # Sonarr default
-    if (
-        import_settings
-        and hasattr(import_settings, "season_folder")
-        and import_settings.season_folder is not None
-    ):
+    if import_settings and hasattr(import_settings, "season_folder") and import_settings.season_folder is not None:
         season_folder_default = import_settings.season_folder
 
     return jsonify(
@@ -870,23 +845,15 @@ def wizard_defaults(service):
             "configured": True,
             "defaults": {
                 "root_folder": import_settings.root_folder if import_settings else None,
-                "quality_profile_id": import_settings.quality_profile_id
-                if import_settings
-                else None,
+                "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
                 "monitored": import_settings.monitored if import_settings else True,
-                "search_on_add": import_settings.search_on_add
-                if import_settings
-                else True,
+                "search_on_add": import_settings.search_on_add if import_settings else True,
                 "tag_id": import_settings.default_tag_id if import_settings else None,
                 "season_folder": season_folder_default if service == "sonarr" else None,
             },
             "options": {
-                "quality_profiles": [
-                    {"id": p["id"], "name": p["name"]} for p in quality_profiles
-                ],
-                "root_folders": [
-                    {"path": f["path"], "id": f.get("id")} for f in root_folders
-                ],
+                "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
+                "root_folders": [{"path": f["path"], "id": f.get("id")} for f in root_folders],
                 "tags": [{"id": t["id"], "label": t["label"]} for t in tags],
             },
         }
@@ -924,9 +891,7 @@ def run_list_import(list_id):
     # Check if list is active
     if not list_obj.is_active:
         return (
-            jsonify(
-                {"success": False, "error": f"List '{list_obj.name}' is not active"}
-            ),
+            jsonify({"success": False, "error": f"List '{list_obj.name}' is not active"}),
             400,
         )
 
@@ -951,9 +916,7 @@ def run_list_import(list_id):
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
-        current_app.logger.error(
-            f"Error starting job for list {list_id}: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to start job"}), 500
 
 
@@ -975,9 +938,7 @@ def get_list_status(list_id):
             {
                 "list_id": list_id,
                 "status": "idle",
-                "last_run_at": list_obj.last_run_at.isoformat()
-                if list_obj.last_run_at
-                else None,
+                "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
             }
         )
 
@@ -986,9 +947,7 @@ def get_list_status(list_id):
     response = {
         "list_id": list_id,
         "status": status if status in ["running", "completed", "failed"] else "idle",
-        "last_run_at": list_obj.last_run_at.isoformat()
-        if list_obj.last_run_at
-        else None,
+        "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
     }
 
     # Include result/error info based on status

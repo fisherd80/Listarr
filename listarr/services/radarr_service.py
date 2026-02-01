@@ -181,9 +181,7 @@ def get_missing_movies_count(base_url: str, api_key: str):
         missing_count = sum(
             1
             for movie in movies
-            if movie.get("monitored", False)
-            and "hasFile" in movie
-            and not movie.get("hasFile", False)
+            if movie.get("monitored", False) and "hasFile" in movie and not movie.get("hasFile", False)
         )
         return missing_count
     except Exception as e:

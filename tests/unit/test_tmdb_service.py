@@ -1,3 +1,4 @@
+
 """
 Unit tests for tmdb_service.py - TMDB API integration.
 
@@ -214,9 +215,7 @@ class TestGetTrendingMovies:
 
     @patch("listarr.services.tmdb_service.Trending")
     @patch("listarr.services.tmdb_service._init_tmdb")
-    def test_get_trending_movies_handles_exception(
-        self, mock_init, mock_trending_class
-    ):
+    def test_get_trending_movies_handles_exception(self, mock_init, mock_trending_class):
         """Test that exceptions return empty list."""
         mock_trending = MagicMock()
         mock_trending.movie_week.side_effect = Exception("API error")
@@ -430,9 +429,7 @@ class TestDiscoverMovies:
     def test_discover_movies_with_filters(self, mock_init, mock_discover_class):
         """Test discovering movies with filters."""
         mock_discover = MagicMock()
-        mock_discover.discover_movies.return_value = [
-            {"id": 300, "title": "Filtered Movie"}
-        ]
+        mock_discover.discover_movies.return_value = [{"id": 300, "title": "Filtered Movie"}]
         mock_discover_class.return_value = mock_discover
 
         filters = {
@@ -495,9 +492,7 @@ class TestDiscoverTV:
     def test_discover_tv_with_filters(self, mock_init, mock_discover_class):
         """Test discovering TV shows with filters."""
         mock_discover = MagicMock()
-        mock_discover.discover_tv_shows.return_value = [
-            {"id": 400, "name": "Filtered TV"}
-        ]
+        mock_discover.discover_tv_shows.return_value = [{"id": 400, "name": "Filtered TV"}]
         mock_discover_class.return_value = mock_discover
 
         filters = {"with_genres": "18", "first_air_date_year": 2023}

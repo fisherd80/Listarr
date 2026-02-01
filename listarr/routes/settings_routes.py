@@ -100,9 +100,7 @@ def settings_page():
                         flash("TMDB API Key saved successfully.", "success")
                     except Exception as e:
                         db.session.rollback()
-                        current_app.logger.error(
-                            f"Error saving TMDB configuration: {e}", exc_info=True
-                        )
+                        current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
                         flash(
                             "Failed to save TMDB configuration. Please try again.",
                             "error",
@@ -156,9 +154,7 @@ def test_tmdb_api():
     return jsonify(
         {
             "success": test_result,
-            "message": "TMDB API Key is valid."
-            if test_result
-            else "Invalid TMDB API Key.",
+            "message": "TMDB API Key is valid." if test_result else "Invalid TMDB API Key.",
             "timestamp": test_timestamp.isoformat(),
         }
     )

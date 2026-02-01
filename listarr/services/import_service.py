@@ -174,23 +174,17 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
         if filters.get("genres_include"):
             tmdb_filters["with_genres"] = ",".join(map(str, filters["genres_include"]))
         if filters.get("genres_exclude"):
-            tmdb_filters["without_genres"] = ",".join(
-                map(str, filters["genres_exclude"])
-            )
+            tmdb_filters["without_genres"] = ",".join(map(str, filters["genres_exclude"]))
         if filters.get("language"):
             tmdb_filters["with_original_language"] = filters["language"]
         if filters.get("year_min"):
             if list_obj.target_service == "RADARR":
-                tmdb_filters[
-                    "primary_release_date.gte"
-                ] = f"{filters['year_min']}-01-01"
+                tmdb_filters["primary_release_date.gte"] = f"{filters['year_min']}-01-01"
             else:
                 tmdb_filters["first_air_date.gte"] = f"{filters['year_min']}-01-01"
         if filters.get("year_max"):
             if list_obj.target_service == "RADARR":
-                tmdb_filters[
-                    "primary_release_date.lte"
-                ] = f"{filters['year_max']}-12-31"
+                tmdb_filters["primary_release_date.lte"] = f"{filters['year_max']}-12-31"
             else:
                 tmdb_filters["first_air_date.lte"] = f"{filters['year_max']}-12-31"
         if filters.get("rating_min"):
@@ -241,9 +235,7 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
     return all_items[:limit]
 
 
-def _import_movies(
-    tmdb_items: list, base_url: str, api_key: str, settings: dict, tmdb_api_key: str
-) -> ImportResult:
+def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict, tmdb_api_key: str) -> ImportResult:
     """
     Import movies to Radarr.
 
@@ -266,29 +258,19 @@ def _import_movies(
     for item in tmdb_items:
         # Extract TMDB ID
         try:
-            tmdb_id = (
-                item["id"] if isinstance(item, dict) else getattr(item, "id", None)
-            )
-            title = (
-                item.get("title", "Unknown")
-                if isinstance(item, dict)
-                else getattr(item, "title", "Unknown")
-            )
+            tmdb_id = item["id"] if isinstance(item, dict) else getattr(item, "id", None)
+            title = item.get("title", "Unknown") if isinstance(item, dict) else getattr(item, "title", "Unknown")
         except (TypeError, KeyError, AttributeError):
             tmdb_id = None
             title = "Unknown"
 
         if not tmdb_id:
-            result.failed.append(
-                {"tmdb_id": None, "title": title, "reason": "no_tmdb_id"}
-            )
+            result.failed.append({"tmdb_id": None, "title": title, "reason": "no_tmdb_id"})
             continue
 
         # Check if already exists
         if tmdb_id in existing_ids:
-            result.skipped.append(
-                {"tmdb_id": tmdb_id, "title": title, "reason": "already_exists"}
-            )
+            result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "already_exists"})
             continue
 
         try:
@@ -320,23 +302,18 @@ def _import_movies(
             result.added.append({"tmdb_id": tmdb_id, "title": title})
 
         except Exception as e:
-            logger.error(
-                f"Error adding movie {title} (TMDB: {tmdb_id}): {e}", exc_info=True
-            )
+            logger.error(f"Error adding movie {title} (TMDB: {tmdb_id}): {e}", exc_info=True)
             result.failed.append({"tmdb_id": tmdb_id, "title": title, "reason": str(e)})
 
         time.sleep(API_CALL_DELAY)
 
     logger.info(
-        f"Import complete: {len(result.added)} added, "
-        f"{len(result.skipped)} skipped, {len(result.failed)} failed"
+        f"Import complete: {len(result.added)} added, " f"{len(result.skipped)} skipped, {len(result.failed)} failed"
     )
     return result
 
 
-def _import_series(
-    tmdb_items: list, base_url: str, api_key: str, settings: dict, tmdb_api_key: str
-) -> ImportResult:
+def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict, tmdb_api_key: str) -> ImportResult:
     """
     Import TV shows to Sonarr.
 
@@ -359,30 +336,20 @@ def _import_series(
     for item in tmdb_items:
         # Extract TMDB ID and title
         try:
-            tmdb_id = (
-                item["id"] if isinstance(item, dict) else getattr(item, "id", None)
-            )
-            title = (
-                item.get("name", "Unknown")
-                if isinstance(item, dict)
-                else getattr(item, "name", "Unknown")
-            )
+            tmdb_id = item["id"] if isinstance(item, dict) else getattr(item, "id", None)
+            title = item.get("name", "Unknown") if isinstance(item, dict) else getattr(item, "name", "Unknown")
         except (TypeError, KeyError, AttributeError):
             tmdb_id = None
             title = "Unknown"
 
         if not tmdb_id:
-            result.failed.append(
-                {"tmdb_id": None, "title": title, "reason": "no_tmdb_id"}
-            )
+            result.failed.append({"tmdb_id": None, "title": title, "reason": "no_tmdb_id"})
             continue
 
         # Translate TMDB ID to TVDB ID
         tvdb_id = tmdb_service.get_tvdb_id_from_tmdb(tmdb_id, tmdb_api_key)
         if not tvdb_id:
-            result.failed.append(
-                {"tmdb_id": tmdb_id, "title": title, "reason": "no_tvdb_id"}
-            )
+            result.failed.append({"tmdb_id": tmdb_id, "title": title, "reason": "no_tvdb_id"})
             time.sleep(API_CALL_DELAY)
             continue
 
@@ -426,9 +393,7 @@ def _import_series(
                 tags=settings["tags"],
             )
 
-            result.added.append(
-                {"tmdb_id": tmdb_id, "tvdb_id": tvdb_id, "title": title}
-            )
+            result.added.append({"tmdb_id": tmdb_id, "tvdb_id": tvdb_id, "title": title})
 
         except Exception as e:
             logger.error(
@@ -447,8 +412,7 @@ def _import_series(
         time.sleep(API_CALL_DELAY)
 
     logger.info(
-        f"Import complete: {len(result.added)} added, "
-        f"{len(result.skipped)} skipped, {len(result.failed)} failed"
+        f"Import complete: {len(result.added)} added, " f"{len(result.skipped)} skipped, {len(result.failed)} failed"
     )
     return result
 
@@ -481,9 +445,7 @@ def import_list(list_id: int) -> ImportResult:
     if not service_config or not service_config.api_key_encrypted:
         logger.error(f"{target_service} not configured")
         result = ImportResult()
-        result.failed.append(
-            {"reason": "service_not_configured", "service": target_service}
-        )
+        result.failed.append({"reason": "service_not_configured", "service": target_service})
         return result
 
     # Fetch TMDB config
@@ -538,9 +500,7 @@ def import_list(list_id: int) -> ImportResult:
 
     # Route to appropriate import function
     if target_service == "RADARR":
-        return _import_movies(
-            tmdb_items, base_url, service_api_key, settings, tmdb_api_key
-        )
+        return _import_movies(tmdb_items, base_url, service_api_key, settings, tmdb_api_key)
     else:
         return _import_series(
             tmdb_items, base_url, service_api_key, settings, tmdb_api_key

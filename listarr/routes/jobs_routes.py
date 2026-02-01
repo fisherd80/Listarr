@@ -120,9 +120,7 @@ def rerun_job(job_id):
     # Check if list is active
     if not list_obj.is_active:
         return (
-            jsonify(
-                {"success": False, "error": f"List '{list_obj.name}' is not active"}
-            ),
+            jsonify({"success": False, "error": f"List '{list_obj.name}' is not active"}),
             400,
         )
 
@@ -199,9 +197,7 @@ def clear_list_jobs(list_id):
         JSON with count of deleted jobs
     """
     # Get IDs of jobs to delete (not running)
-    jobs_to_delete = Job.query.filter(
-        Job.list_id == list_id, Job.status.in_(["completed", "failed"])
-    ).all()
+    jobs_to_delete = Job.query.filter(Job.list_id == list_id, Job.status.in_(["completed", "failed"])).all()
     job_ids = [job.id for job in jobs_to_delete]
 
     if job_ids:
@@ -228,10 +224,5 @@ def get_running_jobs():
     """
     jobs = Job.query.filter_by(status="running").all()
     return jsonify(
-        {
-            "running_jobs": [
-                {"job_id": job.id, "list_id": job.list_id, "list_name": job.list_name}
-                for job in jobs
-            ]
-        }
+        {"running_jobs": [{"job_id": job.id, "list_id": job.list_id, "list_name": job.list_name} for job in jobs]}
     )

@@ -26,28 +26,18 @@ class ListForm(FlaskForm):
 
     is_active = BooleanField(label="Active", default=True)
 
-    schedule_cron = SelectField(
-        label="Schedule", choices=SCHEDULE_CHOICES, validators=[]
-    )
+    schedule_cron = SelectField(label="Schedule", choices=SCHEDULE_CHOICES, validators=[])
 
     # Import settings - choices populated dynamically in route
-    override_quality_profile = SelectField(
-        label="Quality Profile", choices=[("", "Use Default")], validators=[]
-    )
+    override_quality_profile = SelectField(label="Quality Profile", choices=[("", "Use Default")], validators=[])
 
-    override_root_folder = SelectField(
-        label="Root Folder", choices=[("", "Use Default")], validators=[]
-    )
+    override_root_folder = SelectField(label="Root Folder", choices=[("", "Use Default")], validators=[])
 
     override_tag = StringField(label="Tag", validators=[])
 
-    override_monitored = SelectField(
-        label="Monitored", choices=TRI_STATE_CHOICES, validators=[]
-    )
+    override_monitored = SelectField(label="Monitored", choices=TRI_STATE_CHOICES, validators=[])
 
-    override_search_on_add = SelectField(
-        label="Search on Add", choices=TRI_STATE_CHOICES, validators=[]
-    )
+    override_search_on_add = SelectField(label="Search on Add", choices=TRI_STATE_CHOICES, validators=[])
 
     override_season_folder = SelectField(
         label="Season Folder",

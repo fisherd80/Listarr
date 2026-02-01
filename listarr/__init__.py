@@ -42,9 +42,7 @@ def create_app(test_config=None):
     log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
 
-    logging.basicConfig(
-        level=log_level, format="%(asctime)s %(name)s %(levelname)s: %(message)s"
-    )
+    logging.basicConfig(level=log_level, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
 
     # Suppress noisy library logs unless DEBUG mode
     if log_level > logging.DEBUG:

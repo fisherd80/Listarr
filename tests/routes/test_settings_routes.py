@@ -137,9 +137,7 @@ class TestSettingsPagePOST:
     """Tests for POST /settings endpoint (Save API Key)."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_save_api_key_with_valid_key_creates_new_config(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_api_key_with_valid_key_creates_new_config(self, mock_test, app, client, temp_instance_path):
         """Test saving valid API key creates new ServiceConfig entry."""
         mock_test.return_value = True
 
@@ -159,15 +157,11 @@ class TestSettingsPagePOST:
             assert config.last_test_status == "success"
 
             # Verify key is encrypted
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "new_valid_key_12345"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_save_api_key_with_valid_key_updates_existing_config(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_api_key_with_valid_key_updates_existing_config(self, mock_test, app, client, temp_instance_path):
         """Test saving valid API key updates existing ServiceConfig."""
         mock_test.return_value = True
 
@@ -200,9 +194,7 @@ class TestSettingsPagePOST:
             assert configs[0].id == old_id
 
             # Verify key was updated
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_key_67890"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
@@ -247,9 +239,7 @@ class TestSettingsPagePOST:
         assert b"API Key cannot be empty" in response.data
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_save_api_key_trims_whitespace(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_api_key_trims_whitespace(self, mock_test, app, client, temp_instance_path):
         """Test that API key whitespace is trimmed before saving."""
         mock_test.return_value = True
 
@@ -264,16 +254,12 @@ class TestSettingsPagePOST:
         # Verify trimmed key was saved
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="TMDB").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "trimmed_key_123"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
     @patch("listarr.routes.settings_routes.encrypt_data")
-    def test_save_api_key_handles_encryption_error(
-        self, mock_encrypt, mock_test, client
-    ):
+    def test_save_api_key_handles_encryption_error(self, mock_encrypt, mock_test, client):
         """Test that encryption errors are handled gracefully."""
         mock_test.return_value = True
         mock_encrypt.side_effect = Exception("Encryption failed")
@@ -305,9 +291,7 @@ class TestSettingsPagePOST:
         assert b"Failed to save TMDB configuration" in response.data
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_save_api_key_updates_last_tested_timestamp(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_api_key_updates_last_tested_timestamp(self, mock_test, app, client, temp_instance_path):
         """Test that save operation updates last_tested_at."""
         mock_test.return_value = True
 
@@ -324,9 +308,7 @@ class TestSettingsPagePOST:
 
     def test_save_api_key_redirects_to_settings_page(self, client):
         """Test that POST redirects back to settings page."""
-        response = client.post(
-            "/settings", data={"tmdb_api": "", "save_api_key": "true"}
-        )
+        response = client.post("/settings", data={"tmdb_api": "", "save_api_key": "true"})
 
         assert response.status_code == 302
         assert "/settings" in response.location
@@ -384,18 +366,14 @@ class TestTestTMDBAPIAjax:
 
     def test_test_tmdb_api_without_api_key_field(self, client):
         """Test AJAX endpoint without api_key in request."""
-        response = client.post(
-            "/settings/test_tmdb_api", json={}, content_type="application/json"
-        )
+        response = client.post("/settings/test_tmdb_api", json={}, content_type="application/json")
 
         assert response.status_code == 200
         data = response.get_json()
         assert data["success"] is False
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_test_tmdb_api_updates_database(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_test_tmdb_api_updates_database(self, mock_test, app, client, temp_instance_path):
         """Test that AJAX test updates database with results."""
         mock_test.return_value = True
 
@@ -540,9 +518,7 @@ class TestHelperTestAndUpdateTMDBStatus:
             assert config.last_test_status == status
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_helper_handles_no_existing_config(
-        self, mock_test, app, temp_instance_path
-    ):
+    def test_helper_handles_no_existing_config(self, mock_test, app, temp_instance_path):
         """Test that helper works when no config exists yet."""
         from listarr.routes.settings_routes import _test_and_update_tmdb_status
 
@@ -599,9 +575,7 @@ class TestErrorHandling:
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
     @patch("listarr.routes.settings_routes.decrypt_data")
-    def test_settings_get_handles_decryption_error(
-        self, mock_decrypt, mock_test, app, client, temp_instance_path
-    ):
+    def test_settings_get_handles_decryption_error(self, mock_decrypt, mock_test, app, client, temp_instance_path):
         """Test that GET /settings handles decryption errors gracefully."""
         mock_decrypt.side_effect = ValueError("Decryption failed")
 
@@ -616,9 +590,7 @@ class TestErrorHandling:
         assert response.status_code == 200
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_save_api_key_with_special_characters(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_api_key_with_special_characters(self, mock_test, app, client, temp_instance_path):
         """Test saving API key with special characters."""
         mock_test.return_value = True
         special_key = "key!@#$%^&*()_+-={}[]|:;<>,.?/"
@@ -640,9 +612,7 @@ class TestErrorHandling:
             assert decrypted == special_key
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_save_api_key_with_unicode_characters(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_api_key_with_unicode_characters(self, mock_test, app, client, temp_instance_path):
         """Test saving API key with Unicode characters."""
         mock_test.return_value = True
         unicode_key = "key_测试_тест_🔑"

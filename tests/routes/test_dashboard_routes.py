@@ -357,9 +357,7 @@ class TestDashboardStatsGET:
         assert isinstance(data["sonarr"]["added_by_listarr"], int)
 
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_with_radarr_configured_but_offline(
-        self, mock_status, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_with_radarr_configured_but_offline(self, mock_status, app, client, temp_instance_path):
         """Test stats endpoint when Radarr is configured but unreachable."""
         mock_status.side_effect = Exception("Connection refused")
 
@@ -391,9 +389,7 @@ class TestDashboardStatsGET:
         assert "added_by_listarr" in data["radarr"]
 
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_when_radarr_returns_empty_status(
-        self, mock_status, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_when_radarr_returns_empty_status(self, mock_status, app, client, temp_instance_path):
         """Test stats endpoint when Radarr returns empty/null status."""
         mock_status.return_value = None
 
@@ -423,9 +419,7 @@ class TestDashboardStatsGET:
 
     @patch("listarr.services.dashboard_cache.get_movie_count")
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_with_zero_movies(
-        self, mock_status, mock_count, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_with_zero_movies(self, mock_status, mock_count, app, client, temp_instance_path):
         """Test stats endpoint when Radarr has zero movies."""
         mock_status.return_value = {"version": "4.5.2.7388"}
         mock_count.return_value = 0
@@ -460,9 +454,7 @@ class TestDashboardStatsGET:
         """Test stats endpoint when service has base_url but no API key."""
         with app.app_context():
             # Use empty string for api_key_encrypted to satisfy NOT NULL constraint
-            config = ServiceConfig(
-                service="RADARR", base_url="http://localhost:7878", api_key_encrypted=""
-            )
+            config = ServiceConfig(service="RADARR", base_url="http://localhost:7878", api_key_encrypted="")
             db.session.add(config)
             db.session.commit()
 
@@ -481,9 +473,7 @@ class TestDashboardStatsGET:
         """Test stats endpoint when service has API key but no base_url."""
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR", base_url=None, api_key_encrypted=encrypted
-            )
+            config = ServiceConfig(service="RADARR", base_url=None, api_key_encrypted=encrypted)
             db.session.add(config)
             db.session.commit()
 
@@ -513,9 +503,6 @@ class TestDashboardStatsGET:
                 service="RADARR",
                 base_url="http://localhost:7878",
                 api_key_encrypted=radarr_encrypted,
-            )
-            sonarr_encrypted = encrypt_data(
-                "sonarr_key", instance_path=temp_instance_path
             )
             sonarr_config = ServiceConfig(
                 service="SONARR",
@@ -559,9 +546,6 @@ class TestDashboardStatsGET:
                 service="RADARR",
                 base_url="http://localhost:7878",
                 api_key_encrypted=radarr_encrypted,
-            )
-            sonarr_encrypted = encrypt_data(
-                "sonarr_key", instance_path=temp_instance_path
             )
             sonarr_config = ServiceConfig(
                 service="SONARR",
@@ -751,9 +735,7 @@ class TestRecentJobsGET:
                     items_added=i + 1,
                     items_skipped=0,
                     started_at=datetime(2024, 1, i + 1, 10, 0, 0, tzinfo=timezone.utc),
-                    completed_at=datetime(
-                        2024, 1, i + 1, 10, 5, 0, tzinfo=timezone.utc
-                    ),
+                    completed_at=datetime(2024, 1, i + 1, 10, 5, 0, tzinfo=timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
@@ -961,9 +943,7 @@ class TestDashboardErrorHandling:
     """Tests for error handling and edge cases."""
 
     @patch("listarr.services.dashboard_cache.decrypt_data")
-    def test_dashboard_stats_handles_decryption_error(
-        self, mock_decrypt, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_handles_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
         """Test that stats endpoint handles decryption errors gracefully."""
         mock_decrypt.side_effect = ValueError("Decryption failed")
 
@@ -1040,9 +1020,7 @@ class TestDashboardErrorHandling:
         assert data["radarr"]["total_movies"] == 0
 
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_handles_timeout(
-        self, mock_status, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_handles_timeout(self, mock_status, app, client, temp_instance_path):
         """Test stats endpoint handles timeout errors."""
         mock_status.side_effect = TimeoutError("Request timed out")
 

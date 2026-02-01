@@ -75,9 +75,7 @@ def load_encryption_key(*, instance_path=None, allow_generate=False) -> bytes:
     try:
         Fernet(key_bytes)
     except (ValueError, TypeError):
-        raise RuntimeError(
-            "Invalid encryption key format! Must be a 32-byte base64-encoded string."
-        )
+        raise RuntimeError("Invalid encryption key format! Must be a 32-byte base64-encoded string.")
 
     return key_bytes
 

@@ -23,9 +23,7 @@ class TestSettingsEndToEndWorkflow:
     """Integration tests for complete settings workflows."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_full_save_and_retrieve_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_full_save_and_retrieve_workflow(self, mock_test, app, client, temp_instance_path):
         """Test complete workflow: save API key, reload page, verify displayed."""
         mock_test.return_value = True
 
@@ -50,15 +48,11 @@ class TestSettingsEndToEndWorkflow:
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="TMDB").first()
             assert config is not None
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "integration_test_key_12345"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_ajax_test_then_save_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_ajax_test_then_save_workflow(self, mock_test, app, client, temp_instance_path):
         """Test workflow: AJAX test connection, then save."""
         mock_test.return_value = True
 
@@ -90,16 +84,12 @@ class TestSettingsEndToEndWorkflow:
             assert len(configs) <= 1
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_update_existing_key_workflow(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_update_existing_key_workflow(self, mock_test, app, client, temp_instance_path):
         """Test workflow: save key, update with new key, verify update."""
         mock_test.return_value = True
 
         # Step 1: Save initial key
-        client.post(
-            "/settings", data={"tmdb_api": "initial_key", "save_api_key": "true"}
-        )
+        client.post("/settings", data={"tmdb_api": "initial_key", "save_api_key": "true"})
 
         # Step 2: Update with new key
         response = client.post(
@@ -114,9 +104,7 @@ class TestSettingsEndToEndWorkflow:
         with app.app_context():
             configs = ServiceConfig.query.filter_by(service="TMDB").all()
             assert len(configs) == 1
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_key"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
@@ -149,9 +137,7 @@ class TestDatabaseIntegration:
     """Integration tests for database operations."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_concurrent_config_updates_are_handled(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_concurrent_config_updates_are_handled(self, mock_test, app, client, temp_instance_path):
         """Test that multiple updates to same config work correctly."""
         mock_test.return_value = True
 
@@ -175,15 +161,11 @@ class TestDatabaseIntegration:
             configs = ServiceConfig.query.filter_by(service="TMDB").all()
             assert len(configs) == 1
             assert configs[0].id == config_id
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "key_version_2"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_database_rollback_on_save_error(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_database_rollback_on_save_error(self, mock_test, app, client, temp_instance_path):
         """Test that database rollback works on save errors."""
         mock_test.return_value = True
 
@@ -196,21 +178,15 @@ class TestDatabaseIntegration:
 
             # Force commit to fail
             with patch.object(db.session, "commit", side_effect=Exception("DB error")):
-                client.post(
-                    "/settings", data={"tmdb_api": "new_key", "save_api_key": "true"}
-                )
+                client.post("/settings", data={"tmdb_api": "new_key", "save_api_key": "true"})
 
             # Verify original key is still intact (rollback worked)
             config = ServiceConfig.query.filter_by(service="TMDB").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "original_key"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_database_rollback_on_test_error(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_database_rollback_on_test_error(self, mock_test, app, client, temp_instance_path):
         """Test that database rollback works on AJAX test errors."""
         mock_test.return_value = True
 
@@ -263,17 +239,13 @@ class TestEncryptionIntegration:
     """Integration tests for encryption workflows."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_encryption_roundtrip_through_database(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_encryption_roundtrip_through_database(self, mock_test, app, client, temp_instance_path):
         """Test full encryption roundtrip: encrypt -> save -> retrieve -> decrypt."""
         mock_test.return_value = True
         original_key = "secret_api_key_12345"
 
         # Save key (encrypts)
-        client.post(
-            "/settings", data={"tmdb_api": original_key, "save_api_key": "true"}
-        )
+        client.post("/settings", data={"tmdb_api": original_key, "save_api_key": "true"})
 
         # Retrieve from database and decrypt
         with app.app_context():
@@ -288,9 +260,7 @@ class TestEncryptionIntegration:
             assert decrypted == original_key
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_multiple_keys_encrypted_differently(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_multiple_keys_encrypted_differently(self, mock_test, app, client, temp_instance_path):
         """Test that same key encrypted multiple times produces different ciphertext."""
         mock_test.return_value = True
         api_key = "same_key"
@@ -300,9 +270,7 @@ class TestEncryptionIntegration:
         for _ in range(3):
             with app.app_context():
                 # Encrypt and save
-                client.post(
-                    "/settings", data={"tmdb_api": api_key, "save_api_key": "true"}
-                )
+                client.post("/settings", data={"tmdb_api": api_key, "save_api_key": "true"})
 
                 config = ServiceConfig.query.filter_by(service="TMDB").first()
                 encrypted_values.append(config.api_key_encrypted)
@@ -325,9 +293,7 @@ class TestTimestampTracking:
     """Integration tests for timestamp tracking."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_timestamp_updated_on_each_test(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_timestamp_updated_on_each_test(self, mock_test, app, client, temp_instance_path):
         """Test that last_tested_at is updated on each test."""
         mock_test.return_value = True
 
@@ -357,9 +323,7 @@ class TestTimestampTracking:
             assert config.last_tested_at > old_time
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_status_changes_from_success_to_failed(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_status_changes_from_success_to_failed(self, mock_test, app, client, temp_instance_path):
         """Test that status correctly changes when test fails."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -386,9 +350,7 @@ class TestTimestampTracking:
             assert config.last_test_status == "failed"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_status_changes_from_failed_to_success(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_status_changes_from_failed_to_success(self, mock_test, app, client, temp_instance_path):
         """Test that status correctly changes when test succeeds."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -419,9 +381,7 @@ class TestErrorRecovery:
     """Integration tests for error recovery scenarios."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_recovery_from_invalid_key_save_attempt(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_recovery_from_invalid_key_save_attempt(self, mock_test, app, client, temp_instance_path):
         """Test that application recovers from invalid key save attempt."""
         # Step 1: Try to save invalid key
         mock_test.return_value = False
@@ -446,16 +406,12 @@ class TestErrorRecovery:
         # Step 3: Verify valid key is in database
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="TMDB").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "valid_key"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
     @patch("listarr.routes.settings_routes.encrypt_data")
-    def test_recovery_from_encryption_failure(
-        self, mock_encrypt, mock_test, app, client, temp_instance_path
-    ):
+    def test_recovery_from_encryption_failure(self, mock_encrypt, mock_test, app, client, temp_instance_path):
         """Test that application recovers from encryption failure."""
         mock_test.return_value = True
 
@@ -490,9 +446,7 @@ class TestErrorRecovery:
         """Test that page still loads when encrypted data is corrupted."""
         with app.app_context():
             # Save corrupted encrypted data
-            config = ServiceConfig(
-                service="TMDB", api_key_encrypted="corrupted_data_not_valid_encryption"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="corrupted_data_not_valid_encryption")
             db.session.add(config)
             db.session.commit()
 
@@ -505,25 +459,19 @@ class TestMultipleRequestsScenarios:
     """Integration tests for scenarios with multiple requests."""
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
-    def test_rapid_succession_save_requests(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_rapid_succession_save_requests(self, mock_test, app, client, temp_instance_path):
         """Test handling of rapid succession save requests."""
         mock_test.return_value = True
 
         # Simulate rapid saves
         for i in range(5):
-            client.post(
-                "/settings", data={"tmdb_api": f"key_{i}", "save_api_key": "true"}
-            )
+            client.post("/settings", data={"tmdb_api": f"key_{i}", "save_api_key": "true"})
 
         # Should have exactly one config with last key
         with app.app_context():
             configs = ServiceConfig.query.filter_by(service="TMDB").all()
             assert len(configs) == 1
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "key_4"
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")

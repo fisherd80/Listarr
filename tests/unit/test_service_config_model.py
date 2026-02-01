@@ -23,9 +23,7 @@ class TestServiceConfigModel:
     def test_create_service_config(self, app):
         """Test creating a ServiceConfig instance."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB", api_key_encrypted="encrypted_key_data"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="encrypted_key_data")
             db.session.add(config)
             db.session.commit()
 
@@ -100,9 +98,7 @@ class TestServiceConfigModel:
     def test_service_config_update(self, app):
         """Test updating ServiceConfig fields."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB", api_key_encrypted="old_key", last_test_status="failed"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="old_key", last_test_status="failed")
             db.session.add(config)
             db.session.commit()
 
@@ -244,9 +240,7 @@ class TestServiceConfigModel:
     def test_is_enabled_toggle(self, app):
         """Test toggling is_enabled flag."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB", api_key_encrypted="key", is_enabled=True
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="key", is_enabled=True)
             db.session.add(config)
             db.session.commit()
 
@@ -267,9 +261,7 @@ class TestServiceConfigModel:
     def test_base_url_optional_for_tmdb(self, app):
         """Test that base_url is optional (for TMDB which doesn't need it)."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB", api_key_encrypted="key", base_url=None
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="key", base_url=None)
             db.session.add(config)
             db.session.commit()
 

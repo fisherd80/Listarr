@@ -341,9 +341,7 @@ class TestGetMissingMoviesCount:
     """Tests for get_missing_movies_count function."""
 
     @patch("listarr.services.radarr_service.RadarrAPI")
-    def test_get_missing_movies_count_counts_monitored_without_file(
-        self, mock_radarr_class
-    ):
+    def test_get_missing_movies_count_counts_monitored_without_file(self, mock_radarr_class):
         """Test that missing movies are counted correctly."""
         mock_radarr = MagicMock()
         mock_radarr.get_movie.return_value = [
@@ -379,9 +377,7 @@ class TestGetMissingMoviesCount:
         assert result == 2  # Only movies 1 and 4 are monitored and missing files
 
     @patch("listarr.services.radarr_service.RadarrAPI")
-    def test_get_missing_movies_count_returns_zero_for_empty_list(
-        self, mock_radarr_class
-    ):
+    def test_get_missing_movies_count_returns_zero_for_empty_list(self, mock_radarr_class):
         """Test that empty movie list returns 0."""
         mock_radarr = MagicMock()
         mock_radarr.get_movie.return_value = []

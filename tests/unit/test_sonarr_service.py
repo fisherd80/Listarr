@@ -341,9 +341,7 @@ class TestGetMissingSeriesCount:
     """Tests for get_missing_series_count function."""
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
-    def test_get_missing_series_count_counts_series_with_missing_episodes(
-        self, mock_sonarr_class
-    ):
+    def test_get_missing_series_count_counts_series_with_missing_episodes(self, mock_sonarr_class):
         """Test that missing series are counted correctly using get_wanted()."""
         mock_sonarr = MagicMock()
 
@@ -368,9 +366,7 @@ class TestGetMissingSeriesCount:
         mock_sonarr.get_wanted.assert_called_once()
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
-    def test_get_missing_series_count_returns_zero_for_empty_list(
-        self, mock_sonarr_class
-    ):
+    def test_get_missing_series_count_returns_zero_for_empty_list(self, mock_sonarr_class):
         """Test that empty wanted list returns 0."""
         mock_sonarr = MagicMock()
         mock_sonarr.get_wanted.return_value = {"records": []}
@@ -392,9 +388,7 @@ class TestGetMissingSeriesCount:
         assert result == 0
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
-    def test_get_missing_series_count_handles_missing_records_key(
-        self, mock_sonarr_class
-    ):
+    def test_get_missing_series_count_handles_missing_records_key(self, mock_sonarr_class):
         """Test that missing 'records' key returns 0."""
         mock_sonarr = MagicMock()
         mock_sonarr.get_wanted.return_value = {}  # No 'records' key
@@ -405,9 +399,7 @@ class TestGetMissingSeriesCount:
         assert result == 0
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
-    def test_get_missing_series_count_uses_series_id_from_nested_series(
-        self, mock_sonarr_class
-    ):
+    def test_get_missing_series_count_uses_series_id_from_nested_series(self, mock_sonarr_class):
         """Test that seriesId can be extracted from nested series object."""
         mock_sonarr = MagicMock()
         # Some episodes might have series info nested instead of seriesId
@@ -434,9 +426,7 @@ class TestGetMissingSeriesCount:
         assert result == 2
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
-    def test_get_missing_series_count_handles_episodes_without_series_id(
-        self, mock_sonarr_class
-    ):
+    def test_get_missing_series_count_handles_episodes_without_series_id(self, mock_sonarr_class):
         """Test that episodes without seriesId are skipped."""
         mock_sonarr = MagicMock()
         mock_sonarr.get_wanted.return_value = {

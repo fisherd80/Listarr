@@ -130,11 +130,7 @@ def get_trending_movies(api_key: str, time_window: str = "week", page: int = 1) 
     try:
         _init_tmdb(api_key)
         trending = Trending()
-        results = (
-            trending.movie_week(page=page)
-            if time_window == "week"
-            else trending.movie_day(page=page)
-        )
+        results = trending.movie_week(page=page) if time_window == "week" else trending.movie_day(page=page)
         return results
     except Exception as e:
         logger.error(f"Error fetching trending movies: {e}", exc_info=True)
@@ -159,11 +155,7 @@ def get_trending_tv(api_key: str, time_window: str = "week", page: int = 1) -> l
     try:
         _init_tmdb(api_key)
         trending = Trending()
-        results = (
-            trending.tv_week(page=page)
-            if time_window == "week"
-            else trending.tv_day(page=page)
-        )
+        results = trending.tv_week(page=page) if time_window == "week" else trending.tv_day(page=page)
         return results
     except Exception as e:
         logger.error(f"Error fetching trending TV shows: {e}", exc_info=True)

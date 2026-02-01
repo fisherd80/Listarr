@@ -238,9 +238,7 @@ class TestRadarrConfigPOST:
             assert config.last_test_status == "success"
 
             # Verify key is encrypted
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "new_valid_radarr_key"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
@@ -285,15 +283,11 @@ class TestRadarrConfigPOST:
             assert configs[0].base_url == "http://192.168.1.100:7878"
 
             # Verify key was updated
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_radarr_key"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_save_radarr_api_with_invalid_credentials_shows_error(
-        self, mock_test, app, client
-    ):
+    def test_save_radarr_api_with_invalid_credentials_shows_error(self, mock_test, app, client):
         """Test that invalid Radarr credentials show error message."""
         mock_test.return_value = False
 
@@ -361,9 +355,7 @@ class TestRadarrConfigPOST:
         assert b"Invalid URL format" in response.data
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_save_radarr_api_trims_whitespace(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_radarr_api_trims_whitespace(self, mock_test, app, client, temp_instance_path):
         """Test that Radarr URL and API key whitespace is trimmed before saving."""
         mock_test.return_value = True
 
@@ -383,16 +375,12 @@ class TestRadarrConfigPOST:
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="RADARR").first()
             assert config.base_url == "http://localhost:7878"
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "trimmed_radarr_key"
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
     @patch("listarr.routes.config_routes.encrypt_data")
-    def test_save_radarr_api_handles_encryption_error(
-        self, mock_encrypt, mock_test, client
-    ):
+    def test_save_radarr_api_handles_encryption_error(self, mock_encrypt, mock_test, client):
         """Test that Radarr encryption errors are handled gracefully."""
         mock_test.return_value = True
         mock_encrypt.side_effect = Exception("Encryption failed")
@@ -432,9 +420,7 @@ class TestRadarrConfigPOST:
         assert b"Failed to save Radarr configuration" in response.data
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_save_radarr_api_updates_last_tested_timestamp(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_radarr_api_updates_last_tested_timestamp(self, mock_test, app, client, temp_instance_path):
         """Test that Radarr save operation updates last_tested_at."""
         mock_test.return_value = True
 
@@ -472,9 +458,7 @@ class TestConcurrentOperations:
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_save_both_services_in_single_post(
-        self, mock_sonarr, mock_radarr, app, client, temp_instance_path
-    ):
+    def test_save_both_services_in_single_post(self, mock_sonarr, mock_radarr, app, client, temp_instance_path):
         """Test saving both Radarr and Sonarr configs in one POST request."""
         mock_radarr.return_value = True
         mock_sonarr.return_value = True
@@ -502,12 +486,8 @@ class TestConcurrentOperations:
             assert radarr is not None
             assert sonarr is not None
             # Verify keys are encrypted and correct
-            decrypted_radarr = decrypt_data(
-                radarr.api_key_encrypted, instance_path=temp_instance_path
-            )
-            decrypted_sonarr = decrypt_data(
-                sonarr.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted_radarr = decrypt_data(radarr.api_key_encrypted, instance_path=temp_instance_path)
+            decrypted_sonarr = decrypt_data(sonarr.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted_radarr == "radarr_key"
             assert decrypted_sonarr == "sonarr_key"
 
@@ -543,9 +523,7 @@ class TestSonarrConfigPOST:
             assert config.last_test_status == "success"
 
             # Verify key is encrypted
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "new_valid_sonarr_key"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
@@ -590,15 +568,11 @@ class TestSonarrConfigPOST:
             assert configs[0].base_url == "http://192.168.1.100:8989"
 
             # Verify key was updated
-            decrypted = decrypt_data(
-                configs[0].api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_sonarr_key"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_save_sonarr_api_with_invalid_credentials_shows_error(
-        self, mock_test, app, client
-    ):
+    def test_save_sonarr_api_with_invalid_credentials_shows_error(self, mock_test, app, client):
         """Test that invalid Sonarr credentials show error message."""
         mock_test.return_value = False
 
@@ -713,9 +687,7 @@ class TestTestRadarrAPIAjax:
         assert "Invalid URL format" in data["message"]
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_test_radarr_api_updates_database(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_test_radarr_api_updates_database(self, mock_test, app, client, temp_instance_path):
         """Test that AJAX test updates database with results."""
         mock_test.return_value = True
 
@@ -837,9 +809,7 @@ class TestRadarrQualityProfilesEndpoint:
     """Tests for GET /config/radarr/quality-profiles endpoint."""
 
     @patch("listarr.routes.config_routes.get_radarr_quality_profiles")
-    def test_fetch_radarr_quality_profiles_success(
-        self, mock_get_profiles, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_quality_profiles_success(self, mock_get_profiles, app, client, temp_instance_path):
         """Test fetching Radarr quality profiles successfully."""
         # Create Radarr config
         with app.app_context():
@@ -875,9 +845,7 @@ class TestRadarrQualityProfilesEndpoint:
         assert "Radarr not configured" in data["message"]
 
     @patch("listarr.routes.config_routes.get_radarr_quality_profiles")
-    def test_fetch_radarr_quality_profiles_api_failure(
-        self, mock_get_profiles, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_quality_profiles_api_failure(self, mock_get_profiles, app, client, temp_instance_path):
         """Test handling of API failure when fetching quality profiles."""
         # Create Radarr config
         with app.app_context():
@@ -900,9 +868,7 @@ class TestRadarrQualityProfilesEndpoint:
         assert "Failed to fetch quality profiles" in data["message"]
 
     @patch("listarr.routes.config_routes.decrypt_data")
-    def test_fetch_radarr_quality_profiles_decryption_error(
-        self, mock_decrypt, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_quality_profiles_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
         """Test handling when decryption fails for quality profiles."""
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -928,9 +894,7 @@ class TestRadarrRootFoldersEndpoint:
     """Tests for GET /config/radarr/root-folders endpoint."""
 
     @patch("listarr.routes.config_routes.get_radarr_root_folders")
-    def test_fetch_radarr_root_folders_success(
-        self, mock_get_folders, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_root_folders_success(self, mock_get_folders, app, client, temp_instance_path):
         """Test fetching Radarr root folders successfully."""
         # Create Radarr config
         with app.app_context():
@@ -966,9 +930,7 @@ class TestRadarrRootFoldersEndpoint:
         assert "Radarr not configured" in data["message"]
 
     @patch("listarr.routes.config_routes.get_radarr_root_folders")
-    def test_fetch_radarr_root_folders_api_failure(
-        self, mock_get_folders, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_root_folders_api_failure(self, mock_get_folders, app, client, temp_instance_path):
         """Test handling of API failure when fetching root folders."""
         # Create Radarr config
         with app.app_context():
@@ -991,9 +953,7 @@ class TestRadarrRootFoldersEndpoint:
         assert "Failed to fetch root folders" in data["message"]
 
     @patch("listarr.routes.config_routes.decrypt_data")
-    def test_fetch_radarr_root_folders_decryption_error(
-        self, mock_decrypt, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_root_folders_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
         """Test handling when decryption fails for root folders."""
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -1028,9 +988,7 @@ class TestRadarrImportSettingsEndpoints:
         assert data["settings"] is None
 
     @patch("listarr.routes.config_routes.get_radarr_root_folders")
-    def test_fetch_radarr_import_settings_when_exist(
-        self, mock_root_folders, app, client, temp_instance_path
-    ):
+    def test_fetch_radarr_import_settings_when_exist(self, mock_root_folders, app, client, temp_instance_path):
         """Test fetching existing import settings (returns ID from stored path)."""
         # Create Radarr service config for API lookup
         with app.app_context():
@@ -1069,9 +1027,7 @@ class TestRadarrImportSettingsEndpoints:
         assert data["settings"]["search_on_add"] is False
 
     @patch("listarr.routes.config_routes.get_radarr_root_folders")
-    def test_save_radarr_import_settings_creates_new(
-        self, mock_root_folders, app, client, temp_instance_path
-    ):
+    def test_save_radarr_import_settings_creates_new(self, mock_root_folders, app, client, temp_instance_path):
         """Test saving new Radarr import settings (stores path from ID)."""
         # Create Radarr service config
         with app.app_context():
@@ -1113,9 +1069,7 @@ class TestRadarrImportSettingsEndpoints:
             assert settings.quality_profile_id == 1
 
     @patch("listarr.routes.config_routes.get_radarr_root_folders")
-    def test_save_radarr_import_settings_updates_existing(
-        self, mock_root_folders, app, client, temp_instance_path
-    ):
+    def test_save_radarr_import_settings_updates_existing(self, mock_root_folders, app, client, temp_instance_path):
         """Test updating existing Radarr import settings."""
         # Create Radarr service config and existing settings
         with app.app_context():
@@ -1275,9 +1229,7 @@ class TestSonarrQualityProfilesEndpoint:
     """Tests for GET /config/sonarr/quality-profiles endpoint."""
 
     @patch("listarr.routes.config_routes.get_sonarr_quality_profiles")
-    def test_fetch_sonarr_quality_profiles_success(
-        self, mock_get_profiles, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_quality_profiles_success(self, mock_get_profiles, app, client, temp_instance_path):
         """Test fetching Sonarr quality profiles successfully."""
         # Create Sonarr config
         with app.app_context():
@@ -1312,9 +1264,7 @@ class TestSonarrQualityProfilesEndpoint:
         assert "Sonarr not configured" in data["message"]
 
     @patch("listarr.routes.config_routes.get_sonarr_quality_profiles")
-    def test_fetch_sonarr_quality_profiles_api_failure(
-        self, mock_get_profiles, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_quality_profiles_api_failure(self, mock_get_profiles, app, client, temp_instance_path):
         """Test handling of API failure when fetching quality profiles."""
         # Create Sonarr config
         with app.app_context():
@@ -1337,9 +1287,7 @@ class TestSonarrQualityProfilesEndpoint:
         assert "Failed to fetch quality profiles" in data["message"]
 
     @patch("listarr.routes.config_routes.decrypt_data")
-    def test_fetch_sonarr_quality_profiles_decryption_error(
-        self, mock_decrypt, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_quality_profiles_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
         """Test handling when decryption fails for quality profiles."""
         with app.app_context():
             encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
@@ -1365,9 +1313,7 @@ class TestSonarrRootFoldersEndpoint:
     """Tests for GET /config/sonarr/root-folders endpoint."""
 
     @patch("listarr.routes.config_routes.get_sonarr_root_folders")
-    def test_fetch_sonarr_root_folders_success(
-        self, mock_get_folders, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_root_folders_success(self, mock_get_folders, app, client, temp_instance_path):
         """Test fetching Sonarr root folders successfully."""
         # Create Sonarr config
         with app.app_context():
@@ -1402,9 +1348,7 @@ class TestSonarrRootFoldersEndpoint:
         assert "Sonarr not configured" in data["message"]
 
     @patch("listarr.routes.config_routes.get_sonarr_root_folders")
-    def test_fetch_sonarr_root_folders_api_failure(
-        self, mock_get_folders, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_root_folders_api_failure(self, mock_get_folders, app, client, temp_instance_path):
         """Test handling of API failure when fetching root folders."""
         # Create Sonarr config
         with app.app_context():
@@ -1427,9 +1371,7 @@ class TestSonarrRootFoldersEndpoint:
         assert "Failed to fetch root folders" in data["message"]
 
     @patch("listarr.routes.config_routes.decrypt_data")
-    def test_fetch_sonarr_root_folders_decryption_error(
-        self, mock_decrypt, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_root_folders_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
         """Test handling when decryption fails for root folders."""
         with app.app_context():
             encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
@@ -1464,9 +1406,7 @@ class TestSonarrImportSettingsEndpoints:
         assert data["settings"] is None
 
     @patch("listarr.routes.config_routes.get_sonarr_root_folders")
-    def test_fetch_sonarr_import_settings_when_exist(
-        self, mock_root_folders, app, client, temp_instance_path
-    ):
+    def test_fetch_sonarr_import_settings_when_exist(self, mock_root_folders, app, client, temp_instance_path):
         """Test fetching existing Sonarr import settings (returns ID from stored path)."""
         # Create Sonarr service config for API lookup
         with app.app_context():
@@ -1504,9 +1444,7 @@ class TestSonarrImportSettingsEndpoints:
         assert data["settings"]["season_folder"] is True
 
     @patch("listarr.routes.config_routes.get_sonarr_root_folders")
-    def test_save_sonarr_import_settings_creates_new(
-        self, mock_root_folders, app, client, temp_instance_path
-    ):
+    def test_save_sonarr_import_settings_creates_new(self, mock_root_folders, app, client, temp_instance_path):
         """Test saving new Sonarr import settings (stores path from ID)."""
         # Create Sonarr service config
         with app.app_context():
@@ -1587,9 +1525,7 @@ class TestSonarrImportSettingsEndpoints:
         assert "Search on Add option is required" in data["message"]
 
     @patch("listarr.routes.config_routes.get_sonarr_root_folders")
-    def test_save_sonarr_import_settings_updates_existing(
-        self, mock_root_folders, app, client, temp_instance_path
-    ):
+    def test_save_sonarr_import_settings_updates_existing(self, mock_root_folders, app, client, temp_instance_path):
         """Test updating existing Sonarr import settings."""
         # Create Sonarr service config and existing settings
         with app.app_context():
@@ -1699,9 +1635,7 @@ class TestHelperFunctions:
     """Tests for helper functions."""
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_helper_test_and_update_radarr_status_returns_success_tuple(
-        self, mock_test, app, temp_instance_path
-    ):
+    def test_helper_test_and_update_radarr_status_returns_success_tuple(self, mock_test, app, temp_instance_path):
         """Test that Radarr helper returns correct tuple on success."""
         from listarr.routes.config_routes import _test_and_update_radarr_status
 
@@ -1717,9 +1651,7 @@ class TestHelperFunctions:
         assert status == "success"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_helper_test_and_update_sonarr_status_returns_failure_tuple(
-        self, mock_test, app, temp_instance_path
-    ):
+    def test_helper_test_and_update_sonarr_status_returns_failure_tuple(self, mock_test, app, temp_instance_path):
         """Test that Sonarr helper returns correct tuple on failure."""
         from listarr.routes.config_routes import _test_and_update_sonarr_status
 
@@ -1772,9 +1704,7 @@ class TestHelperFunctions:
         assert _is_valid_url(url) == expected
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_helper_test_and_update_radarr_status_database_error(
-        self, mock_test, app, temp_instance_path
-    ):
+    def test_helper_test_and_update_radarr_status_database_error(self, mock_test, app, temp_instance_path):
         """Test that helper handles database errors gracefully."""
         from listarr.routes.config_routes import _test_and_update_radarr_status
 
@@ -1793,9 +1723,7 @@ class TestHelperFunctions:
 
             # Force DB error
             with patch.object(db.session, "commit", side_effect=Exception("DB error")):
-                result, timestamp, status = _test_and_update_radarr_status(
-                    "http://localhost:7878", "key"
-                )
+                result, timestamp, status = _test_and_update_radarr_status("http://localhost:7878", "key")
 
         # Should still return test result even if DB update fails
         assert result is True
@@ -1803,9 +1731,7 @@ class TestHelperFunctions:
         assert status == "success"
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_helper_test_and_update_sonarr_status_database_error(
-        self, mock_test, app, temp_instance_path
-    ):
+    def test_helper_test_and_update_sonarr_status_database_error(self, mock_test, app, temp_instance_path):
         """Test that helper handles database errors gracefully."""
         from listarr.routes.config_routes import _test_and_update_sonarr_status
 
@@ -1824,9 +1750,7 @@ class TestHelperFunctions:
 
             # Force DB error
             with patch.object(db.session, "commit", side_effect=Exception("DB error")):
-                result, timestamp, status = _test_and_update_sonarr_status(
-                    "http://localhost:8989", "key"
-                )
+                result, timestamp, status = _test_and_update_sonarr_status("http://localhost:8989", "key")
 
         # Should still return test result even if DB update fails
         assert result is True
@@ -1861,9 +1785,7 @@ class TestErrorHandling:
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
     @patch("listarr.routes.config_routes.decrypt_data")
-    def test_config_get_handles_radarr_decryption_error(
-        self, mock_decrypt, mock_test, app, client, temp_instance_path
-    ):
+    def test_config_get_handles_radarr_decryption_error(self, mock_decrypt, mock_test, app, client, temp_instance_path):
         """Test that GET /config handles Radarr decryption errors gracefully."""
         mock_decrypt.side_effect = ValueError("Decryption failed")
 
@@ -1882,9 +1804,7 @@ class TestErrorHandling:
         assert response.status_code == 200
 
     @patch("listarr.routes.config_routes.validate_radarr_api_key")
-    def test_save_radarr_api_with_special_characters(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_radarr_api_with_special_characters(self, mock_test, app, client, temp_instance_path):
         """Test saving Radarr API key with special characters."""
         mock_test.return_value = True
         special_key = "key!@#$%^&*()_+-={}[]|:;<>,.?/"
@@ -1910,9 +1830,7 @@ class TestErrorHandling:
             assert decrypted == special_key
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
-    def test_save_sonarr_api_with_unicode_characters(
-        self, mock_test, app, client, temp_instance_path
-    ):
+    def test_save_sonarr_api_with_unicode_characters(self, mock_test, app, client, temp_instance_path):
         """Test saving Sonarr API key with Unicode characters."""
         mock_test.return_value = True
         unicode_key = "key_测试_тест_🔑"

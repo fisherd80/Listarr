@@ -192,9 +192,7 @@ class TestGetJobDetail:
             job_id = job.id
 
             for i in range(2):
-                item = JobItem(
-                    job_id=job_id, tmdb_id=100 + i, title=f"Movie {i}", status="added"
-                )
+                item = JobItem(job_id=job_id, tmdb_id=100 + i, title=f"Movie {i}", status="added")
                 db.session.add(item)
             db.session.commit()
 
