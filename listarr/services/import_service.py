@@ -74,9 +74,7 @@ class ImportResult:
         }
 
 
-def resolve_import_settings(
-    list_obj: List, import_settings: MediaImportSettings
-) -> dict:
+def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings) -> dict:
     """
     Resolve import settings, preferring list overrides over service defaults.
 
@@ -103,9 +101,7 @@ def resolve_import_settings(
     if list_obj.override_quality_profile is not None:
         quality_profile_id = list_obj.override_quality_profile
     else:
-        quality_profile_id = (
-            import_settings.quality_profile_id if import_settings else None
-        )
+        quality_profile_id = import_settings.quality_profile_id if import_settings else None
 
     # Resolve monitored (stored as 0/1 in list, bool in import_settings)
     if list_obj.override_monitored is not None:
@@ -436,9 +432,7 @@ def import_list(list_id: int) -> ImportResult:
         return result
 
     target_service = list_obj.target_service  # 'RADARR' or 'SONARR'
-    logger.info(
-        f"Starting import for list '{list_obj.name}' (ID: {list_id}) to {target_service}"
-    )
+    logger.info(f"Starting import for list '{list_obj.name}' (ID: {list_id}) to {target_service}")
 
     # Fetch service config
     service_config = ServiceConfig.query.filter_by(service=target_service).first()
@@ -457,9 +451,7 @@ def import_list(list_id: int) -> ImportResult:
         return result
 
     # Fetch import settings
-    import_settings = MediaImportSettings.query.filter_by(
-        service=target_service
-    ).first()
+    import_settings = MediaImportSettings.query.filter_by(service=target_service).first()
 
     # Decrypt API keys
     try:
@@ -502,6 +494,4 @@ def import_list(list_id: int) -> ImportResult:
     if target_service == "RADARR":
         return _import_movies(tmdb_items, base_url, service_api_key, settings, tmdb_api_key)
     else:
-        return _import_series(
-            tmdb_items, base_url, service_api_key, settings, tmdb_api_key
-        )
+        return _import_series(tmdb_items, base_url, service_api_key, settings, tmdb_api_key)

@@ -142,9 +142,7 @@ def recent_jobs():
 
             # Format dates to ISO format strings
             started_at_str = job.started_at.isoformat() if job.started_at else None
-            completed_at_str = (
-                job.completed_at.isoformat() if job.completed_at else None
-            )
+            completed_at_str = job.completed_at.isoformat() if job.completed_at else None
             executed_at_str = executed_at.isoformat() if executed_at else None
 
             jobs_data.append(

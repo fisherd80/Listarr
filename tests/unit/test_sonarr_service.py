@@ -40,9 +40,7 @@ class TestValidateSonarrAPIKey:
         result = validate_sonarr_api_key("http://localhost:8989", "valid_key")
 
         assert result is True
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
         mock_sonarr.get_system_status.assert_called_once()
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
@@ -56,9 +54,7 @@ class TestValidateSonarrAPIKey:
 
         assert result is True
         # Verify URL was normalized with trailing slash
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_validate_sonarr_api_key_with_invalid_credentials(self, mock_sonarr_class):
@@ -112,9 +108,7 @@ class TestGetQualityProfiles:
         assert result[0] == {"id": 1, "name": "HD-1080p"}
         assert result[1] == {"id": 2, "name": "Ultra-HD"}
         assert result[2] == {"id": 3, "name": "SD"}
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_get_quality_profiles_adds_trailing_slash(self, mock_sonarr_class):
@@ -125,9 +119,7 @@ class TestGetQualityProfiles:
 
         get_quality_profiles("http://localhost:8989", "valid_key")
 
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_get_quality_profiles_returns_empty_list_on_error(self, mock_sonarr_class):
@@ -170,9 +162,7 @@ class TestGetRootFolders:
         assert len(result) == 2
         assert result[0] == {"id": 1, "path": "/tv"}
         assert result[1] == {"id": 2, "path": "/storage/tv"}
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_get_root_folders_adds_trailing_slash(self, mock_sonarr_class):
@@ -183,9 +173,7 @@ class TestGetRootFolders:
 
         get_root_folders("http://localhost:8989", "valid_key")
 
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_get_root_folders_returns_empty_list_on_error(self, mock_sonarr_class):
@@ -222,9 +210,7 @@ class TestGetSystemStatus:
             "is_production": True,
             "is_debug": False,
         }
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_get_system_status_handles_missing_fields(self, mock_sonarr_class):
@@ -232,7 +218,7 @@ class TestGetSystemStatus:
         mock_sonarr = MagicMock()
         mock_sonarr.get_system_status.return_value = {
             "version": "4.0.0.800",
-            "instanceName": "Sonarr"
+            "instanceName": "Sonarr",
             # Missing isProduction and isDebug
         }
         mock_sonarr_class.return_value = mock_sonarr
@@ -264,9 +250,7 @@ class TestGetSystemStatus:
 
         get_system_status("http://localhost:8989", "valid_key")
 
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
 
 class TestGetSeriesCount:
@@ -286,9 +270,7 @@ class TestGetSeriesCount:
         result = get_series_count("http://localhost:8989", "valid_key")
 
         assert result == 3
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
     @patch("listarr.services.sonarr_service.SonarrAPI")
     def test_get_series_count_returns_zero_for_empty_list(self, mock_sonarr_class):
@@ -332,9 +314,7 @@ class TestGetSeriesCount:
 
         get_series_count("http://localhost:8989", "valid_key")
 
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")
 
 
 class TestGetMissingSeriesCount:
@@ -464,6 +444,4 @@ class TestGetMissingSeriesCount:
 
         get_missing_series_count("http://localhost:8989", "valid_key")
 
-        mock_sonarr_class.assert_called_once_with(
-            host_url="http://localhost:8989/", api_key="valid_key"
-        )
+        mock_sonarr_class.assert_called_once_with(host_url="http://localhost:8989/", api_key="valid_key")

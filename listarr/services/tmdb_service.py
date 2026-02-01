@@ -70,9 +70,7 @@ def get_tvdb_id_from_tmdb(tmdb_id: int, api_key: str) -> int | None:
         external_ids = tv.external_ids(tmdb_id)
         return external_ids.get("tvdb_id")
     except Exception as e:
-        logger.error(
-            f"Error fetching TVDB ID for TMDB TV show {tmdb_id}: {e}", exc_info=True
-        )
+        logger.error(f"Error fetching TVDB ID for TMDB TV show {tmdb_id}: {e}", exc_info=True)
         return None
 
 
@@ -181,11 +179,7 @@ def get_popular_movies(api_key: str, page: int = 1, region: str = None) -> list:
         _init_tmdb(api_key)
         movie = Movie()
         # tmdbv3api popular() accepts region parameter
-        results = (
-            movie.popular(page=page, region=region)
-            if region
-            else movie.popular(page=page)
-        )
+        results = movie.popular(page=page, region=region) if region else movie.popular(page=page)
         return results
     except Exception as e:
         logger.error(f"Error fetching popular movies: {e}", exc_info=True)
@@ -235,11 +229,7 @@ def get_top_rated_movies(api_key: str, page: int = 1, region: str = None) -> lis
         _init_tmdb(api_key)
         movie = Movie()
         # tmdbv3api top_rated() accepts region parameter
-        results = (
-            movie.top_rated(page=page, region=region)
-            if region
-            else movie.top_rated(page=page)
-        )
+        results = movie.top_rated(page=page, region=region) if region else movie.top_rated(page=page)
         return results
     except Exception as e:
         logger.error(f"Error fetching top rated movies: {e}", exc_info=True)
@@ -270,9 +260,7 @@ def get_top_rated_tv(api_key: str, page: int = 1) -> list:
         return []
 
 
-def discover_movies(
-    api_key: str, filters: dict = None, page: int = 1, region: str = None
-) -> list:
+def discover_movies(api_key: str, filters: dict = None, page: int = 1, region: str = None) -> list:
     """
     Discover movies with optional filters.
 
@@ -312,9 +300,7 @@ def discover_movies(
         return []
 
 
-def discover_tv(
-    api_key: str, filters: dict = None, page: int = 1, region: str = None
-) -> list:
+def discover_tv(api_key: str, filters: dict = None, page: int = 1, region: str = None) -> list:
     """
     Discover TV shows with optional filters.
 
@@ -373,9 +359,7 @@ def get_movie_details(tmdb_id: int, api_key: str) -> dict:
         details = movie.details(tmdb_id)
         return details
     except Exception as e:
-        logger.error(
-            f"Error fetching movie details for ID {tmdb_id}: {e}", exc_info=True
-        )
+        logger.error(f"Error fetching movie details for ID {tmdb_id}: {e}", exc_info=True)
         return {}
 
 
@@ -399,7 +383,5 @@ def get_tv_details(tmdb_id: int, api_key: str) -> dict:
         details = tv.details(tmdb_id)
         return details
     except Exception as e:
-        logger.error(
-            f"Error fetching TV show details for ID {tmdb_id}: {e}", exc_info=True
-        )
+        logger.error(f"Error fetching TV show details for ID {tmdb_id}: {e}", exc_info=True)
         return {}

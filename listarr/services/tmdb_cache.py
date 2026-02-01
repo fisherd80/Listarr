@@ -4,6 +4,7 @@ TMDB API caching service.
 This module provides TTL-aware caching for TMDB API calls using cachetools TTLCache.
 Caching reduces API calls and improves response times for repeated requests.
 """
+
 import hashlib
 import json
 import logging

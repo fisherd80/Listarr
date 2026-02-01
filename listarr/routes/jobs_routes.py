@@ -173,9 +173,7 @@ def clear_all_jobs():
 
     if job_ids:
         # Delete job items first (explicit cascade for bulk delete)
-        JobItem.query.filter(JobItem.job_id.in_(job_ids)).delete(
-            synchronize_session=False
-        )
+        JobItem.query.filter(JobItem.job_id.in_(job_ids)).delete(synchronize_session=False)
 
         # Then delete jobs
         Job.query.filter(Job.id.in_(job_ids)).delete(synchronize_session=False)
@@ -202,9 +200,7 @@ def clear_list_jobs(list_id):
 
     if job_ids:
         # Delete job items first (explicit cascade for bulk delete)
-        JobItem.query.filter(JobItem.job_id.in_(job_ids)).delete(
-            synchronize_session=False
-        )
+        JobItem.query.filter(JobItem.job_id.in_(job_ids)).delete(synchronize_session=False)
 
         # Then delete jobs
         Job.query.filter(Job.id.in_(job_ids)).delete(synchronize_session=False)

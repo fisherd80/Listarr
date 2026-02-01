@@ -196,32 +196,22 @@ def edit_list(list_id):
                     else:
                         from listarr.services.sonarr_service import create_or_get_tag_id
 
-                    list_obj.override_tag_id = create_or_get_tag_id(
-                        base_url, api_key, tag_name.strip()
-                    )
+                    list_obj.override_tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
                 else:
-                    flash(
-                        "Service not configured. Cannot create/verify tag.", "warning"
-                    )
+                    flash("Service not configured. Cannot create/verify tag.", "warning")
                     list_obj.override_tag_id = None
             else:
                 list_obj.override_tag_id = None
 
             # Handle tri-state fields (store as 1, 0, or None)
             monitored_value = form.override_monitored.data
-            list_obj.override_monitored = (
-                int(monitored_value) if monitored_value else None
-            )
+            list_obj.override_monitored = int(monitored_value) if monitored_value else None
 
             search_value = form.override_search_on_add.data
-            list_obj.override_search_on_add = (
-                int(search_value) if search_value else None
-            )
+            list_obj.override_search_on_add = int(search_value) if search_value else None
 
             season_value = form.override_season_folder.data
-            list_obj.override_season_folder = (
-                int(season_value) if season_value else None
-            )
+            list_obj.override_season_folder = int(season_value) if season_value else None
 
             db.session.commit()
             flash(f"List '{list_obj.name}' updated successfully!", "success")
@@ -249,9 +239,7 @@ def edit_list(list_id):
 
         # Convert stored values to form values
         form.override_quality_profile.data = (
-            str(list_obj.override_quality_profile)
-            if list_obj.override_quality_profile
-            else ""
+            str(list_obj.override_quality_profile) if list_obj.override_quality_profile else ""
         )
         form.override_root_folder.data = list_obj.override_root_folder or ""
 
@@ -268,9 +256,7 @@ def edit_list(list_id):
                     from listarr.services.sonarr_service import get_tags
 
                 tags = get_tags(base_url, api_key)
-                tag = next(
-                    (t for t in tags if t["id"] == list_obj.override_tag_id), None
-                )
+                tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
                 form.override_tag.data = tag["label"] if tag else ""
             except Exception as e:
                 current_app.logger.error(f"Error fetching tag name: {e}", exc_info=True)
@@ -280,17 +266,10 @@ def edit_list(list_id):
 
         # Tri-state fields: None -> "", 1 -> "1", 0 -> "0"
         form.override_monitored.data = _db_to_form_str(list_obj.override_monitored)
-        form.override_search_on_add.data = _db_to_form_str(
-            list_obj.override_search_on_add
-        )
-        form.override_season_folder.data = _db_to_form_str(
-            list_obj.override_season_folder
-        )
+        form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
+        form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
 
-    return render_template(
-        "edit_list.html", form=form, list=list_obj, service_type=service_type
-    )
-
+    return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type)
 
 
 @bp.route("/lists/delete/<int:list_id>", methods=["POST"])
@@ -343,9 +322,7 @@ def list_wizard():
         # Get tag name from tag_id
         tag_name = None
         if list_obj.override_tag_id:
-            config = ServiceConfig.query.filter_by(
-                service=list_obj.target_service
-            ).first()
+            config = ServiceConfig.query.filter_by(service=list_obj.target_service).first()
             if config and config.api_key_encrypted:
                 try:
                     api_key = decrypt_data(config.api_key_encrypted)
@@ -358,14 +335,10 @@ def list_wizard():
                         from listarr.services.sonarr_service import get_tags
 
                     tags = get_tags(base_url, api_key)
-                    tag = next(
-                        (t for t in tags if t["id"] == list_obj.override_tag_id), None
-                    )
+                    tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
                     tag_name = tag["label"] if tag else None
                 except Exception as e:
-                    current_app.logger.error(
-                        f"Error fetching tag name for list wizard: {e}", exc_info=True
-                    )
+                    current_app.logger.error(f"Error fetching tag name for list wizard: {e}", exc_info=True)
 
         # Build existing list data for JavaScript
         existing_list = {
@@ -513,18 +486,14 @@ def wizard_preview():
 
             # Genre include filter (new format)
             if filters.get("genres_include"):
-                tmdb_filters["with_genres"] = ",".join(
-                    map(str, filters["genres_include"])
-                )
+                tmdb_filters["with_genres"] = ",".join(map(str, filters["genres_include"]))
             # Backward compatibility for old format
             elif filters.get("genre_ids"):
                 tmdb_filters["with_genres"] = ",".join(map(str, filters["genre_ids"]))
 
             # Genre exclude filter (new format)
             if filters.get("genres_exclude"):
-                tmdb_filters["without_genres"] = ",".join(
-                    map(str, filters["genres_exclude"])
-                )
+                tmdb_filters["without_genres"] = ",".join(map(str, filters["genres_exclude"]))
 
             # Language filter
             if filters.get("language"):
@@ -533,17 +502,13 @@ def wizard_preview():
             # Year range filters
             if filters.get("year_min"):
                 if service == "radarr":
-                    tmdb_filters[
-                        "primary_release_date.gte"
-                    ] = f"{filters['year_min']}-01-01"
+                    tmdb_filters["primary_release_date.gte"] = f"{filters['year_min']}-01-01"
                 else:
                     tmdb_filters["first_air_date.gte"] = f"{filters['year_min']}-01-01"
 
             if filters.get("year_max"):
                 if service == "radarr":
-                    tmdb_filters[
-                        "primary_release_date.lte"
-                    ] = f"{filters['year_max']}-12-31"
+                    tmdb_filters["primary_release_date.lte"] = f"{filters['year_max']}-12-31"
                 else:
                     tmdb_filters["first_air_date.lte"] = f"{filters['year_max']}-12-31"
 
@@ -582,14 +547,8 @@ def wizard_preview():
         except (TypeError, KeyError):
             # Fallback to attribute access
             item_id = getattr(item, "id", None)
-            title = (
-                getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
-            )
-            release_date = (
-                getattr(item, "release_date", None)
-                or getattr(item, "first_air_date", None)
-                or ""
-            )
+            title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
+            release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
             vote_average = getattr(item, "vote_average", None)
 
         year = release_date[:4] if release_date else None
@@ -701,18 +660,12 @@ def wizard_submit():
             list_obj.tmdb_list_type = tmdb_list_type
             list_obj.filters_json = filters_json
             list_obj.limit = filters.get("limit", 20)
-            list_obj.override_quality_profile = import_settings.get(
-                "quality_profile_id"
-            )
+            list_obj.override_quality_profile = import_settings.get("quality_profile_id")
             list_obj.override_root_folder = import_settings.get("root_folder")
             list_obj.override_tag_id = tag_id
             list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
-            list_obj.override_search_on_add = _bool_to_db(
-                import_settings.get("search_on_add")
-            )
-            list_obj.override_season_folder = _bool_to_db(
-                import_settings.get("season_folder")
-            )
+            list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
+            list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
             list_obj.schedule_cron = schedule.get("cron")
             list_obj.is_active = schedule.get("is_active", True)
         else:
@@ -727,12 +680,8 @@ def wizard_submit():
                 override_root_folder=import_settings.get("root_folder"),
                 override_tag_id=tag_id,
                 override_monitored=_bool_to_db(import_settings.get("monitored")),
-                override_search_on_add=_bool_to_db(
-                    import_settings.get("search_on_add")
-                ),
-                override_season_folder=_bool_to_db(
-                    import_settings.get("season_folder")
-                ),
+                override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
+                override_season_folder=_bool_to_db(import_settings.get("season_folder")),
                 schedule_cron=schedule.get("cron"),
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
@@ -772,9 +721,7 @@ def wizard_defaults(service):
     # Get service config (API key, URL)
     config = ServiceConfig.query.filter_by(service=service_upper).first()
     if not config or not config.api_key_encrypted:
-        return jsonify(
-            {"error": f"{service.title()} not configured", "configured": False}
-        )
+        return jsonify({"error": f"{service.title()} not configured", "configured": False})
 
     # Get current defaults from MediaImportSettings
     import_settings = MediaImportSettings.query.filter_by(service=service_upper).first()
@@ -812,9 +759,7 @@ def wizard_defaults(service):
         root_folders = get_root_folders(base_url, api_key)
         tags = get_tags(base_url, api_key)
     except Exception as e:
-        current_app.logger.error(
-            f"Error fetching {service} options: {e}", exc_info=True
-        )
+        current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
         # Return partial data - service is configured but options fetch failed
         return jsonify(
             {

@@ -4,6 +4,7 @@ Dashboard statistics cache service.
 This module provides caching for dashboard statistics to improve page load performance.
 Stats are calculated at application startup and can be refreshed on-demand.
 """
+
 import logging
 import threading
 from typing import Dict
@@ -73,21 +74,12 @@ def _calculate_radarr_stats() -> Dict:
             radarr_service = ServiceConfig.query.filter_by(service="RADARR").first()
         except Exception as db_error:
             # If tables don't exist, return not_configured status
-            if (
-                "no such table" in str(db_error).lower()
-                or "operationalerror" in str(type(db_error).__name__).lower()
-            ):
-                logger.debug(
-                    "Database tables not yet initialized, returning not_configured status"
-                )
+            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
+                logger.debug("Database tables not yet initialized, returning not_configured status")
                 return result
             raise
 
-        if (
-            not radarr_service
-            or not radarr_service.api_key_encrypted
-            or not radarr_service.base_url
-        ):
+        if not radarr_service or not radarr_service.api_key_encrypted or not radarr_service.base_url:
             return result
 
         result["configured"] = True
@@ -118,9 +110,7 @@ def _calculate_radarr_stats() -> Dict:
                     movie_count = get_movie_count(base_url, api_key)
                     result["total_movies"] = movie_count
                 except Exception as e:
-                    logger.error(
-                        f"Error fetching Radarr movie count: {e}", exc_info=True
-                    )
+                    logger.error(f"Error fetching Radarr movie count: {e}", exc_info=True)
                     result["total_movies"] = 0
 
                 # Fetch Missing Movies Count (only if online)
@@ -141,13 +131,8 @@ def _calculate_radarr_stats() -> Dict:
 
     except Exception as e:
         # If it's a database table error, keep status as not_configured
-        if (
-            "no such table" in str(e).lower()
-            or "operationalerror" in str(type(e).__name__).lower()
-        ):
-            logger.debug(
-                "Database tables not yet initialized during Radarr stats calculation"
-            )
+        if "no such table" in str(e).lower() or "operationalerror" in str(type(e).__name__).lower():
+            logger.debug("Database tables not yet initialized during Radarr stats calculation")
             return result
         logger.error(f"Unexpected error calculating Radarr stats: {e}", exc_info=True)
         result["status"] = "offline"
@@ -159,10 +144,7 @@ def _calculate_radarr_stats() -> Dict:
         try:
             radarr_lists = List.query.filter_by(target_service="RADARR").all()
         except Exception as db_error:
-            if (
-                "no such table" in str(db_error).lower()
-                or "operationalerror" in str(type(db_error).__name__).lower()
-            ):
+            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
                 logger.debug("Database tables not yet initialized for lists query")
                 return result
             raise
@@ -176,9 +158,7 @@ def _calculate_radarr_stats() -> Dict:
             )
             result["added_by_listarr"] = int(total_added)
     except Exception as e:
-        logger.error(
-            f"Error calculating Radarr items added by Listarr: {e}", exc_info=True
-        )
+        logger.error(f"Error calculating Radarr items added by Listarr: {e}", exc_info=True)
         result["added_by_listarr"] = 0
 
     return result
@@ -207,21 +187,12 @@ def _calculate_sonarr_stats() -> Dict:
             sonarr_service = ServiceConfig.query.filter_by(service="SONARR").first()
         except Exception as db_error:
             # If tables don't exist, return not_configured status
-            if (
-                "no such table" in str(db_error).lower()
-                or "operationalerror" in str(type(db_error).__name__).lower()
-            ):
-                logger.debug(
-                    "Database tables not yet initialized, returning not_configured status"
-                )
+            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
+                logger.debug("Database tables not yet initialized, returning not_configured status")
                 return result
             raise
 
-        if (
-            not sonarr_service
-            or not sonarr_service.api_key_encrypted
-            or not sonarr_service.base_url
-        ):
+        if not sonarr_service or not sonarr_service.api_key_encrypted or not sonarr_service.base_url:
             return result
 
         result["configured"] = True
@@ -252,9 +223,7 @@ def _calculate_sonarr_stats() -> Dict:
                     series_count = get_series_count(base_url, api_key)
                     result["total_series"] = series_count
                 except Exception as e:
-                    logger.error(
-                        f"Error fetching Sonarr series count: {e}", exc_info=True
-                    )
+                    logger.error(f"Error fetching Sonarr series count: {e}", exc_info=True)
                     result["total_series"] = 0
 
                 # Fetch Missing Episodes Count (only if online)
@@ -276,13 +245,8 @@ def _calculate_sonarr_stats() -> Dict:
 
     except Exception as e:
         # If it's a database table error, keep status as not_configured
-        if (
-            "no such table" in str(e).lower()
-            or "operationalerror" in str(type(e).__name__).lower()
-        ):
-            logger.debug(
-                "Database tables not yet initialized during Sonarr stats calculation"
-            )
+        if "no such table" in str(e).lower() or "operationalerror" in str(type(e).__name__).lower():
+            logger.debug("Database tables not yet initialized during Sonarr stats calculation")
             return result
         logger.error(f"Unexpected error calculating Sonarr stats: {e}", exc_info=True)
         result["status"] = "offline"
@@ -294,10 +258,7 @@ def _calculate_sonarr_stats() -> Dict:
         try:
             sonarr_lists = List.query.filter_by(target_service="SONARR").all()
         except Exception as db_error:
-            if (
-                "no such table" in str(db_error).lower()
-                or "operationalerror" in str(type(db_error).__name__).lower()
-            ):
+            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
                 logger.debug("Database tables not yet initialized for lists query")
                 return result
             raise
@@ -311,9 +272,7 @@ def _calculate_sonarr_stats() -> Dict:
             )
             result["added_by_listarr"] = int(total_added)
     except Exception as e:
-        logger.error(
-            f"Error calculating Sonarr items added by Listarr: {e}", exc_info=True
-        )
+        logger.error(f"Error calculating Sonarr items added by Listarr: {e}", exc_info=True)
         result["added_by_listarr"] = 0
 
     return result

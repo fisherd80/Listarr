@@ -653,18 +653,12 @@ class TestDatabaseIntegration:
             config = ServiceConfig.query.filter_by(service="SONARR").first()
             assert config.last_tested_at == original_time
 
-    def test_encryption_key_persistence_across_config_requests(
-        self, app, client, temp_instance_path
-    ):
+    def test_encryption_key_persistence_across_config_requests(self, app, client, temp_instance_path):
         """Test that encryption key is properly loaded for each config request."""
         with app.app_context():
             # Encrypt with app's key
-            radarr_encrypted = encrypt_data(
-                "persistent_radarr_key", instance_path=temp_instance_path
-            )
-            sonarr_encrypted = encrypt_data(
-                "persistent_sonarr_key", instance_path=temp_instance_path
-            )
+            radarr_encrypted = encrypt_data("persistent_radarr_key", instance_path=temp_instance_path)
+            sonarr_encrypted = encrypt_data("persistent_sonarr_key", instance_path=temp_instance_path)
 
             radarr_config = ServiceConfig(
                 service="RADARR",
@@ -882,9 +876,7 @@ class TestErrorRecovery:
 
         # Step 2: Fix encryption and retry
         mock_encrypt.side_effect = None
-        mock_encrypt.side_effect = lambda data, instance_path: encrypt_data(
-            data, instance_path
-        )
+        mock_encrypt.side_effect = lambda data, instance_path: encrypt_data(data, instance_path)
 
         response = client.post(
             "/config",
@@ -940,12 +932,8 @@ class TestMultipleRequestsScenarios:
             assert radarr_config is not None
             assert sonarr_config is not None
 
-            radarr_key = decrypt_data(
-                radarr_config.api_key_encrypted, instance_path=temp_instance_path
-            )
-            sonarr_key = decrypt_data(
-                sonarr_config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            radarr_key = decrypt_data(radarr_config.api_key_encrypted, instance_path=temp_instance_path)
+            sonarr_key = decrypt_data(sonarr_config.api_key_encrypted, instance_path=temp_instance_path)
 
             assert radarr_key == "radarr_key"
             assert sonarr_key == "sonarr_key"

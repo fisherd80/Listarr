@@ -158,9 +158,7 @@ def sample_tmdb_config(app, temp_instance_path):
     from listarr.services.crypto_utils import encrypt_data
 
     with app.app_context():
-        encrypted_key = encrypt_data(
-            "test_tmdb_api_key_12345", instance_path=temp_instance_path
-        )
+        encrypted_key = encrypt_data("test_tmdb_api_key_12345", instance_path=temp_instance_path)
 
         config = ServiceConfig(
             service="TMDB",

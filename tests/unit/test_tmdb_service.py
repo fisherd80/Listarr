@@ -1,4 +1,3 @@
-
 """
 Unit tests for tmdb_service.py - TMDB API integration.
 

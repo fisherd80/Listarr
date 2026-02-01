@@ -215,9 +215,7 @@ class TestDatabaseIntegration:
             config = ServiceConfig.query.filter_by(service="TMDB").first()
             assert config.last_tested_at == original_time
 
-    def test_encryption_key_persistence_across_requests(
-        self, app, client, temp_instance_path
-    ):
+    def test_encryption_key_persistence_across_requests(self, app, client, temp_instance_path):
         """Test that encryption key is properly loaded for each request."""
         with app.app_context():
             # Encrypt with app's key
@@ -427,9 +425,7 @@ class TestErrorRecovery:
 
         # Step 2: Fix encryption and retry
         mock_encrypt.side_effect = None
-        mock_encrypt.side_effect = lambda data, instance_path: encrypt_data(
-            data, instance_path
-        )
+        mock_encrypt.side_effect = lambda data, instance_path: encrypt_data(data, instance_path)
 
         response = client.post(
             "/settings",
@@ -440,9 +436,7 @@ class TestErrorRecovery:
         # Should work now
         assert response.status_code == 200
 
-    def test_page_loads_with_corrupted_encrypted_data(
-        self, app, client, temp_instance_path
-    ):
+    def test_page_loads_with_corrupted_encrypted_data(self, app, client, temp_instance_path):
         """Test that page still loads when encrypted data is corrupted."""
         with app.app_context():
             # Save corrupted encrypted data

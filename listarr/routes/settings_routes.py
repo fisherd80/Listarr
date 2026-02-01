@@ -65,21 +65,15 @@ def settings_page():
                 flash("API Key cannot be empty.", "warning")
             else:
                 # Test the API key using helper function
-                test_result, test_timestamp, test_status = _test_and_update_tmdb_status(
-                    api_key
-                )
+                test_result, test_timestamp, test_status = _test_and_update_tmdb_status(api_key)
 
                 if not test_result:
                     flash("Invalid TMDB API Key. Please check and try again.", "error")
                 else:
                     try:
-                        enc_key = encrypt_data(
-                            api_key, instance_path=current_app.instance_path
-                        )
+                        enc_key = encrypt_data(api_key, instance_path=current_app.instance_path)
 
-                        tmdb_service = ServiceConfig.query.filter_by(
-                            service="TMDB"
-                        ).first()
+                        tmdb_service = ServiceConfig.query.filter_by(service="TMDB").first()
                         if not tmdb_service:
                             tmdb_service = ServiceConfig(
                                 service="TMDB",
@@ -93,9 +87,7 @@ def settings_page():
                             tmdb_service.last_tested_at = test_timestamp
                             tmdb_service.last_test_status = test_status
                         # Save region setting
-                        tmdb_service.tmdb_region = (
-                            tmdb_api_form.tmdb_region.data or None
-                        )
+                        tmdb_service.tmdb_region = tmdb_api_form.tmdb_region.data or None
                         db.session.commit()
                         flash("TMDB API Key saved successfully.", "success")
                     except Exception as e:
@@ -116,9 +108,7 @@ def settings_page():
                 existing.api_key_encrypted, instance_path=current_app.instance_path
             )
         except (ValueError, Exception) as e:
-            current_app.logger.error(
-                f"Error decrypting TMDB API key: {e}", exc_info=True
-            )
+            current_app.logger.error(f"Error decrypting TMDB API key: {e}", exc_info=True)
             tmdb_api_form.tmdb_api.data = ""
             flash(
                 "Unable to decrypt stored API key. Please re-enter your TMDB API key.",

@@ -41,9 +41,7 @@ class TestSettingsPageGET:
         assert b"Save API Key" in response.data
         assert b"Test Connection" in response.data
 
-    def test_settings_page_displays_existing_api_key(
-        self, app, client, temp_instance_path
-    ):
+    def test_settings_page_displays_existing_api_key(self, app, client, temp_instance_path):
         """Test that existing API key is displayed in form (decrypted)."""
         with app.app_context():
             # Create TMDB config with encrypted key
@@ -65,9 +63,7 @@ class TestSettingsPageGET:
         # API key should be present in the form (password field)
         assert b"existing_api_key_12345" in response.data
 
-    def test_settings_page_displays_last_test_status(
-        self, app, client, temp_instance_path
-    ):
+    def test_settings_page_displays_last_test_status(self, app, client, temp_instance_path):
         """Test that last test timestamp and status are displayed."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -89,9 +85,7 @@ class TestSettingsPageGET:
         # Status indicator for success
         assert b"text-green-600" in response.data or b"&#x2713;" in response.data
 
-    def test_settings_page_displays_failed_test_status(
-        self, app, client, temp_instance_path
-    ):
+    def test_settings_page_displays_failed_test_status(self, app, client, temp_instance_path):
         """Test that failed test status is displayed with error indicator."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -564,10 +558,7 @@ class TestCSRFProtection:
 
         assert response.status_code == 200
         # Flask-WTF adds hidden CSRF token field with name attribute
-        assert (
-            b'name="csrf_token"' in response.data
-            or b"name='csrf_token'" in response.data
-        )
+        assert b'name="csrf_token"' in response.data or b"name='csrf_token'" in response.data
 
 
 class TestErrorHandling:
@@ -606,9 +597,7 @@ class TestErrorHandling:
         # Verify special characters were preserved
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="TMDB").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == special_key
 
     @patch("listarr.routes.settings_routes.validate_tmdb_api_key")
@@ -627,7 +616,5 @@ class TestErrorHandling:
 
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="TMDB").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == unicode_key

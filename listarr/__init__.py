@@ -54,9 +54,7 @@ def create_app(test_config=None):
 
     # Load encryption key
     try:
-        load_encryption_key(
-            instance_path=app.instance_path
-        )  # Pass instance path explicitly
+        load_encryption_key(instance_path=app.instance_path)  # Pass instance path explicitly
         app.logger.info("Encryption key loaded successfully")
     except RuntimeError as e:
         app.logger.error(f"Encryption key error: {e}")

@@ -117,9 +117,7 @@ class TestDashboardStatsGET:
         assert data["sonarr"]["missing_episodes"] == 0
         assert data["sonarr"]["added_by_listarr"] == 0
 
-    def test_dashboard_stats_with_refresh_parameter(
-        self, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_with_refresh_parameter(self, app, client, temp_instance_path):
         """Test that ?refresh=true parameter triggers cache refresh."""
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -448,9 +446,7 @@ class TestDashboardStatsGET:
         assert data["radarr"]["total_movies"] == 0
         assert data["radarr"]["missing_movies"] == 0
 
-    def test_dashboard_stats_with_only_base_url_configured(
-        self, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_with_only_base_url_configured(self, app, client, temp_instance_path):
         """Test stats endpoint when service has base_url but no API key."""
         with app.app_context():
             # Use empty string for api_key_encrypted to satisfy NOT NULL constraint
@@ -467,9 +463,7 @@ class TestDashboardStatsGET:
         assert data["radarr"]["configured"] is False
         assert data["radarr"]["status"] == "not_configured"
 
-    def test_dashboard_stats_with_only_api_key_configured(
-        self, app, client, temp_instance_path
-    ):
+    def test_dashboard_stats_with_only_api_key_configured(self, app, client, temp_instance_path):
         """Test stats endpoint when service has API key but no base_url."""
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -496,9 +490,8 @@ class TestDashboardStatsGET:
         mock_sonarr_status.return_value = {"version": "3.0.10.1567"}
 
         with app.app_context():
-            radarr_encrypted = encrypt_data(
-                "radarr_key", instance_path=temp_instance_path
-            )
+            radarr_encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            sonarr_encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
             radarr_config = ServiceConfig(
                 service="RADARR",
                 base_url="http://localhost:7878",
@@ -539,9 +532,8 @@ class TestDashboardStatsGET:
         mock_sonarr_status.side_effect = Exception("Connection refused")
 
         with app.app_context():
-            radarr_encrypted = encrypt_data(
-                "radarr_key", instance_path=temp_instance_path
-            )
+            radarr_encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            sonarr_encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
             radarr_config = ServiceConfig(
                 service="RADARR",
                 base_url="http://localhost:7878",

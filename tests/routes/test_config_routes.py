@@ -57,9 +57,7 @@ class TestConfigPageGET:
         assert b"sonarr_url" in response.data
         assert b"sonarr_api" in response.data
 
-    def test_config_page_displays_existing_radarr_config(
-        self, app, client, temp_instance_path
-    ):
+    def test_config_page_displays_existing_radarr_config(self, app, client, temp_instance_path):
         """Test that existing Radarr config is displayed in form (decrypted)."""
         with app.app_context():
             # Create Radarr config with encrypted key
@@ -83,9 +81,7 @@ class TestConfigPageGET:
         assert b"existing_radarr_key_12345" in response.data
         assert b"http://localhost:7878" in response.data
 
-    def test_config_page_displays_existing_sonarr_config(
-        self, app, client, temp_instance_path
-    ):
+    def test_config_page_displays_existing_sonarr_config(self, app, client, temp_instance_path):
         """Test that existing Sonarr config is displayed in form (decrypted)."""
         with app.app_context():
             # Create Sonarr config with encrypted key
@@ -109,9 +105,7 @@ class TestConfigPageGET:
         assert b"existing_sonarr_key_67890" in response.data
         assert b"http://localhost:8989" in response.data
 
-    def test_config_page_displays_radarr_last_test_status_success(
-        self, app, client, temp_instance_path
-    ):
+    def test_config_page_displays_radarr_last_test_status_success(self, app, client, temp_instance_path):
         """Test that Radarr successful test status is displayed."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -134,9 +128,7 @@ class TestConfigPageGET:
         # Status indicator for success
         assert b"text-green-600" in response.data or b"&#x2713;" in response.data
 
-    def test_config_page_displays_sonarr_last_test_status_failed(
-        self, app, client, temp_instance_path
-    ):
+    def test_config_page_displays_sonarr_last_test_status_failed(self, app, client, temp_instance_path):
         """Test that Sonarr failed test status is displayed with error indicator."""
         with app.app_context():
             encrypted = encrypt_data("test_key", instance_path=temp_instance_path)
@@ -164,9 +156,7 @@ class TestConfigPageGET:
         assert response.status_code == 200
         assert b"Not tested yet" in response.data
 
-    def test_config_page_shows_import_settings_when_radarr_configured(
-        self, app, client, temp_instance_path
-    ):
+    def test_config_page_shows_import_settings_when_radarr_configured(self, app, client, temp_instance_path):
         """Test that import settings section appears when Radarr is configured."""
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -1494,7 +1484,7 @@ class TestSonarrImportSettingsEndpoints:
                 "root_folder_id": "/tv",
                 "quality_profile_id": 1,
                 "monitored": True,
-                "search_on_add": False
+                "search_on_add": False,
                 # season_folder missing
             },
             content_type="application/json",
@@ -1642,9 +1632,7 @@ class TestHelperFunctions:
         mock_test.return_value = True
 
         with app.app_context():
-            result, timestamp, status = _test_and_update_radarr_status(
-                "http://localhost:7878", "valid_key"
-            )
+            result, timestamp, status = _test_and_update_radarr_status("http://localhost:7878", "valid_key")
 
         assert result is True
         assert timestamp is not None
@@ -1658,9 +1646,7 @@ class TestHelperFunctions:
         mock_test.return_value = False
 
         with app.app_context():
-            result, timestamp, status = _test_and_update_sonarr_status(
-                "http://localhost:8989", "invalid_key"
-            )
+            result, timestamp, status = _test_and_update_sonarr_status("http://localhost:8989", "invalid_key")
 
         assert result is False
         assert timestamp is not None
@@ -1774,10 +1760,7 @@ class TestCSRFProtection:
 
         assert response.status_code == 200
         # Flask-WTF adds hidden CSRF token field with name attribute
-        assert (
-            b'name="csrf_token"' in response.data
-            or b"name='csrf_token'" in response.data
-        )
+        assert b'name="csrf_token"' in response.data or b"name='csrf_token'" in response.data
 
 
 class TestErrorHandling:
@@ -1824,9 +1807,7 @@ class TestErrorHandling:
         # Verify special characters were preserved
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="RADARR").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == special_key
 
     @patch("listarr.routes.config_routes.validate_sonarr_api_key")
@@ -1849,7 +1830,5 @@ class TestErrorHandling:
 
         with app.app_context():
             config = ServiceConfig.query.filter_by(service="SONARR").first()
-            decrypted = decrypt_data(
-                config.api_key_encrypted, instance_path=temp_instance_path
-            )
+            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == unicode_key

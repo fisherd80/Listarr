@@ -2,6 +2,9 @@
 # Listarr .gitignore
 # ===========================
 
+.git/hooks/pre-commit
+.cache/pre-commit
+
 # ===========================
 # CRITICAL: Secrets & Credentials
 # ===========================

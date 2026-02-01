@@ -288,9 +288,7 @@ def lookup_series(base_url: str, api_key: str, tvdb_id: int) -> dict | None:
             return results[0]
         return None
     except Exception as e:
-        logger.error(
-            f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True
-        )
+        logger.error(f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True)
         return None
 
 

@@ -163,9 +163,8 @@ class TestDashboardEndToEndWorkflow:
 
         # Step 1: Configure both services
         with app.app_context():
-            radarr_encrypted = encrypt_data(
-                "radarr_key", instance_path=temp_instance_path
-            )
+            radarr_encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            sonarr_encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
             radarr_config = ServiceConfig(
                 service="RADARR",
                 base_url="http://localhost:7878",
