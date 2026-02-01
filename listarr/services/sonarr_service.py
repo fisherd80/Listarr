@@ -99,7 +99,7 @@ def get_system_status(base_url: str, api_key: str):
             "version": status.get("version"),
             "instance_name": status.get("instanceName"),
             "is_production": status.get("isProduction", False),
-            "is_debug": status.get("isDebug", False)
+            "is_debug": status.get("isDebug", False),
         }
     except Exception as e:
         logger.error(f"Error fetching system status: {e}", exc_info=True)
@@ -258,7 +258,7 @@ def get_existing_series_tvdb_ids(base_url: str, api_key: str) -> set[int]:
     try:
         sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
         series = sonarr.get_series()
-        return {s.get('tvdbId') for s in series if s.get('tvdbId')}
+        return {s.get("tvdbId") for s in series if s.get("tvdbId")}
     except Exception as e:
         logger.error(f"Error fetching existing series TVDB IDs: {e}", exc_info=True)
         return set()
@@ -288,7 +288,9 @@ def lookup_series(base_url: str, api_key: str, tvdb_id: int) -> dict | None:
             return results[0]
         return None
     except Exception as e:
-        logger.error(f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True
+        )
         return None
 
 
@@ -301,7 +303,7 @@ def add_series(
     monitored: bool = True,
     season_folder: bool = True,
     search_on_add: bool = True,
-    tags: list[int] = None
+    tags: list[int] = None,
 ) -> dict:
     """
     Add a series to Sonarr.
@@ -327,8 +329,8 @@ def add_series(
     if not base_url.endswith("/"):
         base_url += "/"
 
-    title = series_data.get('title', 'Unknown')
-    tvdb_id = series_data.get('tvdbId', 'Unknown')
+    title = series_data.get("title", "Unknown")
+    tvdb_id = series_data.get("tvdbId", "Unknown")
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
 
     # Use direct API call instead of pyarr to support tags parameter
@@ -337,17 +339,15 @@ def add_series(
 
     # Build the series payload
     series_payload = series_data.copy()
-    series_payload['rootFolderPath'] = root_folder
-    series_payload['qualityProfileId'] = quality_profile_id
-    series_payload['monitored'] = monitored
-    series_payload['seasonFolder'] = season_folder
-    series_payload['tags'] = tags or []
-    series_payload['addOptions'] = {
-        'searchForMissingEpisodes': search_on_add
-    }
+    series_payload["rootFolderPath"] = root_folder
+    series_payload["qualityProfileId"] = quality_profile_id
+    series_payload["monitored"] = monitored
+    series_payload["seasonFolder"] = season_folder
+    series_payload["tags"] = tags or []
+    series_payload["addOptions"] = {"searchForMissingEpisodes": search_on_add}
 
     url = f"{base_url}api/v3/series"
-    headers = {'X-Api-Key': api_key}
+    headers = {"X-Api-Key": api_key}
 
     response = requests.post(url, json=series_payload, headers=headers)
 

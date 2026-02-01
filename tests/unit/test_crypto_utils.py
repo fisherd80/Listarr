@@ -39,22 +39,22 @@ class TestKeyGeneration:
             assert len(key) == 44  # Fernet keys are 44 bytes base64-encoded
 
             # Verify file was created
-            key_path = os.path.join(tmpdir, '.fernet_key')
+            key_path = os.path.join(tmpdir, ".fernet_key")
             assert os.path.exists(key_path)
 
             # Verify file contents match returned key
-            with open(key_path, 'rb') as f:
+            with open(key_path, "rb") as f:
                 file_key = f.read()
             assert file_key == key
 
     def test_generate_key_creates_directory_if_missing(self):
         """Test that generate_key creates parent directories."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            nested_path = os.path.join(tmpdir, 'subdir', 'instance')
+            nested_path = os.path.join(tmpdir, "subdir", "instance")
             key = generate_key(instance_path=nested_path)
 
             assert key is not None
-            key_path = os.path.join(nested_path, '.fernet_key')
+            key_path = os.path.join(nested_path, ".fernet_key")
             assert os.path.exists(key_path)
 
     def test_generate_key_returns_valid_fernet_key(self):
@@ -75,8 +75,8 @@ class TestKeyLoading:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create key file
             expected_key = Fernet.generate_key()
-            key_path = os.path.join(tmpdir, '.fernet_key')
-            with open(key_path, 'wb') as f:
+            key_path = os.path.join(tmpdir, ".fernet_key")
+            with open(key_path, "wb") as f:
                 f.write(expected_key)
 
             # Load key
@@ -101,8 +101,8 @@ class TestKeyLoading:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create key file
             file_key = Fernet.generate_key()
-            key_path = os.path.join(tmpdir, '.fernet_key')
-            with open(key_path, 'wb') as f:
+            key_path = os.path.join(tmpdir, ".fernet_key")
+            with open(key_path, "wb") as f:
                 f.write(file_key)
 
             # Set different key in environment
@@ -133,16 +133,16 @@ class TestKeyLoading:
             assert isinstance(key, bytes)
 
             # Verify file was created
-            key_path = os.path.join(tmpdir, '.fernet_key')
+            key_path = os.path.join(tmpdir, ".fernet_key")
             assert os.path.exists(key_path)
 
     def test_load_encryption_key_validates_key_format(self):
         """Test that RuntimeError is raised for invalid key format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create invalid key file
-            key_path = os.path.join(tmpdir, '.fernet_key')
-            with open(key_path, 'wb') as f:
-                f.write(b'invalid_key_format')
+            key_path = os.path.join(tmpdir, ".fernet_key")
+            with open(key_path, "wb") as f:
+                f.write(b"invalid_key_format")
 
             with pytest.raises(RuntimeError) as exc_info:
                 load_encryption_key(instance_path=tmpdir)
@@ -158,14 +158,14 @@ class TestGetKeyPath:
         test_path = "/test/instance"
         result = _get_key_path(instance_path=test_path)
 
-        assert result == os.path.join(test_path, '.fernet_key')
+        assert result == os.path.join(test_path, ".fernet_key")
 
     def test_get_key_path_with_flask_app_context(self, app):
         """Test that _get_key_path uses Flask app.instance_path."""
         with app.app_context():
             result = _get_key_path(instance_path=None)
             # Should use app.instance_path
-            assert '.fernet_key' in result
+            assert ".fernet_key" in result
 
 
 class TestGetFernet:

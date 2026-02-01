@@ -32,13 +32,15 @@ def get_executor():
     """Get or create the ThreadPoolExecutor."""
     global _executor
     if _executor is None:
-        _executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix='job_')
+        _executor = ThreadPoolExecutor(
+            max_workers=MAX_WORKERS, thread_name_prefix="job_"
+        )
     return _executor
 
 
 def is_list_running(list_id):
     """Check if a job for this list is currently running (database check)."""
-    return Job.query.filter_by(list_id=list_id, status='running').first() is not None
+    return Job.query.filter_by(list_id=list_id, status="running").first() is not None
 
 
 def get_job_status(list_id):
@@ -55,7 +57,7 @@ def get_job_status(list_id):
     return job.to_dict()
 
 
-def submit_job(list_id, list_name, app, triggered_by='manual'):
+def submit_job(list_id, list_name, app, triggered_by="manual"):
     """
     Submit a job for execution with timeout monitoring.
 
@@ -80,7 +82,7 @@ def submit_job(list_id, list_name, app, triggered_by='manual'):
         job = Job(
             list_id=list_id,
             list_name=list_name,
-            status='running',
+            status="running",
             started_at=datetime.now(timezone.utc),
             triggered_by=triggered_by,
             retry_count=0,
@@ -99,9 +101,7 @@ def submit_job(list_id, list_name, app, triggered_by='manual'):
         _stop_events[job_id] = stop_event
 
     # Submit job to executor
-    future = get_executor().submit(
-        _execute_job, job_id, list_id, stop_event, app
-    )
+    future = get_executor().submit(_execute_job, job_id, list_id, stop_event, app)
 
     # Set up timeout timer
     timer = threading.Timer(JOB_TIMEOUT_SECONDS, lambda: _trigger_timeout(job_id))
@@ -138,7 +138,11 @@ def _execute_job(job_id, list_id, stop_event, app):
         try:
             # Check for timeout before starting
             if stop_event.is_set():
-                _mark_job_failed(job_id, "Job timed out before execution", "Timeout occurred before job could start")
+                _mark_job_failed(
+                    job_id,
+                    "Job timed out before execution",
+                    "Timeout occurred before job could start",
+                )
                 return
 
             # Run the import
@@ -172,7 +176,7 @@ def _mark_job_completed(job_id, result, start_time):
         return
 
     end_time = datetime.now(timezone.utc)
-    job.status = 'completed'
+    job.status = "completed"
     job.completed_at = end_time
     job.duration = int((end_time - start_time).total_seconds())
 
@@ -200,7 +204,7 @@ def _mark_job_failed(job_id, error_message, error_details, start_time=None):
         return
 
     end_time = datetime.now(timezone.utc)
-    job.status = 'failed'
+    job.status = "failed"
     job.completed_at = end_time
     job.error_message = error_message
     job.error_details = error_details
@@ -220,11 +224,11 @@ def _mark_job_timeout(job_id, result, start_time):
         return
 
     end_time = datetime.now(timezone.utc)
-    job.status = 'failed'
+    job.status = "failed"
     job.completed_at = end_time
     job.duration = int((end_time - start_time).total_seconds())
-    job.error_message = 'Job timed out'
-    job.error_details = f'Job exceeded {JOB_TIMEOUT_SECONDS} second timeout limit. Partial results may have been saved.'
+    job.error_message = "Job timed out"
+    job.error_details = f"Job exceeded {JOB_TIMEOUT_SECONDS} second timeout limit. Partial results may have been saved."
 
     if result:
         job.items_found = result.total
@@ -245,10 +249,10 @@ def _store_job_items(job_id, result):
     for item in result.added:
         job_item = JobItem(
             job_id=job_id,
-            tmdb_id=item.get('tmdb_id'),
-            title=item.get('title', 'Unknown'),
-            status='added',
-            message=None
+            tmdb_id=item.get("tmdb_id"),
+            title=item.get("title", "Unknown"),
+            status="added",
+            message=None,
         )
         db.session.add(job_item)
 
@@ -256,10 +260,10 @@ def _store_job_items(job_id, result):
     for item in result.skipped:
         job_item = JobItem(
             job_id=job_id,
-            tmdb_id=item.get('tmdb_id'),
-            title=item.get('title', 'Unknown'),
-            status='skipped',
-            message=item.get('reason')
+            tmdb_id=item.get("tmdb_id"),
+            title=item.get("title", "Unknown"),
+            status="skipped",
+            message=item.get("reason"),
         )
         db.session.add(job_item)
 
@@ -267,9 +271,9 @@ def _store_job_items(job_id, result):
     for item in result.failed:
         job_item = JobItem(
             job_id=job_id,
-            tmdb_id=item.get('tmdb_id'),
-            title=item.get('title', 'Unknown'),
-            status='failed',
-            message=item.get('reason')
+            tmdb_id=item.get("tmdb_id"),
+            title=item.get("title", "Unknown"),
+            status="failed",
+            message=item.get("reason"),
         )
         db.session.add(job_item)

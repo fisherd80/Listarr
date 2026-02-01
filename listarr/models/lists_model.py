@@ -18,7 +18,9 @@ class List(db.Model):
     override_monitored = db.Column(db.Integer)
     override_search_on_add = db.Column(db.Integer)
     override_tag_id = db.Column(db.Integer)
-    override_season_folder = db.Column(db.Integer)  # 1=yes, 0=no, None=use default (Sonarr only)
+    override_season_folder = db.Column(
+        db.Integer
+    )  # 1=yes, 0=no, None=use default (Sonarr only)
 
     filters_json = db.Column(db.JSON, nullable=False)
     limit = db.Column(db.Integer)

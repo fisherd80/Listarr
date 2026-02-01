@@ -5,6 +5,7 @@ from cryptography.fernet import Fernet, InvalidToken
 # Default key filename (path will be constructed from Flask's instance folder)
 KEY_FILENAME = ".fernet_key"
 
+
 def _get_key_path(instance_path=None):
     """
     Get the full path to the encryption key file.
@@ -16,6 +17,7 @@ def _get_key_path(instance_path=None):
 
     try:
         from flask import current_app
+
         instance_path = current_app.instance_path
     except (ImportError, RuntimeError):
         # Fallback to relative path from project root (2 levels up from this file)
@@ -91,6 +93,7 @@ def get_fernet(instance_path=None) -> Fernet:
 # -----------------------------
 # Utility functions
 # -----------------------------
+
 
 def encrypt_data(data: str, instance_path=None) -> str:
     f = get_fernet(instance_path=instance_path)

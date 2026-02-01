@@ -19,7 +19,7 @@ from listarr import create_app, db
 from listarr.models.service_config_model import ServiceConfig
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def temp_instance_path():
     """
     Create a temporary instance directory for testing.
@@ -32,14 +32,14 @@ def temp_instance_path():
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         # Generate encryption key in temp directory
-        key_path = os.path.join(tmpdir, '.fernet_key')
+        key_path = os.path.join(tmpdir, ".fernet_key")
         key = Fernet.generate_key()
-        with open(key_path, 'wb') as f:
+        with open(key_path, "wb") as f:
             f.write(key)
         yield tmpdir
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def app(temp_instance_path):
     """
     Create and configure a Flask application instance for testing.
@@ -53,10 +53,10 @@ def app(temp_instance_path):
         Flask: Configured Flask application instance
     """
     test_config = {
-        'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
-        'WTF_CSRF_ENABLED': False,  # Disable CSRF for easier testing
-        'SECRET_KEY': 'test-secret-key'
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "WTF_CSRF_ENABLED": False,  # Disable CSRF for easier testing
+        "SECRET_KEY": "test-secret-key",
     }
 
     app = create_app(test_config=test_config)
@@ -69,7 +69,7 @@ def app(temp_instance_path):
         db.drop_all()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def app_with_csrf(temp_instance_path):
     """
     Create Flask application with CSRF protection enabled.
@@ -83,10 +83,10 @@ def app_with_csrf(temp_instance_path):
         Flask: Configured Flask application with CSRF enabled
     """
     test_config = {
-        'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
-        'WTF_CSRF_ENABLED': True,
-        'SECRET_KEY': 'test-secret-key'
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "WTF_CSRF_ENABLED": True,
+        "SECRET_KEY": "test-secret-key",
     }
 
     app = create_app(test_config=test_config)
@@ -99,7 +99,7 @@ def app_with_csrf(temp_instance_path):
         db.drop_all()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def client(app):
     """
     Create a test client for making requests to the application.
@@ -113,7 +113,7 @@ def client(app):
     return app.test_client()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def client_with_csrf(app_with_csrf):
     """
     Create a test client with CSRF protection enabled.
@@ -127,7 +127,7 @@ def client_with_csrf(app_with_csrf):
     return app_with_csrf.test_client()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def runner(app):
     """
     Create a CLI test runner for the application.
@@ -141,7 +141,7 @@ def runner(app):
     return app.test_cli_runner()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def sample_tmdb_config(app, temp_instance_path):
     """
     Create a sample TMDB ServiceConfig entry in the database.
@@ -158,13 +158,15 @@ def sample_tmdb_config(app, temp_instance_path):
     from listarr.services.crypto_utils import encrypt_data
 
     with app.app_context():
-        encrypted_key = encrypt_data("test_tmdb_api_key_12345", instance_path=temp_instance_path)
+        encrypted_key = encrypt_data(
+            "test_tmdb_api_key_12345", instance_path=temp_instance_path
+        )
 
         config = ServiceConfig(
             service="TMDB",
             api_key_encrypted=encrypted_key,
             last_tested_at=datetime.now(timezone.utc),
-            last_test_status="success"
+            last_test_status="success",
         )
         db.session.add(config)
         db.session.commit()

@@ -5,7 +5,7 @@ from listarr.models.custom_types import TZDateTime
 
 
 class ServiceConfig(db.Model):
-    __tablename__="service_config"
+    __tablename__ = "service_config"
 
     id = db.Column(db.Integer, primary_key=True)
     service = db.Column(db.String(20), unique=True, nullable=False)

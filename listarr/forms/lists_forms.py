@@ -22,52 +22,36 @@ TRI_STATE_CHOICES = [
 class ListForm(FlaskForm):
     """Form for editing list settings (not type/filters)."""
 
-    name = StringField(
-        label="Name",
-        validators=[DataRequired(), Length(max=100)]
-    )
+    name = StringField(label="Name", validators=[DataRequired(), Length(max=100)])
 
     is_active = BooleanField(label="Active", default=True)
 
     schedule_cron = SelectField(
-        label="Schedule",
-        choices=SCHEDULE_CHOICES,
-        validators=[]
+        label="Schedule", choices=SCHEDULE_CHOICES, validators=[]
     )
 
     # Import settings - choices populated dynamically in route
     override_quality_profile = SelectField(
-        label="Quality Profile",
-        choices=[("", "Use Default")],
-        validators=[]
+        label="Quality Profile", choices=[("", "Use Default")], validators=[]
     )
 
     override_root_folder = SelectField(
-        label="Root Folder",
-        choices=[("", "Use Default")],
-        validators=[]
+        label="Root Folder", choices=[("", "Use Default")], validators=[]
     )
 
-    override_tag = StringField(
-        label="Tag",
-        validators=[]
-    )
+    override_tag = StringField(label="Tag", validators=[])
 
     override_monitored = SelectField(
-        label="Monitored",
-        choices=TRI_STATE_CHOICES,
-        validators=[]
+        label="Monitored", choices=TRI_STATE_CHOICES, validators=[]
     )
 
     override_search_on_add = SelectField(
-        label="Search on Add",
-        choices=TRI_STATE_CHOICES,
-        validators=[]
+        label="Search on Add", choices=TRI_STATE_CHOICES, validators=[]
     )
 
     override_season_folder = SelectField(
         label="Season Folder",
         choices=TRI_STATE_CHOICES,
         validators=[],
-        validate_choice=False  # Don't validate choice - field only rendered for Sonarr
+        validate_choice=False,  # Don't validate choice - field only rendered for Sonarr
     )

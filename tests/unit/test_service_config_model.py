@@ -24,8 +24,7 @@ class TestServiceConfigModel:
         """Test creating a ServiceConfig instance."""
         with app.app_context():
             config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="encrypted_key_data"
+                service="TMDB", api_key_encrypted="encrypted_key_data"
             )
             db.session.add(config)
             db.session.commit()
@@ -37,10 +36,7 @@ class TestServiceConfigModel:
     def test_service_config_default_values(self, app):
         """Test that default values are set correctly."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="encrypted_key"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="encrypted_key")
             db.session.add(config)
             db.session.commit()
 
@@ -60,7 +56,7 @@ class TestServiceConfigModel:
                 api_key_encrypted="encrypted_radarr_key",
                 is_enabled=True,
                 last_tested_at=test_time,
-                last_test_status="success"
+                last_test_status="success",
             )
             db.session.add(config)
             db.session.commit()
@@ -75,18 +71,12 @@ class TestServiceConfigModel:
     def test_service_name_must_be_unique(self, app):
         """Test that service name has unique constraint."""
         with app.app_context():
-            config1 = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key1"
-            )
+            config1 = ServiceConfig(service="TMDB", api_key_encrypted="key1")
             db.session.add(config1)
             db.session.commit()
 
             # Try to create duplicate
-            config2 = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key2"
-            )
+            config2 = ServiceConfig(service="TMDB", api_key_encrypted="key2")
             db.session.add(config2)
 
             with pytest.raises(Exception):  # SQLAlchemy IntegrityError
@@ -97,10 +87,7 @@ class TestServiceConfigModel:
     def test_service_config_query_by_service(self, app):
         """Test querying ServiceConfig by service name."""
         with app.app_context():
-            config = ServiceConfig(
-                service="Sonarr",
-                api_key_encrypted="sonarr_key"
-            )
+            config = ServiceConfig(service="Sonarr", api_key_encrypted="sonarr_key")
             db.session.add(config)
             db.session.commit()
 
@@ -114,9 +101,7 @@ class TestServiceConfigModel:
         """Test updating ServiceConfig fields."""
         with app.app_context():
             config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="old_key",
-                last_test_status="failed"
+                service="TMDB", api_key_encrypted="old_key", last_test_status="failed"
             )
             db.session.add(config)
             db.session.commit()
@@ -138,10 +123,7 @@ class TestServiceConfigModel:
     def test_service_config_delete(self, app):
         """Test deleting ServiceConfig."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="key")
             db.session.add(config)
             db.session.commit()
 
@@ -187,10 +169,7 @@ class TestServiceConfigModel:
         with app.app_context():
             before_time = datetime.now(timezone.utc)
 
-            config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="key")
             db.session.add(config)
             db.session.commit()
 
@@ -209,10 +188,7 @@ class TestServiceConfigModel:
             # Simulate long encrypted key (Fernet tokens are typically 100+ chars)
             long_key = "A" * 500
 
-            config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted=long_key
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted=long_key)
             db.session.add(config)
             db.session.commit()
 
@@ -224,8 +200,16 @@ class TestServiceConfigModel:
         with app.app_context():
             services = [
                 ServiceConfig(service="TMDB", api_key_encrypted="tmdb_key"),
-                ServiceConfig(service="Radarr", api_key_encrypted="radarr_key", base_url="http://radarr:7878"),
-                ServiceConfig(service="Sonarr", api_key_encrypted="sonarr_key", base_url="http://sonarr:8989"),
+                ServiceConfig(
+                    service="Radarr",
+                    api_key_encrypted="radarr_key",
+                    base_url="http://radarr:7878",
+                ),
+                ServiceConfig(
+                    service="Sonarr",
+                    api_key_encrypted="sonarr_key",
+                    base_url="http://sonarr:8989",
+                ),
             ]
 
             for service in services:
@@ -245,10 +229,7 @@ class TestServiceConfigModel:
     def test_last_test_status_values(self, app):
         """Test different last_test_status values."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="key")
             db.session.add(config)
             db.session.commit()
 
@@ -264,9 +245,7 @@ class TestServiceConfigModel:
         """Test toggling is_enabled flag."""
         with app.app_context():
             config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key",
-                is_enabled=True
+                service="TMDB", api_key_encrypted="key", is_enabled=True
             )
             db.session.add(config)
             db.session.commit()
@@ -289,9 +268,7 @@ class TestServiceConfigModel:
         """Test that base_url is optional (for TMDB which doesn't need it)."""
         with app.app_context():
             config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key",
-                base_url=None
+                service="TMDB", api_key_encrypted="key", base_url=None
             )
             db.session.add(config)
             db.session.commit()
@@ -305,7 +282,7 @@ class TestServiceConfigModel:
             config = ServiceConfig(
                 service="Radarr",
                 api_key_encrypted="key",
-                base_url="http://192.168.1.100:7878"
+                base_url="http://192.168.1.100:7878",
             )
             db.session.add(config)
             db.session.commit()
@@ -316,10 +293,7 @@ class TestServiceConfigModel:
     def test_service_config_representation(self, app):
         """Test that model can be printed/represented."""
         with app.app_context():
-            config = ServiceConfig(
-                service="TMDB",
-                api_key_encrypted="key"
-            )
+            config = ServiceConfig(service="TMDB", api_key_encrypted="key")
             db.session.add(config)
             db.session.commit()
 

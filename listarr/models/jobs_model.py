@@ -28,21 +28,23 @@ class Job(db.Model):
     def to_dict(self):
         """Convert Job to dictionary for JSON serialization."""
         return {
-            'id': self.id,
-            'list_id': self.list_id,
-            'list_name': self.list_name,
-            'status': self.status,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
-            'duration': self.duration,
-            'triggered_by': self.triggered_by,
-            'retry_count': self.retry_count,
-            'items_found': self.items_found,
-            'items_added': self.items_added,
-            'items_skipped': self.items_skipped,
-            'items_failed': self.items_failed,
-            'error_message': self.error_message,
-            'error_details': self.error_details,
+            "id": self.id,
+            "list_id": self.list_id,
+            "list_name": self.list_name,
+            "status": self.status,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
+            "duration": self.duration,
+            "triggered_by": self.triggered_by,
+            "retry_count": self.retry_count,
+            "items_found": self.items_found,
+            "items_added": self.items_added,
+            "items_skipped": self.items_skipped,
+            "items_failed": self.items_failed,
+            "error_message": self.error_message,
+            "error_details": self.error_details,
         }
 
 
@@ -50,7 +52,9 @@ class JobItem(db.Model):
     __tablename__ = "job_items"
 
     id = db.Column(db.Integer, primary_key=True)
-    job_id = db.Column(db.Integer, db.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False)
+    job_id = db.Column(
+        db.Integer, db.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
 
     tmdb_id = db.Column(db.Integer)
     title = db.Column(db.String(255))
@@ -61,10 +65,10 @@ class JobItem(db.Model):
     def to_dict(self):
         """Convert JobItem to dictionary for JSON serialization."""
         return {
-            'id': self.id,
-            'job_id': self.job_id,
-            'tmdb_id': self.tmdb_id,
-            'title': self.title,
-            'status': self.status,
-            'message': self.message,
+            "id": self.id,
+            "job_id": self.job_id,
+            "tmdb_id": self.tmdb_id,
+            "title": self.title,
+            "status": self.status,
+            "message": self.message,
         }

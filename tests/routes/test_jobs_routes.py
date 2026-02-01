@@ -10,11 +10,11 @@ class TestGetJobs:
 
     def test_returns_empty_list_when_no_jobs(self, client, app):
         """Returns empty list when no jobs exist."""
-        response = client.get('/api/jobs')
+        response = client.get("/api/jobs")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['jobs'] == []
-        assert data['total'] == 0
+        assert data["jobs"] == []
+        assert data["total"] == 0
 
     def test_returns_paginated_jobs(self, client, app):
         """Returns paginated job list."""
@@ -25,19 +25,19 @@ class TestGetJobs:
             for i in range(30):
                 job = Job(
                     list_id=1,
-                    list_name=f'Test List {i}',
-                    status='completed',
-                    started_at=datetime.now(timezone.utc)
+                    list_name=f"Test List {i}",
+                    status="completed",
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs?page=1&per_page=10')
+        response = client.get("/api/jobs?page=1&per_page=10")
         assert response.status_code == 200
         data = response.get_json()
-        assert len(data['jobs']) == 10
-        assert data['total'] == 30
-        assert data['pages'] == 3
+        assert len(data["jobs"]) == 10
+        assert data["total"] == 30
+        assert data["pages"] == 3
 
     def test_filters_by_status(self, client, app):
         """Filters jobs by status."""
@@ -45,20 +45,20 @@ class TestGetJobs:
         from listarr.models.jobs_model import Job
 
         with app.app_context():
-            for status in ['completed', 'completed', 'failed']:
+            for status in ["completed", "completed", "failed"]:
                 job = Job(
                     list_id=1,
-                    list_name='Test',
+                    list_name="Test",
                     status=status,
-                    started_at=datetime.now(timezone.utc)
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs?status=failed')
+        response = client.get("/api/jobs?status=failed")
         data = response.get_json()
-        assert data['total'] == 1
-        assert data['jobs'][0]['status'] == 'failed'
+        assert data["total"] == 1
+        assert data["jobs"][0]["status"] == "failed"
 
     def test_filters_by_list_id(self, client, app):
         """Filters jobs by list_id."""
@@ -69,16 +69,16 @@ class TestGetJobs:
             for list_id in [1, 1, 2]:
                 job = Job(
                     list_id=list_id,
-                    list_name=f'List {list_id}',
-                    status='completed',
-                    started_at=datetime.now(timezone.utc)
+                    list_name=f"List {list_id}",
+                    status="completed",
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs?list_id=1')
+        response = client.get("/api/jobs?list_id=1")
         data = response.get_json()
-        assert data['total'] == 2
+        assert data["total"] == 2
 
     def test_enforces_max_per_page(self, client, app):
         """Enforces max 50 per_page limit."""
@@ -89,17 +89,17 @@ class TestGetJobs:
             for i in range(60):
                 job = Job(
                     list_id=1,
-                    list_name='Test',
-                    status='completed',
-                    started_at=datetime.now(timezone.utc)
+                    list_name="Test",
+                    status="completed",
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs?per_page=100')
+        response = client.get("/api/jobs?per_page=100")
         data = response.get_json()
         # Should be capped at 50
-        assert len(data['jobs']) == 50
+        assert len(data["jobs"]) == 50
 
 
 class TestGetRecentJobs:
@@ -114,24 +114,24 @@ class TestGetRecentJobs:
             for i in range(10):
                 job = Job(
                     list_id=1,
-                    list_name='Test',
-                    status='completed',
-                    started_at=datetime.now(timezone.utc)
+                    list_name="Test",
+                    status="completed",
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs/recent')
+        response = client.get("/api/jobs/recent")
         assert response.status_code == 200
         data = response.get_json()
-        assert len(data['jobs']) == 5
+        assert len(data["jobs"]) == 5
 
     def test_returns_empty_list_when_no_jobs(self, client):
         """Returns empty list when no jobs exist."""
-        response = client.get('/api/jobs/recent')
+        response = client.get("/api/jobs/recent")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['jobs'] == []
+        assert data["jobs"] == []
 
     def test_includes_target_service(self, client, app):
         """Includes target_service from related list."""
@@ -141,11 +141,11 @@ class TestGetRecentJobs:
 
         with app.app_context():
             list_obj = List(
-                name='Test List',
-                target_service='radarr',
-                tmdb_list_type='trending_movies',
+                name="Test List",
+                target_service="radarr",
+                tmdb_list_type="trending_movies",
                 filters_json={},
-                is_active=True
+                is_active=True,
             )
             db.session.add(list_obj)
             db.session.commit()
@@ -153,17 +153,17 @@ class TestGetRecentJobs:
 
             job = Job(
                 list_id=list_id,
-                list_name='Test List',
-                status='completed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test List",
+                status="completed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs/recent')
+        response = client.get("/api/jobs/recent")
         data = response.get_json()
-        assert len(data['jobs']) == 1
-        assert data['jobs'][0]['target_service'] == 'radarr'
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["target_service"] == "radarr"
 
 
 class TestGetJobDetail:
@@ -171,7 +171,7 @@ class TestGetJobDetail:
 
     def test_returns_404_for_missing_job(self, client):
         """Returns 404 when job doesn't exist."""
-        response = client.get('/api/jobs/999')
+        response = client.get("/api/jobs/999")
         assert response.status_code == 404
 
     def test_returns_job_with_items(self, client, app):
@@ -182,10 +182,10 @@ class TestGetJobDetail:
         with app.app_context():
             job = Job(
                 list_id=1,
-                list_name='Test',
-                status='completed',
+                list_name="Test",
+                status="completed",
                 started_at=datetime.now(timezone.utc),
-                items_added=2
+                items_added=2,
             )
             db.session.add(job)
             db.session.commit()
@@ -193,19 +193,16 @@ class TestGetJobDetail:
 
             for i in range(2):
                 item = JobItem(
-                    job_id=job_id,
-                    tmdb_id=100 + i,
-                    title=f'Movie {i}',
-                    status='added'
+                    job_id=job_id, tmdb_id=100 + i, title=f"Movie {i}", status="added"
                 )
                 db.session.add(item)
             db.session.commit()
 
-        response = client.get(f'/api/jobs/{job_id}')
+        response = client.get(f"/api/jobs/{job_id}")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['list_name'] == 'Test'
-        assert len(data['items']) == 2
+        assert data["list_name"] == "Test"
+        assert len(data["items"]) == 2
 
     def test_returns_job_without_items(self, client, app):
         """Returns job even when no items exist."""
@@ -215,18 +212,18 @@ class TestGetJobDetail:
         with app.app_context():
             job = Job(
                 list_id=1,
-                list_name='Test',
-                status='completed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test",
+                status="completed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
             job_id = job.id
 
-        response = client.get(f'/api/jobs/{job_id}')
+        response = client.get(f"/api/jobs/{job_id}")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['items'] == []
+        assert data["items"] == []
 
 
 class TestRerunJob:
@@ -234,7 +231,7 @@ class TestRerunJob:
 
     def test_returns_404_for_missing_job(self, client):
         """Returns 404 when job doesn't exist."""
-        response = client.post('/api/jobs/999/rerun')
+        response = client.post("/api/jobs/999/rerun")
         assert response.status_code == 404
 
     def test_rejects_non_failed_job(self, client, app):
@@ -245,19 +242,19 @@ class TestRerunJob:
         with app.app_context():
             job = Job(
                 list_id=1,
-                list_name='Test',
-                status='completed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test",
+                status="completed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
             job_id = job.id
 
-        response = client.post(f'/api/jobs/{job_id}/rerun')
+        response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert data['success'] is False
-        assert 'only rerun failed jobs' in data['error'].lower()
+        assert data["success"] is False
+        assert "only rerun failed jobs" in data["error"].lower()
 
     def test_rejects_when_list_deleted(self, client, app):
         """Cannot rerun when list no longer exists."""
@@ -267,18 +264,18 @@ class TestRerunJob:
         with app.app_context():
             job = Job(
                 list_id=9999,  # Non-existent list
-                list_name='Deleted List',
-                status='failed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Deleted List",
+                status="failed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
             job_id = job.id
 
-        response = client.post(f'/api/jobs/{job_id}/rerun')
+        response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert 'no longer exists' in data['error'].lower()
+        assert "no longer exists" in data["error"].lower()
 
     def test_rejects_inactive_list(self, client, app):
         """Cannot rerun when list is inactive."""
@@ -288,11 +285,11 @@ class TestRerunJob:
 
         with app.app_context():
             list_obj = List(
-                name='Test List',
-                target_service='radarr',
-                tmdb_list_type='trending_movies',
+                name="Test List",
+                target_service="radarr",
+                tmdb_list_type="trending_movies",
                 filters_json={},
-                is_active=False
+                is_active=False,
             )
             db.session.add(list_obj)
             db.session.commit()
@@ -300,18 +297,18 @@ class TestRerunJob:
 
             job = Job(
                 list_id=list_id,
-                list_name='Test List',
-                status='failed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test List",
+                status="failed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
             job_id = job.id
 
-        response = client.post(f'/api/jobs/{job_id}/rerun')
+        response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert 'not active' in data['error'].lower()
+        assert "not active" in data["error"].lower()
 
 
 class TestClearJobs:
@@ -323,26 +320,26 @@ class TestClearJobs:
         from listarr.models.jobs_model import Job
 
         with app.app_context():
-            for status in ['completed', 'failed', 'running']:
+            for status in ["completed", "failed", "running"]:
                 job = Job(
                     list_id=1,
-                    list_name='Test',
+                    list_name="Test",
                     status=status,
-                    started_at=datetime.now(timezone.utc)
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.post('/api/jobs/clear')
+        response = client.post("/api/jobs/clear")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['deleted_count'] == 2  # completed + failed, not running
+        assert data["deleted_count"] == 2  # completed + failed, not running
 
         # Verify running job still exists
         with app.app_context():
             remaining = Job.query.all()
             assert len(remaining) == 1
-            assert remaining[0].status == 'running'
+            assert remaining[0].status == "running"
 
     def test_clear_list_jobs(self, client, app):
         """Clears jobs for specific list."""
@@ -353,17 +350,17 @@ class TestClearJobs:
             for list_id in [1, 1, 2]:
                 job = Job(
                     list_id=list_id,
-                    list_name=f'List {list_id}',
-                    status='completed',
-                    started_at=datetime.now(timezone.utc)
+                    list_name=f"List {list_id}",
+                    status="completed",
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.post('/api/jobs/clear/1')
+        response = client.post("/api/jobs/clear/1")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['deleted_count'] == 2
+        assert data["deleted_count"] == 2
 
         # Verify list 2 job still exists
         with app.app_context():
@@ -377,24 +374,24 @@ class TestClearJobs:
         from listarr.models.jobs_model import Job
 
         with app.app_context():
-            for status in ['completed', 'running']:
+            for status in ["completed", "running"]:
                 job = Job(
                     list_id=1,
-                    list_name='Test',
+                    list_name="Test",
                     status=status,
-                    started_at=datetime.now(timezone.utc)
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.post('/api/jobs/clear/1')
+        response = client.post("/api/jobs/clear/1")
         data = response.get_json()
-        assert data['deleted_count'] == 1
+        assert data["deleted_count"] == 1
 
         with app.app_context():
             remaining = Job.query.all()
             assert len(remaining) == 1
-            assert remaining[0].status == 'running'
+            assert remaining[0].status == "running"
 
 
 class TestGetRunningJobs:
@@ -402,10 +399,10 @@ class TestGetRunningJobs:
 
     def test_returns_empty_when_no_running_jobs(self, client):
         """Returns empty list when no running jobs."""
-        response = client.get('/api/jobs/running')
+        response = client.get("/api/jobs/running")
         assert response.status_code == 200
         data = response.get_json()
-        assert data['running_jobs'] == []
+        assert data["running_jobs"] == []
 
     def test_returns_running_jobs(self, client, app):
         """Returns list of running jobs."""
@@ -413,19 +410,19 @@ class TestGetRunningJobs:
         from listarr.models.jobs_model import Job
 
         with app.app_context():
-            for status in ['running', 'completed', 'running']:
+            for status in ["running", "completed", "running"]:
                 job = Job(
                     list_id=1,
-                    list_name='Test',
+                    list_name="Test",
                     status=status,
-                    started_at=datetime.now(timezone.utc)
+                    started_at=datetime.now(timezone.utc),
                 )
                 db.session.add(job)
             db.session.commit()
 
-        response = client.get('/api/jobs/running')
+        response = client.get("/api/jobs/running")
         data = response.get_json()
-        assert len(data['running_jobs']) == 2
+        assert len(data["running_jobs"]) == 2
 
     def test_includes_job_metadata(self, client, app):
         """Running jobs include job_id, list_id, list_name."""
@@ -435,20 +432,20 @@ class TestGetRunningJobs:
         with app.app_context():
             job = Job(
                 list_id=5,
-                list_name='My Test List',
-                status='running',
-                started_at=datetime.now(timezone.utc)
+                list_name="My Test List",
+                status="running",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
             job_id = job.id
 
-        response = client.get('/api/jobs/running')
+        response = client.get("/api/jobs/running")
         data = response.get_json()
-        assert len(data['running_jobs']) == 1
-        assert data['running_jobs'][0]['job_id'] == job_id
-        assert data['running_jobs'][0]['list_id'] == 5
-        assert data['running_jobs'][0]['list_name'] == 'My Test List'
+        assert len(data["running_jobs"]) == 1
+        assert data["running_jobs"][0]["job_id"] == job_id
+        assert data["running_jobs"][0]["list_id"] == 5
+        assert data["running_jobs"][0]["list_name"] == "My Test List"
 
 
 class TestJobsPage:
@@ -456,5 +453,5 @@ class TestJobsPage:
 
     def test_jobs_page_renders(self, client):
         """Jobs page renders successfully."""
-        response = client.get('/jobs')
+        response = client.get("/jobs")
         assert response.status_code == 200

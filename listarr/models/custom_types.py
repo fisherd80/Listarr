@@ -15,6 +15,7 @@ class TZDateTime(TypeDecorator):
     DateTime(timezone=True). This TypeDecorator ensures that all datetime
     values are stored as UTC and retrieved as timezone-aware datetime objects.
     """
+
     impl = SQLAlchemyDateTime
     cache_ok = True
 

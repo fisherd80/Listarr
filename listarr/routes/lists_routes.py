@@ -1,6 +1,14 @@
 from datetime import datetime, timezone
 
-from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
 from listarr import csrf, db
 from listarr.forms.lists_forms import ListForm
@@ -24,6 +32,7 @@ from listarr.services.tmdb_cache import (
 # Database stores: 0 (False), 1 (True), None (inherit/unset)
 # API uses: False, True, None
 # Form uses: "0", "1", ""
+
 
 def _db_to_bool(value):
     """Convert database tri-state (0/1/None) to bool (False/True/None)."""
@@ -66,17 +75,19 @@ def get_lists_api():
         lists: array of {id, name, target_service, is_active}
     """
     lists = db.session.query(List).order_by(List.name).all()
-    return jsonify({
-        "lists": [
-            {
-                "id": lst.id,
-                "name": lst.name,
-                "target_service": lst.target_service,
-                "is_active": lst.is_active
-            }
-            for lst in lists
-        ]
-    })
+    return jsonify(
+        {
+            "lists": [
+                {
+                    "id": lst.id,
+                    "name": lst.name,
+                    "target_service": lst.target_service,
+                    "is_active": lst.is_active,
+                }
+                for lst in lists
+            ]
+        }
+    )
 
 
 @bp.route("/lists/create", methods=["POST"])
@@ -91,7 +102,7 @@ def create_list():
                 tmdb_list_type=form.tmdb_list_type.data,
                 filters_json=form.filters_json.data or "{}",
                 is_active=form.is_active.data,
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(timezone.utc),
             )
             db.session.add(new_list)
             db.session.commit()
@@ -104,6 +115,7 @@ def create_list():
         flash("Please correct the errors in the form.", "error")
 
     return redirect(url_for("main.lists_page"))
+
 
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
 def edit_list(list_id):
@@ -148,12 +160,15 @@ def edit_list(list_id):
             quality_profile_choices.extend(
                 [(str(p["id"]), p["name"]) for p in quality_profiles]
             )
-            root_folder_choices.extend(
-                [(f["path"], f["path"]) for f in root_folders]
-            )
+            root_folder_choices.extend([(f["path"], f["path"]) for f in root_folders])
         except Exception as e:
-            current_app.logger.error(f"Error fetching {service_type} options: {e}", exc_info=True)
-            flash(f"Could not load {service_type} options. Some dropdowns may be empty.", "warning")
+            current_app.logger.error(
+                f"Error fetching {service_type} options: {e}", exc_info=True
+            )
+            flash(
+                f"Could not load {service_type} options. Some dropdowns may be empty.",
+                "warning",
+            )
 
     # Set form choices
     form.override_quality_profile.choices = quality_profile_choices
@@ -185,22 +200,32 @@ def edit_list(list_id):
                     else:
                         from listarr.services.sonarr_service import create_or_get_tag_id
 
-                    list_obj.override_tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
+                    list_obj.override_tag_id = create_or_get_tag_id(
+                        base_url, api_key, tag_name.strip()
+                    )
                 else:
-                    flash("Service not configured. Cannot create/verify tag.", "warning")
+                    flash(
+                        "Service not configured. Cannot create/verify tag.", "warning"
+                    )
                     list_obj.override_tag_id = None
             else:
                 list_obj.override_tag_id = None
 
             # Handle tri-state fields (store as 1, 0, or None)
             monitored_value = form.override_monitored.data
-            list_obj.override_monitored = int(monitored_value) if monitored_value else None
+            list_obj.override_monitored = (
+                int(monitored_value) if monitored_value else None
+            )
 
             search_value = form.override_search_on_add.data
-            list_obj.override_search_on_add = int(search_value) if search_value else None
+            list_obj.override_search_on_add = (
+                int(search_value) if search_value else None
+            )
 
             season_value = form.override_season_folder.data
-            list_obj.override_season_folder = int(season_value) if season_value else None
+            list_obj.override_season_folder = (
+                int(season_value) if season_value else None
+            )
 
             db.session.commit()
             flash(f"List '{list_obj.name}' updated successfully!", "success")
@@ -228,7 +253,9 @@ def edit_list(list_id):
 
         # Convert stored values to form values
         form.override_quality_profile.data = (
-            str(list_obj.override_quality_profile) if list_obj.override_quality_profile else ""
+            str(list_obj.override_quality_profile)
+            if list_obj.override_quality_profile
+            else ""
         )
         form.override_root_folder.data = list_obj.override_root_folder or ""
 
@@ -245,7 +272,9 @@ def edit_list(list_id):
                     from listarr.services.sonarr_service import get_tags
 
                 tags = get_tags(base_url, api_key)
-                tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
+                tag = next(
+                    (t for t in tags if t["id"] == list_obj.override_tag_id), None
+                )
                 form.override_tag.data = tag["label"] if tag else ""
             except Exception as e:
                 current_app.logger.error(f"Error fetching tag name: {e}", exc_info=True)
@@ -255,10 +284,17 @@ def edit_list(list_id):
 
         # Tri-state fields: None -> "", 1 -> "1", 0 -> "0"
         form.override_monitored.data = _db_to_form_str(list_obj.override_monitored)
-        form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
-        form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
+        form.override_search_on_add.data = _db_to_form_str(
+            list_obj.override_search_on_add
+        )
+        form.override_season_folder.data = _db_to_form_str(
+            list_obj.override_season_folder
+        )
 
-    return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type)
+    return render_template(
+        "edit_list.html", form=form, list=list_obj, service_type=service_type
+    )
+
 
 @bp.route("/lists/delete/<int:list_id>", methods=["POST"])
 def delete_list(list_id):
@@ -275,17 +311,19 @@ def delete_list(list_id):
         list_name = list_obj.name
         db.session.delete(list_obj)
         db.session.commit()
-        return jsonify({
-            "success": True,
-            "message": f"List '{list_name}' deleted successfully!"
-        })
+        return jsonify(
+            {"success": True, "message": f"List '{list_name}' deleted successfully!"}
+        )
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting list: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "message": "Error deleting list. Please try again."
-        }), 500
+        return (
+            jsonify(
+                {"success": False, "message": "Error deleting list. Please try again."}
+            ),
+            500,
+        )
+
 
 @bp.route("/lists/wizard")
 def list_wizard():
@@ -312,7 +350,9 @@ def list_wizard():
         # Get tag name from tag_id
         tag_name = None
         if list_obj.override_tag_id:
-            config = ServiceConfig.query.filter_by(service=list_obj.target_service).first()
+            config = ServiceConfig.query.filter_by(
+                service=list_obj.target_service
+            ).first()
             if config and config.api_key_encrypted:
                 try:
                     api_key = decrypt_data(config.api_key_encrypted)
@@ -325,10 +365,14 @@ def list_wizard():
                         from listarr.services.sonarr_service import get_tags
 
                     tags = get_tags(base_url, api_key)
-                    tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
+                    tag = next(
+                        (t for t in tags if t["id"] == list_obj.override_tag_id), None
+                    )
                     tag_name = tag["label"] if tag else None
                 except Exception as e:
-                    current_app.logger.error(f"Error fetching tag name for list wizard: {e}", exc_info=True)
+                    current_app.logger.error(
+                        f"Error fetching tag name for list wizard: {e}", exc_info=True
+                    )
 
         # Build existing list data for JavaScript
         existing_list = {
@@ -402,18 +446,22 @@ def toggle_list(list_id):
 
         status_text = "enabled" if list_obj.is_active else "disabled"
 
-        return jsonify({
-            "success": True,
-            "is_active": list_obj.is_active,
-            "message": f"List {status_text}"
-        })
+        return jsonify(
+            {
+                "success": True,
+                "is_active": list_obj.is_active,
+                "message": f"List {status_text}",
+            }
+        )
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error toggling list: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "message": "Error toggling list. Please try again."
-        }), 500
+        return (
+            jsonify(
+                {"success": False, "message": "Error toggling list. Please try again."}
+            ),
+            500,
+        )
 
 
 @bp.route("/lists/wizard/preview", methods=["POST"])
@@ -474,14 +522,18 @@ def wizard_preview():
 
             # Genre include filter (new format)
             if filters.get("genres_include"):
-                tmdb_filters["with_genres"] = ",".join(map(str, filters["genres_include"]))
+                tmdb_filters["with_genres"] = ",".join(
+                    map(str, filters["genres_include"])
+                )
             # Backward compatibility for old format
             elif filters.get("genre_ids"):
                 tmdb_filters["with_genres"] = ",".join(map(str, filters["genre_ids"]))
 
             # Genre exclude filter (new format)
             if filters.get("genres_exclude"):
-                tmdb_filters["without_genres"] = ",".join(map(str, filters["genres_exclude"]))
+                tmdb_filters["without_genres"] = ",".join(
+                    map(str, filters["genres_exclude"])
+                )
 
             # Language filter
             if filters.get("language"):
@@ -490,13 +542,17 @@ def wizard_preview():
             # Year range filters
             if filters.get("year_min"):
                 if service == "radarr":
-                    tmdb_filters["primary_release_date.gte"] = f"{filters['year_min']}-01-01"
+                    tmdb_filters[
+                        "primary_release_date.gte"
+                    ] = f"{filters['year_min']}-01-01"
                 else:
                     tmdb_filters["first_air_date.gte"] = f"{filters['year_min']}-01-01"
 
             if filters.get("year_max"):
                 if service == "radarr":
-                    tmdb_filters["primary_release_date.lte"] = f"{filters['year_max']}-12-31"
+                    tmdb_filters[
+                        "primary_release_date.lte"
+                    ] = f"{filters['year_max']}-12-31"
                 else:
                     tmdb_filters["first_air_date.lte"] = f"{filters['year_max']}-12-31"
 
@@ -517,7 +573,7 @@ def wizard_preview():
     # Return first 5 items for preview
     # tmdbv3api returns AsObj with 'results' attribute containing the actual items
     # Both the response and .results are AsObj, so convert to list before slicing
-    if hasattr(items, 'results') and items.results:
+    if hasattr(items, "results") and items.results:
         items_list = list(items.results)[:5]
     else:
         items_list = []
@@ -535,18 +591,26 @@ def wizard_preview():
         except (TypeError, KeyError):
             # Fallback to attribute access
             item_id = getattr(item, "id", None)
-            title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
-            release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
+            title = (
+                getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
+            )
+            release_date = (
+                getattr(item, "release_date", None)
+                or getattr(item, "first_air_date", None)
+                or ""
+            )
             vote_average = getattr(item, "vote_average", None)
 
         year = release_date[:4] if release_date else None
 
-        preview_items.append({
-            "id": item_id,
-            "title": title,
-            "year": year,
-            "rating": round(vote_average, 1) if vote_average else None,
-        })
+        preview_items.append(
+            {
+                "id": item_id,
+                "title": title,
+                "year": year,
+                "rating": round(vote_average, 1) if vote_average else None,
+            }
+        )
 
     return jsonify({"items": preview_items})
 
@@ -579,7 +643,7 @@ def wizard_submit():
     list_id = data.get("list_id")  # None for create, ID for edit
     name = data.get("name")
     service = data.get("service")  # radarr or sonarr
-    preset = data.get("preset")    # preset name or None/custom
+    preset = data.get("preset")  # preset name or None/custom
     filters = data.get("filters", {})
     import_settings = data.get("import_settings", {})
     schedule = data.get("schedule", {})
@@ -626,8 +690,18 @@ def wizard_submit():
 
                 tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
             except Exception as e:
-                current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
-                return jsonify({"success": False, "error": f"Failed to create/get tag: {str(e)}"}), 500
+                current_app.logger.error(
+                    f"Error creating/getting tag: {e}", exc_info=True
+                )
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": f"Failed to create/get tag: {str(e)}",
+                        }
+                    ),
+                    500,
+                )
 
     try:
         if list_id:
@@ -638,12 +712,18 @@ def wizard_submit():
             list_obj.tmdb_list_type = tmdb_list_type
             list_obj.filters_json = filters_json
             list_obj.limit = filters.get("limit", 20)
-            list_obj.override_quality_profile = import_settings.get("quality_profile_id")
+            list_obj.override_quality_profile = import_settings.get(
+                "quality_profile_id"
+            )
             list_obj.override_root_folder = import_settings.get("root_folder")
             list_obj.override_tag_id = tag_id
             list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
-            list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
-            list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
+            list_obj.override_search_on_add = _bool_to_db(
+                import_settings.get("search_on_add")
+            )
+            list_obj.override_season_folder = _bool_to_db(
+                import_settings.get("season_folder")
+            )
             list_obj.schedule_cron = schedule.get("cron")
             list_obj.is_active = schedule.get("is_active", True)
         else:
@@ -658,8 +738,12 @@ def wizard_submit():
                 override_root_folder=import_settings.get("root_folder"),
                 override_tag_id=tag_id,
                 override_monitored=_bool_to_db(import_settings.get("monitored")),
-                override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
-                override_season_folder=_bool_to_db(import_settings.get("season_folder")),
+                override_search_on_add=_bool_to_db(
+                    import_settings.get("search_on_add")
+                ),
+                override_season_folder=_bool_to_db(
+                    import_settings.get("season_folder")
+                ),
                 schedule_cron=schedule.get("cron"),
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
@@ -699,7 +783,9 @@ def wizard_defaults(service):
     # Get service config (API key, URL)
     config = ServiceConfig.query.filter_by(service=service_upper).first()
     if not config or not config.api_key_encrypted:
-        return jsonify({"error": f"{service.title()} not configured", "configured": False})
+        return jsonify(
+            {"error": f"{service.title()} not configured", "configured": False}
+        )
 
     # Get current defaults from MediaImportSettings
     import_settings = MediaImportSettings.query.filter_by(service=service_upper).first()
@@ -708,8 +794,15 @@ def wizard_defaults(service):
     try:
         api_key = decrypt_data(config.api_key_encrypted)
     except Exception as e:
-        current_app.logger.error(f"Error decrypting {service} API key: {e}", exc_info=True)
-        return jsonify({"error": f"Failed to decrypt {service.title()} API key", "configured": False})
+        current_app.logger.error(
+            f"Error decrypting {service} API key: {e}", exc_info=True
+        )
+        return jsonify(
+            {
+                "error": f"Failed to decrypt {service.title()} API key",
+                "configured": False,
+            }
+        )
 
     base_url = config.base_url
 
@@ -732,46 +825,72 @@ def wizard_defaults(service):
         root_folders = get_root_folders(base_url, api_key)
         tags = get_tags(base_url, api_key)
     except Exception as e:
-        current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
+        current_app.logger.error(
+            f"Error fetching {service} options: {e}", exc_info=True
+        )
         # Return partial data - service is configured but options fetch failed
-        return jsonify({
-            "configured": True,
-            "error": f"Failed to fetch options from {service.title()}",
-            "defaults": {
-                "root_folder": import_settings.root_folder if import_settings else None,
-                "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                "monitored": import_settings.monitored if import_settings else True,
-                "search_on_add": import_settings.search_on_add if import_settings else True,
-                "tag_id": import_settings.default_tag_id if import_settings else None,
-            },
-            "options": {
-                "quality_profiles": [],
-                "root_folders": [],
-                "tags": [],
+        return jsonify(
+            {
+                "configured": True,
+                "error": f"Failed to fetch options from {service.title()}",
+                "defaults": {
+                    "root_folder": import_settings.root_folder
+                    if import_settings
+                    else None,
+                    "quality_profile_id": import_settings.quality_profile_id
+                    if import_settings
+                    else None,
+                    "monitored": import_settings.monitored if import_settings else True,
+                    "search_on_add": import_settings.search_on_add
+                    if import_settings
+                    else True,
+                    "tag_id": import_settings.default_tag_id
+                    if import_settings
+                    else None,
+                },
+                "options": {
+                    "quality_profiles": [],
+                    "root_folders": [],
+                    "tags": [],
+                },
             }
-        })
+        )
 
     # Season folder default - only relevant for Sonarr
     season_folder_default = True  # Sonarr default
-    if import_settings and hasattr(import_settings, 'season_folder') and import_settings.season_folder is not None:
+    if (
+        import_settings
+        and hasattr(import_settings, "season_folder")
+        and import_settings.season_folder is not None
+    ):
         season_folder_default = import_settings.season_folder
 
-    return jsonify({
-        "configured": True,
-        "defaults": {
-            "root_folder": import_settings.root_folder if import_settings else None,
-            "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-            "monitored": import_settings.monitored if import_settings else True,
-            "search_on_add": import_settings.search_on_add if import_settings else True,
-            "tag_id": import_settings.default_tag_id if import_settings else None,
-            "season_folder": season_folder_default if service == "sonarr" else None,
-        },
-        "options": {
-            "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
-            "root_folders": [{"path": f["path"], "id": f.get("id")} for f in root_folders],
-            "tags": [{"id": t["id"], "label": t["label"]} for t in tags],
+    return jsonify(
+        {
+            "configured": True,
+            "defaults": {
+                "root_folder": import_settings.root_folder if import_settings else None,
+                "quality_profile_id": import_settings.quality_profile_id
+                if import_settings
+                else None,
+                "monitored": import_settings.monitored if import_settings else True,
+                "search_on_add": import_settings.search_on_add
+                if import_settings
+                else True,
+                "tag_id": import_settings.default_tag_id if import_settings else None,
+                "season_folder": season_folder_default if service == "sonarr" else None,
+            },
+            "options": {
+                "quality_profiles": [
+                    {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                ],
+                "root_folders": [
+                    {"path": f["path"], "id": f.get("id")} for f in root_folders
+                ],
+                "tags": [{"id": t["id"], "label": t["label"]} for t in tags],
+            },
         }
-    })
+    )
 
 
 @bp.route("/lists/debug/cache-stats", methods=["GET"])
@@ -783,6 +902,7 @@ def cache_stats():
     Intended for development/debugging - shows cache hit/miss effectiveness.
     """
     from listarr.services.tmdb_cache import get_cache_stats
+
     return jsonify(get_cache_stats())
 
 
@@ -796,46 +916,45 @@ def run_list_import(list_id):
     # Fetch list by ID
     list_obj = List.query.get(list_id)
     if not list_obj:
-        return jsonify({
-            "success": False,
-            "error": f"List with ID {list_id} not found"
-        }), 404
+        return (
+            jsonify({"success": False, "error": f"List with ID {list_id} not found"}),
+            404,
+        )
 
     # Check if list is active
     if not list_obj.is_active:
-        return jsonify({
-            "success": False,
-            "error": f"List '{list_obj.name}' is not active"
-        }), 400
+        return (
+            jsonify(
+                {"success": False, "error": f"List '{list_obj.name}' is not active"}
+            ),
+            400,
+        )
 
     # Check if already running (database check)
     if is_list_running(list_id):
-        return jsonify({
-            "success": False,
-            "error": f"List '{list_obj.name}' is already running"
-        }), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"List '{list_obj.name}' is already running",
+                }
+            ),
+            400,
+        )
 
     # Submit job via executor
     try:
         app = current_app._get_current_object()
-        job_id = submit_job(list_id, list_obj.name, app, triggered_by='manual')
+        job_id = submit_job(list_id, list_obj.name, app, triggered_by="manual")
 
-        return jsonify({
-            "success": True,
-            "job_id": job_id,
-            "status": "started"
-        }), 202
+        return jsonify({"success": True, "job_id": job_id, "status": "started"}), 202
     except ValueError as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 400
+        return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:
-        current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": "Failed to start job"
-        }), 500
+        current_app.logger.error(
+            f"Error starting job for list {list_id}: {e}", exc_info=True
+        )
+        return jsonify({"success": False, "error": "Failed to start job"}), 500
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])
@@ -846,39 +965,43 @@ def get_list_status(list_id):
     """
     list_obj = List.query.get(list_id)
     if not list_obj:
-        return jsonify({
-            "error": f"List with ID {list_id} not found"
-        }), 404
+        return jsonify({"error": f"List with ID {list_id} not found"}), 404
 
     # Get job status from database
     job_info = get_job_status(list_id)
 
     if not job_info:
-        return jsonify({
-            "list_id": list_id,
-            "status": "idle",
-            "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
-        })
+        return jsonify(
+            {
+                "list_id": list_id,
+                "status": "idle",
+                "last_run_at": list_obj.last_run_at.isoformat()
+                if list_obj.last_run_at
+                else None,
+            }
+        )
 
     # Map job status for frontend compatibility
-    status = job_info['status']
+    status = job_info["status"]
     response = {
         "list_id": list_id,
-        "status": status if status in ['running', 'completed', 'failed'] else 'idle',
-        "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
+        "status": status if status in ["running", "completed", "failed"] else "idle",
+        "last_run_at": list_obj.last_run_at.isoformat()
+        if list_obj.last_run_at
+        else None,
     }
 
     # Include result/error info based on status
-    if status == 'completed':
-        response['result'] = {
-            'summary': {
-                'total': job_info.get('items_found', 0),
-                'added_count': job_info.get('items_added', 0),
-                'skipped_count': job_info.get('items_skipped', 0),
-                'failed_count': job_info.get('items_failed', 0),
+    if status == "completed":
+        response["result"] = {
+            "summary": {
+                "total": job_info.get("items_found", 0),
+                "added_count": job_info.get("items_added", 0),
+                "skipped_count": job_info.get("items_skipped", 0),
+                "failed_count": job_info.get("items_failed", 0),
             }
         }
-    elif status == 'failed':
-        response['error'] = job_info.get('error_message', 'Unknown error')
+    elif status == "failed":
+        response["error"] = job_info.get("error_message", "Unknown error")
 
     return jsonify(response)

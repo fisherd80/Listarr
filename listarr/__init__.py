@@ -18,7 +18,7 @@ csrf = CSRFProtect()
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     # Only apply to SQLite connections
-    if 'sqlite' in str(type(dbapi_connection)).lower():
+    if "sqlite" in str(type(dbapi_connection)).lower():
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA busy_timeout=5000")  # 5 second wait on locks
@@ -39,17 +39,16 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     # Configure logging from LOG_LEVEL environment variable
-    log_level_str = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
 
     logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s %(name)s %(levelname)s: %(message)s'
+        level=log_level, format="%(asctime)s %(name)s %(levelname)s: %(message)s"
     )
 
     # Suppress noisy library logs unless DEBUG mode
     if log_level > logging.DEBUG:
-        for logger_name in ['httpx', 'httpcore', 'urllib3', 'werkzeug']:
+        for logger_name in ["httpx", "httpcore", "urllib3", "werkzeug"]:
             logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     # Ensure instance folder exists
@@ -57,7 +56,9 @@ def create_app(test_config=None):
 
     # Load encryption key
     try:
-        load_encryption_key(instance_path=app.instance_path)  # Pass instance path explicitly
+        load_encryption_key(
+            instance_path=app.instance_path
+        )  # Pass instance path explicitly
         app.logger.info("Encryption key loaded successfully")
     except RuntimeError as e:
         app.logger.error(f"Encryption key error: {e}")
@@ -67,6 +68,7 @@ def create_app(test_config=None):
     csrf.init_app(app)
 
     from .routes import bp as main_bp
+
     app.register_blueprint(main_bp)
 
     # Initialize dashboard cache and recover interrupted jobs at startup
@@ -78,6 +80,7 @@ def create_app(test_config=None):
         db.create_all()
 
         from .services.dashboard_cache import initialize_dashboard_cache
+
         initialize_dashboard_cache(app)
 
         # Recover interrupted jobs
@@ -95,11 +98,11 @@ def recover_interrupted_jobs(app):
     from listarr.models.jobs_model import Job
 
     try:
-        running_jobs = Job.query.filter_by(status='running').all()
+        running_jobs = Job.query.filter_by(status="running").all()
         for job in running_jobs:
-            job.status = 'failed'
-            job.error_message = 'Job interrupted by application restart'
-            job.error_details = 'Application was restarted while job was running'
+            job.status = "failed"
+            job.error_message = "Job interrupted by application restart"
+            job.error_details = "Application was restarted while job was running"
             job.completed_at = datetime.now(timezone.utc)
 
         if running_jobs:

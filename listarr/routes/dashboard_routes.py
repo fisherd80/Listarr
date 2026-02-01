@@ -3,7 +3,10 @@ from flask import current_app, jsonify, render_template, request
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
 from listarr.routes import bp
-from listarr.services.dashboard_cache import get_dashboard_cache, refresh_dashboard_cache
+from listarr.services.dashboard_cache import (
+    get_dashboard_cache,
+    refresh_dashboard_cache,
+)
 
 
 @bp.route("/")
@@ -15,10 +18,10 @@ def dashboard_page():
 def dashboard_stats():
     """
     Returns cached dashboard statistics for display.
-    
+
     Query Parameters:
         refresh (bool): If true, forces a cache refresh before returning data
-    
+
     Returns:
         JSON response with structure:
         {
@@ -81,12 +84,13 @@ def recent_jobs():
         # Query last 5 finished jobs, ordered by most recent first
         # Only include jobs with completed_at (completed or failed jobs)
         # Use outerjoin to include jobs even if their list doesn't exist
-        jobs = Job.query.outerjoin(List).filter(
-            Job.completed_at.isnot(None)
-        ).order_by(
-            Job.completed_at.desc(),
-            Job.started_at.desc()
-        ).limit(5).all()
+        jobs = (
+            Job.query.outerjoin(List)
+            .filter(Job.completed_at.isnot(None))
+            .order_by(Job.completed_at.desc(), Job.started_at.desc())
+            .limit(5)
+            .all()
+        )
 
         jobs_data = []
         for job in jobs:
@@ -138,20 +142,24 @@ def recent_jobs():
 
             # Format dates to ISO format strings
             started_at_str = job.started_at.isoformat() if job.started_at else None
-            completed_at_str = job.completed_at.isoformat() if job.completed_at else None
+            completed_at_str = (
+                job.completed_at.isoformat() if job.completed_at else None
+            )
             executed_at_str = executed_at.isoformat() if executed_at else None
 
-            jobs_data.append({
-                "id": job.id,
-                "job_name": job_name,
-                "service": service,
-                "status": job.status,
-                "started_at": started_at_str,
-                "completed_at": completed_at_str,
-                "executed_at": executed_at_str,
-                "summary": summary,
-                "error_message": job.error_message
-            })
+            jobs_data.append(
+                {
+                    "id": job.id,
+                    "job_name": job_name,
+                    "service": service,
+                    "status": job.status,
+                    "started_at": started_at_str,
+                    "completed_at": completed_at_str,
+                    "executed_at": executed_at_str,
+                    "summary": summary,
+                    "error_message": job.error_message,
+                }
+            )
 
         return jsonify({"jobs": jobs_data})
 

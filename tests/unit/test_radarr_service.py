@@ -30,7 +30,7 @@ from listarr.services.radarr_service import (
 class TestValidateRadarrAPIKey:
     """Tests for validate_radarr_api_key function."""
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_validate_radarr_api_key_with_valid_credentials(self, mock_radarr_class):
         """Test that valid credentials return True."""
         mock_radarr = MagicMock()
@@ -40,10 +40,12 @@ class TestValidateRadarrAPIKey:
         result = validate_radarr_api_key("http://localhost:7878", "valid_key")
 
         assert result is True
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
         mock_radarr.get_system_status.assert_called_once()
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_validate_radarr_api_key_adds_trailing_slash(self, mock_radarr_class):
         """Test that base_url gets trailing slash added."""
         mock_radarr = MagicMock()
@@ -54,9 +56,11 @@ class TestValidateRadarrAPIKey:
 
         assert result is True
         # Verify URL was normalized with trailing slash
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_validate_radarr_api_key_with_invalid_credentials(self, mock_radarr_class):
         """Test that invalid credentials return False."""
         mock_radarr = MagicMock()
@@ -67,7 +71,7 @@ class TestValidateRadarrAPIKey:
 
         assert result is False
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_validate_radarr_api_key_handles_connection_error(self, mock_radarr_class):
         """Test that connection errors return False."""
         mock_radarr_class.side_effect = ConnectionError("Connection refused")
@@ -76,14 +80,14 @@ class TestValidateRadarrAPIKey:
 
         assert result is False
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_validate_radarr_api_key_handles_timeout(self, mock_radarr_class):
         """Test that timeouts return False."""
         mock_radarr = MagicMock()
         mock_radarr.get_system_status.side_effect = TimeoutError("Request timeout")
         mock_radarr_class.return_value = mock_radarr
 
-        result = validate_radarr_api_key("http://localhost:7878", "valid_key", timeout=1)
+        result = validate_radarr_api_key("http://localhost:7878", "valid_key")
 
         assert result is False
 
@@ -91,14 +95,14 @@ class TestValidateRadarrAPIKey:
 class TestGetQualityProfiles:
     """Tests for get_quality_profiles function."""
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_quality_profiles_returns_formatted_list(self, mock_radarr_class):
         """Test that quality profiles are returned in correct format."""
         mock_radarr = MagicMock()
         mock_radarr.get_quality_profile.return_value = [
             {"id": 1, "name": "HD-1080p", "items": []},
             {"id": 2, "name": "Ultra-HD", "items": []},
-            {"id": 3, "name": "SD", "items": []}
+            {"id": 3, "name": "SD", "items": []},
         ]
         mock_radarr_class.return_value = mock_radarr
 
@@ -108,9 +112,11 @@ class TestGetQualityProfiles:
         assert result[0] == {"id": 1, "name": "HD-1080p"}
         assert result[1] == {"id": 2, "name": "Ultra-HD"}
         assert result[2] == {"id": 3, "name": "SD"}
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_quality_profiles_adds_trailing_slash(self, mock_radarr_class):
         """Test that base_url gets trailing slash added."""
         mock_radarr = MagicMock()
@@ -119,9 +125,11 @@ class TestGetQualityProfiles:
 
         get_quality_profiles("http://localhost:7878", "valid_key")
 
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_quality_profiles_returns_empty_list_on_error(self, mock_radarr_class):
         """Test that errors return empty list."""
         mock_radarr = MagicMock()
@@ -132,7 +140,7 @@ class TestGetQualityProfiles:
 
         assert result == []
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_quality_profiles_handles_empty_response(self, mock_radarr_class):
         """Test that empty API response returns empty list."""
         mock_radarr = MagicMock()
@@ -147,13 +155,13 @@ class TestGetQualityProfiles:
 class TestGetRootFolders:
     """Tests for get_root_folders function."""
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_root_folders_returns_formatted_list(self, mock_radarr_class):
         """Test that root folders are returned in correct format."""
         mock_radarr = MagicMock()
         mock_radarr.get_root_folder.return_value = [
             {"id": 1, "path": "/movies", "freeSpace": 1000000000},
-            {"id": 2, "path": "/storage/movies", "freeSpace": 2000000000}
+            {"id": 2, "path": "/storage/movies", "freeSpace": 2000000000},
         ]
         mock_radarr_class.return_value = mock_radarr
 
@@ -162,9 +170,11 @@ class TestGetRootFolders:
         assert len(result) == 2
         assert result[0] == {"id": 1, "path": "/movies"}
         assert result[1] == {"id": 2, "path": "/storage/movies"}
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_root_folders_adds_trailing_slash(self, mock_radarr_class):
         """Test that base_url gets trailing slash added."""
         mock_radarr = MagicMock()
@@ -173,9 +183,11 @@ class TestGetRootFolders:
 
         get_root_folders("http://localhost:7878", "valid_key")
 
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_root_folders_returns_empty_list_on_error(self, mock_radarr_class):
         """Test that errors return empty list."""
         mock_radarr = MagicMock()
@@ -190,7 +202,7 @@ class TestGetRootFolders:
 class TestGetSystemStatus:
     """Tests for get_system_status function."""
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_system_status_returns_formatted_dict(self, mock_radarr_class):
         """Test that system status is returned in correct format."""
         mock_radarr = MagicMock()
@@ -198,7 +210,7 @@ class TestGetSystemStatus:
             "version": "4.5.2.7388",
             "instanceName": "Radarr",
             "isProduction": True,
-            "isDebug": False
+            "isDebug": False,
         }
         mock_radarr_class.return_value = mock_radarr
 
@@ -208,11 +220,13 @@ class TestGetSystemStatus:
             "version": "4.5.2.7388",
             "instance_name": "Radarr",
             "is_production": True,
-            "is_debug": False
+            "is_debug": False,
         }
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_system_status_handles_missing_fields(self, mock_radarr_class):
         """Test that missing fields use defaults."""
         mock_radarr = MagicMock()
@@ -230,7 +244,7 @@ class TestGetSystemStatus:
         assert result["is_production"] is False  # Default
         assert result["is_debug"] is False  # Default
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_system_status_returns_empty_dict_on_error(self, mock_radarr_class):
         """Test that errors return empty dict."""
         mock_radarr = MagicMock()
@@ -241,7 +255,7 @@ class TestGetSystemStatus:
 
         assert result == {}
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_system_status_adds_trailing_slash(self, mock_radarr_class):
         """Test that base_url gets trailing slash added."""
         mock_radarr = MagicMock()
@@ -250,29 +264,33 @@ class TestGetSystemStatus:
 
         get_system_status("http://localhost:7878", "valid_key")
 
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
 
 class TestGetMovieCount:
     """Tests for get_movie_count function."""
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_movie_count_returns_correct_count(self, mock_radarr_class):
         """Test that movie count is calculated correctly."""
         mock_radarr = MagicMock()
         mock_radarr.get_movie.return_value = [
             {"id": 1, "title": "Movie 1"},
             {"id": 2, "title": "Movie 2"},
-            {"id": 3, "title": "Movie 3"}
+            {"id": 3, "title": "Movie 3"},
         ]
         mock_radarr_class.return_value = mock_radarr
 
         result = get_movie_count("http://localhost:7878", "valid_key")
 
         assert result == 3
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_movie_count_returns_zero_for_empty_list(self, mock_radarr_class):
         """Test that empty movie list returns 0."""
         mock_radarr = MagicMock()
@@ -283,7 +301,7 @@ class TestGetMovieCount:
 
         assert result == 0
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_movie_count_returns_zero_for_none(self, mock_radarr_class):
         """Test that None response returns 0."""
         mock_radarr = MagicMock()
@@ -294,7 +312,7 @@ class TestGetMovieCount:
 
         assert result == 0
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_movie_count_returns_zero_on_error(self, mock_radarr_class):
         """Test that errors return 0."""
         mock_radarr = MagicMock()
@@ -305,7 +323,7 @@ class TestGetMovieCount:
 
         assert result == 0
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_movie_count_adds_trailing_slash(self, mock_radarr_class):
         """Test that base_url gets trailing slash added."""
         mock_radarr = MagicMock()
@@ -314,21 +332,45 @@ class TestGetMovieCount:
 
         get_movie_count("http://localhost:7878", "valid_key")
 
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )
 
 
 class TestGetMissingMoviesCount:
     """Tests for get_missing_movies_count function."""
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
-    def test_get_missing_movies_count_counts_monitored_without_file(self, mock_radarr_class):
+    @patch("listarr.services.radarr_service.RadarrAPI")
+    def test_get_missing_movies_count_counts_monitored_without_file(
+        self, mock_radarr_class
+    ):
         """Test that missing movies are counted correctly."""
         mock_radarr = MagicMock()
         mock_radarr.get_movie.return_value = [
-            {"id": 1, "title": "Movie 1", "monitored": True, "hasFile": False},  # Missing
-            {"id": 2, "title": "Movie 2", "monitored": True, "hasFile": True},  # Has file
-            {"id": 3, "title": "Movie 3", "monitored": False, "hasFile": False},  # Not monitored
-            {"id": 4, "title": "Movie 4", "monitored": True, "hasFile": False},  # Missing
+            {
+                "id": 1,
+                "title": "Movie 1",
+                "monitored": True,
+                "hasFile": False,
+            },  # Missing
+            {
+                "id": 2,
+                "title": "Movie 2",
+                "monitored": True,
+                "hasFile": True,
+            },  # Has file
+            {
+                "id": 3,
+                "title": "Movie 3",
+                "monitored": False,
+                "hasFile": False,
+            },  # Not monitored
+            {
+                "id": 4,
+                "title": "Movie 4",
+                "monitored": True,
+                "hasFile": False,
+            },  # Missing
         ]
         mock_radarr_class.return_value = mock_radarr
 
@@ -336,8 +378,10 @@ class TestGetMissingMoviesCount:
 
         assert result == 2  # Only movies 1 and 4 are monitored and missing files
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
-    def test_get_missing_movies_count_returns_zero_for_empty_list(self, mock_radarr_class):
+    @patch("listarr.services.radarr_service.RadarrAPI")
+    def test_get_missing_movies_count_returns_zero_for_empty_list(
+        self, mock_radarr_class
+    ):
         """Test that empty movie list returns 0."""
         mock_radarr = MagicMock()
         mock_radarr.get_movie.return_value = []
@@ -347,7 +391,7 @@ class TestGetMissingMoviesCount:
 
         assert result == 0
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_missing_movies_count_handles_missing_fields(self, mock_radarr_class):
         """Test that missing fields are handled gracefully."""
         mock_radarr = MagicMock()
@@ -363,7 +407,7 @@ class TestGetMissingMoviesCount:
         # All should be treated as not missing (defaults to False)
         assert result == 0
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_missing_movies_count_returns_zero_on_error(self, mock_radarr_class):
         """Test that errors return 0."""
         mock_radarr = MagicMock()
@@ -374,7 +418,7 @@ class TestGetMissingMoviesCount:
 
         assert result == 0
 
-    @patch('listarr.services.radarr_service.RadarrAPI')
+    @patch("listarr.services.radarr_service.RadarrAPI")
     def test_get_missing_movies_count_adds_trailing_slash(self, mock_radarr_class):
         """Test that base_url gets trailing slash added."""
         mock_radarr = MagicMock()
@@ -383,4 +427,6 @@ class TestGetMissingMoviesCount:
 
         get_missing_movies_count("http://localhost:7878", "valid_key")
 
-        mock_radarr_class.assert_called_once_with(host_url="http://localhost:7878/", api_key="valid_key")
+        mock_radarr_class.assert_called_once_with(
+            host_url="http://localhost:7878/", api_key="valid_key"
+        )

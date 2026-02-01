@@ -99,7 +99,7 @@ def get_system_status(base_url: str, api_key: str):
             "version": status.get("version"),
             "instance_name": status.get("instanceName"),
             "is_production": status.get("isProduction", False),
-            "is_debug": status.get("isDebug", False)
+            "is_debug": status.get("isDebug", False),
         }
     except Exception as e:
         logger.error(f"Error fetching system status: {e}", exc_info=True)
@@ -179,8 +179,11 @@ def get_missing_movies_count(base_url: str, api_key: str):
         # Count movies that are monitored but don't have a file
         # If hasFile field is missing, treat as having a file (not missing)
         missing_count = sum(
-            1 for movie in movies
-            if movie.get("monitored", False) and "hasFile" in movie and not movie.get("hasFile", False)
+            1
+            for movie in movies
+            if movie.get("monitored", False)
+            and "hasFile" in movie
+            and not movie.get("hasFile", False)
         )
         return missing_count
     except Exception as e:
@@ -207,7 +210,7 @@ def get_existing_movie_tmdb_ids(base_url: str, api_key: str) -> set[int]:
     try:
         radarr = RadarrAPI(host_url=base_url, api_key=api_key)
         movies = radarr.get_movie()
-        return {m.get('tmdbId') for m in movies if m.get('tmdbId')}
+        return {m.get("tmdbId") for m in movies if m.get("tmdbId")}
     except Exception as e:
         logger.error(f"Error fetching existing movie TMDB IDs: {e}", exc_info=True)
         return set()
@@ -249,7 +252,7 @@ def add_movie(
     quality_profile_id: int,
     monitored: bool = True,
     search_on_add: bool = True,
-    tags: list[int] = None
+    tags: list[int] = None,
 ) -> dict:
     """
     Add a movie to Radarr.
@@ -276,8 +279,8 @@ def add_movie(
 
     radarr = RadarrAPI(host_url=base_url, api_key=api_key)
 
-    title = movie_data.get('title', 'Unknown')
-    tmdb_id = movie_data.get('tmdbId', 'Unknown')
+    title = movie_data.get("title", "Unknown")
+    tmdb_id = movie_data.get("tmdbId", "Unknown")
     logger.info(f"Adding movie: {title} (TMDB: {tmdb_id})")
 
     return radarr.add_movie(
@@ -286,7 +289,7 @@ def add_movie(
         quality_profile_id=quality_profile_id,
         monitored=monitored,
         search_for_movie=search_on_add,
-        tags=tags or []
+        tags=tags or [],
     )
 
 
@@ -339,4 +342,3 @@ def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
     except Exception as e:
         logger.error(f"Error creating/fetching tag '{tag_label}': {e}", exc_info=True)
         return None
-

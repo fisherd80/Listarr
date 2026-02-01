@@ -38,9 +38,9 @@ class TestIsListRunning:
         with app.app_context():
             job = Job(
                 list_id=1,
-                list_name='Test',
-                status='completed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test",
+                status="completed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
@@ -56,9 +56,9 @@ class TestIsListRunning:
         with app.app_context():
             job = Job(
                 list_id=2,
-                list_name='Test',
-                status='running',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test",
+                status="running",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
@@ -74,9 +74,9 @@ class TestIsListRunning:
         with app.app_context():
             job = Job(
                 list_id=3,
-                list_name='Test',
-                status='failed',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test",
+                status="failed",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
@@ -103,9 +103,9 @@ class TestGetJobStatus:
             # Create older job
             old_job = Job(
                 list_id=3,
-                list_name='Test',
-                status='completed',
-                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc)
+                list_name="Test",
+                status="completed",
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
             )
             db.session.add(old_job)
             db.session.commit()
@@ -113,16 +113,16 @@ class TestGetJobStatus:
             # Create newer job
             new_job = Job(
                 list_id=3,
-                list_name='Test',
-                status='running',
-                started_at=datetime(2024, 1, 2, tzinfo=timezone.utc)
+                list_name="Test",
+                status="running",
+                started_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
             )
             db.session.add(new_job)
             db.session.commit()
 
             result = get_job_status(3)
             assert result is not None
-            assert result['status'] == 'running'
+            assert result["status"] == "running"
 
     def test_returns_dict_with_all_fields(self, app):
         """Returns job dict with all expected fields."""
@@ -132,12 +132,12 @@ class TestGetJobStatus:
         with app.app_context():
             job = Job(
                 list_id=4,
-                list_name='Test List',
-                status='completed',
+                list_name="Test List",
+                status="completed",
                 started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
                 completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
                 duration=300,
-                triggered_by='manual',
+                triggered_by="manual",
                 retry_count=0,
                 items_found=50,
                 items_added=45,
@@ -149,15 +149,15 @@ class TestGetJobStatus:
 
             result = get_job_status(4)
             assert result is not None
-            assert result['list_id'] == 4
-            assert result['list_name'] == 'Test List'
-            assert result['status'] == 'completed'
-            assert result['duration'] == 300
-            assert result['triggered_by'] == 'manual'
-            assert result['items_found'] == 50
-            assert result['items_added'] == 45
-            assert result['items_skipped'] == 5
-            assert result['items_failed'] == 0
+            assert result["list_id"] == 4
+            assert result["list_name"] == "Test List"
+            assert result["status"] == "completed"
+            assert result["duration"] == 300
+            assert result["triggered_by"] == "manual"
+            assert result["items_found"] == 50
+            assert result["items_added"] == 45
+            assert result["items_skipped"] == 5
+            assert result["items_failed"] == 0
 
 
 class TestSubmitJob:
@@ -172,56 +172,56 @@ class TestSubmitJob:
             # Create running job
             job = Job(
                 list_id=4,
-                list_name='Test',
-                status='running',
-                started_at=datetime.now(timezone.utc)
+                list_name="Test",
+                status="running",
+                started_at=datetime.now(timezone.utc),
             )
             db.session.add(job)
             db.session.commit()
 
         with pytest.raises(ValueError, match="already running"):
-            submit_job(4, 'Test', app)
+            submit_job(4, "Test", app)
 
     def test_creates_job_record(self, app):
         """Creates job record in database."""
         from listarr import db
         from listarr.models.jobs_model import Job
 
-        with patch('listarr.services.job_executor.get_executor') as mock_executor:
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
             mock_executor.return_value.submit = MagicMock()
 
-            job_id = submit_job(5, 'Test List', app, triggered_by='manual')
+            job_id = submit_job(5, "Test List", app, triggered_by="manual")
 
             with app.app_context():
                 job = Job.query.get(job_id)
                 assert job is not None
                 assert job.list_id == 5
-                assert job.list_name == 'Test List'
-                assert job.status == 'running'
-                assert job.triggered_by == 'manual'
+                assert job.list_name == "Test List"
+                assert job.status == "running"
+                assert job.triggered_by == "manual"
 
     def test_creates_job_with_scheduled_trigger(self, app):
         """Creates job with scheduled trigger type."""
         from listarr import db
         from listarr.models.jobs_model import Job
 
-        with patch('listarr.services.job_executor.get_executor') as mock_executor:
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
             mock_executor.return_value.submit = MagicMock()
 
-            job_id = submit_job(6, 'Scheduled List', app, triggered_by='scheduled')
+            job_id = submit_job(6, "Scheduled List", app, triggered_by="scheduled")
 
             with app.app_context():
                 job = Job.query.get(job_id)
                 assert job is not None
-                assert job.triggered_by == 'scheduled'
+                assert job.triggered_by == "scheduled"
 
     def test_submits_to_executor(self, app):
         """Submits job to ThreadPoolExecutor."""
-        with patch('listarr.services.job_executor.get_executor') as mock_executor:
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
             mock_submit = MagicMock()
             mock_executor.return_value.submit = mock_submit
 
-            submit_job(7, 'Test List', app)
+            submit_job(7, "Test List", app)
 
             # Verify executor.submit was called
             mock_submit.assert_called_once()
@@ -253,10 +253,10 @@ class TestJobLifecycle:
         from listarr import db
         from listarr.models.jobs_model import Job
 
-        with patch('listarr.services.job_executor.get_executor') as mock_executor:
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
             mock_executor.return_value.submit = MagicMock()
 
-            job_id = submit_job(8, 'Test', app)
+            job_id = submit_job(8, "Test", app)
 
             with app.app_context():
                 job = Job.query.get(job_id)
@@ -270,10 +270,10 @@ class TestJobLifecycle:
         from listarr import db
         from listarr.models.jobs_model import Job
 
-        with patch('listarr.services.job_executor.get_executor') as mock_executor:
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
             mock_executor.return_value.submit = MagicMock()
 
-            job_id = submit_job(9, 'Test', app)
+            job_id = submit_job(9, "Test", app)
 
             with app.app_context():
                 job = Job.query.get(job_id)
@@ -284,10 +284,10 @@ class TestJobLifecycle:
         from listarr import db
         from listarr.models.jobs_model import Job
 
-        with patch('listarr.services.job_executor.get_executor') as mock_executor:
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
             mock_executor.return_value.submit = MagicMock()
 
-            job_id = submit_job(10, 'Test', app)
+            job_id = submit_job(10, "Test", app)
 
             with app.app_context():
                 job = Job.query.get(job_id)

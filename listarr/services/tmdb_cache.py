@@ -16,10 +16,10 @@ from listarr.services import tmdb_service
 logger = logging.getLogger(__name__)
 
 # TTL constants (in seconds)
-TTL_TRENDING = 3600      # 1 hour - trending data changes frequently
-TTL_POPULAR = 14400      # 4 hours - popular lists update less often
-TTL_DISCOVER = 21600     # 6 hours - discover results are relatively stable
-TTL_DETAILS = 86400      # 24 hours - movie/TV details rarely change
+TTL_TRENDING = 3600  # 1 hour - trending data changes frequently
+TTL_POPULAR = 14400  # 4 hours - popular lists update less often
+TTL_DISCOVER = 21600  # 6 hours - discover results are relatively stable
+TTL_DETAILS = 86400  # 24 hours - movie/TV details rarely change
 
 # Cache instances with TTL
 _trending_cache: TTLCache = TTLCache(maxsize=100, ttl=TTL_TRENDING)
@@ -40,7 +40,8 @@ def _get_tmdb_region() -> str | None:
     """
     try:
         from listarr.models.service_config_model import ServiceConfig
-        tmdb_config = ServiceConfig.query.filter_by(service='TMDB').first()
+
+        tmdb_config = ServiceConfig.query.filter_by(service="TMDB").first()
         return tmdb_config.tmdb_region if tmdb_config else None
     except Exception:
         # Outside app context or error - return None (no region filter)
@@ -66,7 +67,9 @@ def _hash_filters(filters: dict) -> str:
     return hashlib.md5(filter_str.encode()).hexdigest()
 
 
-def get_trending_movies_cached(api_key: str, time_window: str = 'week', page: int = 1) -> list:
+def get_trending_movies_cached(
+    api_key: str, time_window: str = "week", page: int = 1
+) -> list:
     """
     Fetch trending movies with caching.
 
@@ -98,7 +101,9 @@ def get_trending_movies_cached(api_key: str, time_window: str = 'week', page: in
     return result
 
 
-def get_trending_tv_cached(api_key: str, time_window: str = 'week', page: int = 1) -> list:
+def get_trending_tv_cached(
+    api_key: str, time_window: str = "week", page: int = 1
+) -> list:
     """
     Fetch trending TV shows with caching.
 
@@ -393,23 +398,23 @@ def get_cache_stats() -> dict:
             "trending": {
                 "size": len(_trending_cache),
                 "maxsize": _trending_cache.maxsize,
-                "ttl": TTL_TRENDING
+                "ttl": TTL_TRENDING,
             },
             "popular": {
                 "size": len(_popular_cache),
                 "maxsize": _popular_cache.maxsize,
-                "ttl": TTL_POPULAR
+                "ttl": TTL_POPULAR,
             },
             "discover": {
                 "size": len(_discover_cache),
                 "maxsize": _discover_cache.maxsize,
-                "ttl": TTL_DISCOVER
+                "ttl": TTL_DISCOVER,
             },
             "details": {
                 "size": len(_details_cache),
                 "maxsize": _details_cache.maxsize,
-                "ttl": TTL_DETAILS
-            }
+                "ttl": TTL_DETAILS,
+            },
         }
 
 

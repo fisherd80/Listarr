@@ -31,9 +31,10 @@ def main():
     # Verify database file creation
     db_path = Path(app.instance_path) / "listarr.db"
     if db_path.exists():
-         print(f">>> Database initialized at {db_path}")
+        print(f">>> Database initialized at {db_path}")
 
     print(">>> Setup complete. You can now run `python run.py` to start the app.")
 
-if __name__ =="__main__":
+
+if __name__ == "__main__":
     main()
