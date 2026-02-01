@@ -13,10 +13,10 @@ WTForms==3.1.1
 cachetools>=5.3.0
 
 # Encryption
-cryptography==41.0.7
+cryptography==43.0.1
 
 # HTTP Requests (for external APIs)
-requests==2.31.0
+requests==2.32.4
 
 # TMDB API Client
 tmdbv3api==1.9.0
@@ -25,7 +25,7 @@ tmdbv3api==1.9.0
 pyarr>=5.0.0
 
 # Production WSGI Server (required for Docker deployment)
-gunicorn==21.2.0
+gunicorn==22.0.0
 
 # Optional: Scheduler (uncomment when implementing scheduling)
 # APScheduler==3.10.4
