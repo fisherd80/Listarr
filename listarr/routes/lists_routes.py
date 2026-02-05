@@ -17,6 +17,7 @@ from listarr.models.service_config_model import ServiceConfig
 from listarr.routes import bp
 from listarr.services.crypto_utils import decrypt_data
 from listarr.services.job_executor import get_job_status, is_list_running, submit_job
+from listarr.services.scheduler import get_next_run_time, schedule_list, unschedule_list
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -59,9 +60,51 @@ def _db_to_form_str(value):
     return ""
 
 
+def format_relative_time(dt):
+    """
+    Format datetime as relative time string.
+
+    Args:
+        dt: datetime object (timezone-aware)
+
+    Returns:
+        string: Relative time description (e.g., "in 2 hours", "tomorrow")
+    """
+    if not dt:
+        return None
+    now = datetime.now(timezone.utc)
+    diff = dt - now
+    seconds = diff.total_seconds()
+
+    if seconds < 0:
+        return "overdue"
+    elif seconds < 60:
+        return "in less than a minute"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"in {minutes} minute{'s' if minutes != 1 else ''}"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"in {hours} hour{'s' if hours != 1 else ''}"
+    else:
+        days = int(seconds / 86400)
+        if days == 1:
+            return "tomorrow"
+        return f"in {days} day{'s' if days != 1 else ''}"
+
+
 @bp.route("/lists")
 def lists_page():
     lists = db.session.query(List).all()
+
+    # Compute next run time for each list
+    for list_obj in lists:
+        if list_obj.schedule_cron and list_obj.is_active:
+            next_run = get_next_run_time(list_obj.id)
+            list_obj.next_run_formatted = format_relative_time(next_run)
+        else:
+            list_obj.next_run_formatted = None
+
     form = ListForm()
     return render_template("lists.html", lists=lists, form=form)
 
@@ -214,6 +257,21 @@ def edit_list(list_id):
             list_obj.override_season_folder = int(season_value) if season_value else None
 
             db.session.commit()
+
+            # Update scheduler after saving changes
+            if list_obj.schedule_cron and list_obj.is_active:
+                try:
+                    schedule_list(list_obj.id, list_obj.schedule_cron)
+                    current_app.logger.info(f"Updated schedule for list {list_obj.id}")
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to update schedule: {e}")
+            else:
+                try:
+                    unschedule_list(list_obj.id)
+                    current_app.logger.info(f"Removed schedule for list {list_obj.id}")
+                except Exception:
+                    pass  # Job may not exist, that's fine
+
             flash(f"List '{list_obj.name}' updated successfully!", "success")
             return redirect(url_for("main.lists_page"))
         except Exception as e:
@@ -285,6 +343,14 @@ def delete_list(list_id):
 
     try:
         list_name = list_obj.name
+
+        # Unschedule before deleting
+        try:
+            unschedule_list(list_id)
+            current_app.logger.info(f"Unscheduled list {list_id} before deletion")
+        except Exception as e:
+            current_app.logger.warning(f"Failed to unschedule list before deletion: {e}")
+
         db.session.delete(list_obj)
         db.session.commit()
         return jsonify({"success": True, "message": f"List '{list_name}' deleted successfully!"})
@@ -409,6 +475,20 @@ def toggle_list(list_id):
         # Toggle the is_active field
         list_obj.is_active = not list_obj.is_active
         db.session.commit()
+
+        # Update scheduler based on new state
+        if list_obj.is_active and list_obj.schedule_cron:
+            try:
+                schedule_list(list_obj.id, list_obj.schedule_cron)
+                current_app.logger.info(f"Scheduled list {list_obj.id} after enabling")
+            except Exception as e:
+                current_app.logger.warning(f"Failed to schedule list after enabling: {e}")
+        elif not list_obj.is_active:
+            try:
+                unschedule_list(list_obj.id)
+                current_app.logger.info(f"Unscheduled list {list_obj.id} after disabling")
+            except Exception:
+                pass  # Job may not exist
 
         status_text = "enabled" if list_obj.is_active else "disabled"
 
@@ -689,6 +769,22 @@ def wizard_submit():
             db.session.add(list_obj)
 
         db.session.commit()
+
+        # Update scheduler after saving (both create and edit modes)
+        if list_obj.schedule_cron and list_obj.is_active:
+            try:
+                schedule_list(list_obj.id, list_obj.schedule_cron)
+                mode = "updated" if list_id else "registered"
+                current_app.logger.info(f"{mode.capitalize()} schedule for list {list_obj.id}")
+            except Exception as e:
+                current_app.logger.warning(f"Failed to update schedule: {e}")
+        else:
+            try:
+                unschedule_list(list_obj.id)
+                current_app.logger.info(f"Removed schedule for list {list_obj.id}")
+            except Exception:
+                pass  # Job may not exist
+
         return jsonify({"success": True, "list_id": list_obj.id})
 
     except Exception as e:

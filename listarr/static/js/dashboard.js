@@ -179,6 +179,9 @@ function startJobsPolling() {
       .catch((error) => {
         console.error("Error polling jobs:", error);
       });
+
+    // Also refresh upcoming jobs during polling
+    loadUpcoming();
   }, JOBS_POLLING_INTERVAL_MS);
 }
 
@@ -205,6 +208,124 @@ function loadRecentJobs() {
     .catch((error) => {
       console.error("Error loading recent jobs:", error);
       updateJobsTable([]);
+    });
+}
+
+/**
+ * Fetches upcoming scheduled jobs from the API.
+ * @returns {Promise<Object>} Promise that resolves with upcoming jobs data
+ */
+function fetchUpcomingJobs() {
+  return fetch("/api/dashboard/upcoming", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .catch((error) => {
+      console.error("Error fetching upcoming jobs:", error);
+      // Return empty data on error
+      return {
+        upcoming: [],
+        scheduler_paused: false,
+      };
+    });
+}
+
+/**
+ * Updates the Upcoming widget with fetched data.
+ * @param {Object} data - Data from /api/dashboard/upcoming
+ */
+function updateUpcomingWidget(data) {
+  const loadingDiv = document.getElementById("upcoming-loading");
+  const emptyDiv = document.getElementById("upcoming-empty");
+  const upcomingList = document.getElementById("upcoming-jobs-list");
+  const pausedBadge = document.getElementById("scheduler-paused-badge");
+
+  if (!upcomingList) {
+    console.warn("Upcoming jobs list element not found");
+    return;
+  }
+
+  // Show/hide paused badge
+  if (pausedBadge) {
+    if (data.scheduler_paused) {
+      pausedBadge.classList.remove("hidden");
+    } else {
+      pausedBadge.classList.add("hidden");
+    }
+  }
+
+  // Hide loading state
+  if (loadingDiv) {
+    loadingDiv.classList.add("hidden");
+  }
+
+  // Handle empty state
+  if (!data.upcoming || data.upcoming.length === 0) {
+    if (emptyDiv) {
+      emptyDiv.classList.remove("hidden");
+    }
+    upcomingList.classList.add("hidden");
+    return;
+  }
+
+  // Hide empty state and show list
+  if (emptyDiv) {
+    emptyDiv.classList.add("hidden");
+  }
+  upcomingList.classList.remove("hidden");
+
+  // Clear existing list items
+  upcomingList.innerHTML = "";
+
+  // Create list items for each upcoming job
+  data.upcoming.forEach((job) => {
+    const listItem = document.createElement("li");
+    listItem.className = "flex items-center justify-between py-2";
+
+    // Service badge color
+    const serviceColor =
+      job.service === "radarr"
+        ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+        : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+
+    listItem.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+          ${escapeHtml(job.list_name)}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          ${escapeHtml(job.next_run_relative)}
+        </p>
+      </div>
+      <span class="ml-2 text-xs px-2 py-1 rounded-full ${serviceColor}">
+        ${capitalize(job.service)}
+      </span>
+    `;
+
+    upcomingList.appendChild(listItem);
+  });
+}
+
+/**
+ * Loads and displays upcoming scheduled jobs.
+ */
+function loadUpcoming() {
+  fetchUpcomingJobs()
+    .then((data) => {
+      updateUpcomingWidget(data);
+    })
+    .catch((error) => {
+      console.error("Error loading upcoming jobs:", error);
+      // Show empty state on error
+      updateUpcomingWidget({ upcoming: [], scheduler_paused: false });
     });
 }
 
@@ -596,6 +717,9 @@ function refreshDashboard(isManual = true) {
   // Load recent jobs
   loadRecentJobs();
 
+  // Load upcoming jobs
+  loadUpcoming();
+
   // Re-enable button and restore text after a short delay (only for manual refreshes)
   if (isManual) {
     setTimeout(() => {
@@ -724,6 +848,9 @@ function initDashboard() {
 
   // Load recent jobs
   loadRecentJobs();
+
+  // Load upcoming jobs
+  loadUpcoming();
 }
 
 // Initialize when DOM is ready

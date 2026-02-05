@@ -65,7 +65,7 @@ def _hash_filters(filters: dict) -> str:
     # Sort keys for consistent ordering
     sorted_items = sorted(filters.items())
     filter_str = json.dumps(sorted_items, sort_keys=True)
-    return hashlib.md5(filter_str.encode()).hexdigest()
+    return hashlib.md5(filter_str.encode(), usedforsecurity=False).hexdigest()
 
 
 def get_trending_movies_cached(api_key: str, time_window: str = "week", page: int = 1) -> list:

@@ -276,17 +276,13 @@ The app runs on `http://localhost:5000` by default (Docker-ready, no reverse pro
   - `get_missing_movies_count()` / `get_missing_series_count()` - Missing media counts
   - All functions include proper error handling and logging
 
-### ⚠️ Not Yet Implemented (Phase 3+)
+### ⚠️ Not Yet Implemented (Phase 8+)
 
 - **Radarr/Sonarr advanced API integration**:
   - Tags fetching (`/api/v3/tag`)
   - Movie/series addition functionality (`add_movie()`, `add_series()`)
-- Job execution engine (background task runner)
-- Scheduling system (cron jobs)
 - Cache management for cached lists (with TTL)
 - Import queue logic
-- List generation wizard UI (route stub exists)
-- Jobs page UI (route stub exists)
 - Global blacklist system
 - Tag functionality for import settings
 
@@ -329,6 +325,7 @@ Located in `listarr/models/`, all inherit from `db.Model`:
 
 - **ServiceConfig** (`service_config_model.py`): Stores encrypted API keys and connection details for external services (TMDB, Radarr, Sonarr)
   - Tracks connection test status with `last_tested_at` (DateTime) and `last_test_status` (String: "success"/"failed")
+  - `scheduler_paused` (Boolean): Global pause toggle for scheduler (first record only)
 - **MediaImportSettings** (`service_config_model.py`): Default import settings (root folder, quality profile, tags) per service
 - **List** (`lists_model.py`): Defines TMDB lists to sync, with filters, overrides, caching, and scheduling
   - Contains: target_service, tmdb_list_type, filters_json, cache settings, schedule_cron
@@ -356,8 +353,16 @@ All routes are registered under a single blueprint `bp` in `listarr/routes/__ini
   - Thread-safe cache updates
   - On-demand cache refresh
   - "Added by Listarr" calculation from completed jobs
-- `lists_routes.py`: List management (`/lists`) - wizard UI for list creation (not yet implemented)
-- `jobs_routes.py`: Job monitoring (`/jobs`) - central activity view (not yet implemented)
+- `lists_routes.py`: List management (`/lists`) - wizard UI for list creation ✅ **COMPLETE**
+  - Schedule integration (wizard and edit form)
+  - Next run subtitle display with relative times
+  - Scheduler sync on create/update/delete
+- `jobs_routes.py`: Job monitoring (`/jobs`) - central activity view ✅ **COMPLETE**
+- `schedule_routes.py`: Schedule management (`/schedule`) ✅ **COMPLETE**
+  - `GET /schedule` - Schedule page template
+  - `POST /schedule/pause` - Global pause toggle
+  - `POST /schedule/resume` - Resume all schedules
+  - `GET /api/schedule/status` - Schedule status for auto-refresh
 - `config_routes.py`: Service configuration (`/config`) - Radarr/Sonarr setup ✅ **COMPLETE**
   - POST handlers for `save_radarr_api` and `save_sonarr_api`
   - AJAX endpoints: `/config/test_radarr_api`, `/config/test_sonarr_api`
@@ -420,7 +425,17 @@ Business logic in `listarr/services/`:
   - ✅ `get_series_count()` - Total series count
   - ✅ `get_missing_series_count()` - Missing series count
   - ⚠️ Needs: `get_tags()`, `add_series()`
-- **job_runner.py** (planned): Background job execution engine
+- **scheduler.py** ✅ COMPLETE: APScheduler integration for automated list execution
+  - ✅ `schedule_list(list_id, list_name, cron_expression)` - Register list with APScheduler
+  - ✅ `unschedule_list(list_id)` - Remove scheduled job
+  - ✅ `pause_scheduler()` / `resume_scheduler()` - Global pause/resume
+  - ✅ `is_paused()` - Check if scheduler globally paused
+  - ✅ `get_scheduled_jobs()` - List all scheduled jobs
+  - ✅ `get_next_runs(cron_expression, count)` - Calculate upcoming run times
+  - ✅ `validate_cron_expression(cron_expression)` - Validate cron syntax
+  - ✅ Singleton pattern with module-level scheduler instance
+  - ✅ Loads existing schedules from database on startup
+  - ✅ Single-worker pattern (only one Gunicorn worker runs scheduler)
 - **cache_manager.py** (planned): Cache expiry and refresh logic
 
 **PyArr Usage Pattern** (implemented in services):
@@ -497,7 +512,61 @@ radarr.add_movie(db_id=tmdb_id, quality_profile_id=profile_id, root_dir=root_pat
 - Helper functions eliminate code duplication
 - Conditional UI based on configuration state
 
-### List Execution Flow (Planned)
+### Scheduler Flow (Implemented)
+
+**Scheduler Initialization** (on app startup):
+
+1. APScheduler BackgroundScheduler created as singleton instance
+2. Gunicorn post_fork hook checks worker age:
+   - If `age == 1`: This worker starts the scheduler
+   - All other workers: Skip scheduler initialization
+3. Scheduler loads existing schedules from database:
+   - Queries all List records with `schedule_enabled=True`
+   - Registers each list with APScheduler using `schedule_list()`
+4. Scheduler starts and begins monitoring cron schedules
+
+**Schedule Management** (`/schedule` page):
+
+1. User navigates to Schedule page
+2. JavaScript fetches schedule status via `GET /api/schedule/status`
+3. Displays all lists with schedule status:
+   - Status hierarchy: Running > Paused > Scheduled > Manual only
+   - Next run times shown with relative formatting ("in 2 hours")
+4. User can click global pause/resume:
+   - AJAX POST to `/schedule/pause` or `/schedule/resume`
+   - Updates `ServiceConfig.scheduler_paused` in database
+   - Calls `scheduler.pause_scheduler()` or `scheduler.resume_scheduler()`
+5. Auto-refresh polling (5-second interval when jobs running)
+
+**List Scheduling** (via wizard or edit):
+
+1. User selects schedule preset or enters custom cron expression
+2. On save:
+   - List record updated with `schedule_cron` and `schedule_enabled=True`
+   - Database commit
+   - `scheduler.schedule_list(list_id, list_name, cron_expression)` called
+   - APScheduler registers the job
+3. List appears on Schedule page with "Scheduled" status
+4. Lists page shows "Next: in X minutes" subtitle
+
+**Scheduled Execution**:
+
+1. APScheduler triggers job at scheduled time
+2. Calls `execute_list_job(list_id)` function
+3. Submits job to thread pool executor
+4. Job execution follows standard import flow
+5. Job status tracked in Job table
+6. Next run calculated automatically by APScheduler
+
+**Key Patterns**:
+
+- Single-worker scheduler: Only one Gunicorn worker runs scheduler (prevents duplicate jobs)
+- Graceful non-blocking: Scheduler operations don't block list management in other workers
+- Database-driven: Schedule state persisted in database, loaded on startup
+- Global pause: Single toggle pauses all scheduled jobs for maintenance
+- Singleton instance: Module-level `_scheduler` variable ensures single APScheduler instance
+
+### List Execution Flow (Implemented)
 
 1. **Trigger**: Manual execution or cron schedule
 2. **Validation**: Check target service configuration exists
@@ -847,6 +916,16 @@ The project uses several key Python libraries defined in `requirements.txt`:
   - Version: `>=5.0.0`
   - Status: Fully integrated in `requirements.txt` and used throughout
   - Used in `radarr_service.py` and `sonarr_service.py`
+- **APScheduler** ✅: Advanced Python Scheduler for cron-based job scheduling
+  - Version: `3.11.2`
+  - Status: Fully integrated in `requirements.txt` and used in `scheduler.py`
+  - Provides BackgroundScheduler for automated list execution
+- **cronsim** ✅: Cron expression parser and next run calculator
+  - Version: `2.7`
+  - Status: Fully integrated for calculating next run times
+- **cron-descriptor** ✅: Convert cron expressions to human-readable descriptions
+  - Version: `2.0.5`
+  - Status: Fully integrated for user-friendly schedule display
 - **gunicorn**: Production WSGI server for Docker deployment
 
 ## Environment Variables
@@ -854,6 +933,8 @@ The project uses several key Python libraries defined in `requirements.txt`:
 - `LISTARR_SECRET_KEY`: Flask secret key (defaults to `dev_key_change_me`)
 - `FERNET_KEY`: Optional override for encryption key (otherwise loaded from file)
 - `FLASK_DEBUG`: Enable Flask debug mode (defaults to `False` for safety). Set to `true` for development debugging
+- `TZ`: Server timezone for schedule interpretation (default: UTC). Affects how cron schedules are interpreted by APScheduler
+- `SCHEDULER_WORKER`: Internal Gunicorn worker flag (auto-managed by post_fork hook, do not set manually)
 
 ## Next Implementation Priorities
 
@@ -1014,37 +1095,59 @@ See `docs/DASHBOARD_VALIDATION_REPORT.md` for detailed validation report.
 
 ---
 
-### Phase 3: List Generation & Job Execution (NEXT PRIORITY)
+### ✅ Phase 7: Scheduler System — **COMPLETE** ✅
 
-11. ✅ **TMDB Service Expansion** — **COMPLETE**
+**Goal**: Implement cron-based automated list execution with APScheduler
 
-    - ✅ Implemented trending, popular, and discover list fetching via tmdbv3api
-    - ✅ IMDB ID mapping via TMDB external_ids endpoint
-    - ✅ Filter support (genre, year, language, rating) in discover functions
-    - ⚠️ Still needed: Sanitization and mapping to Radarr/Sonarr fields (in list execution logic)
+**Status**: All objectives achieved! Scheduler system is fully functional.
 
-12. **List Wizard UI** (NEXT)
-    - Multi-step form for list creation
-    - Preview with pagination
-    - Bulk select/deselect
-    - Integration with tmdb_service functions
-    - Display IMDB links for reference
+**What was completed**:
 
-### Phase 4: Job Execution & Monitoring
+1. ✅ **APScheduler Integration**
+   - APScheduler 3.11.2 with BackgroundScheduler
+   - cronsim 2.7 for next run calculations
+   - cron-descriptor 2.0.5 for human-readable descriptions
+   - Single-worker scheduler pattern (Gunicorn post_fork hook)
 
-13. **Job Execution Engine**
+2. ✅ **Scheduler Service** (`listarr/services/scheduler.py`)
+   - `schedule_list()`, `unschedule_list()` - Job management
+   - `pause_scheduler()`, `resume_scheduler()` - Global pause toggle
+   - `get_next_runs()`, `validate_cron_expression()` - Utilities
+   - Singleton pattern with module-level instance
+   - Loads existing schedules from database on startup
 
-    - Background task runner
-    - Import queue logic
-    - Error handling and retries
+3. ✅ **Schedule Management Page** (`/schedule`)
+   - View all lists with schedule status
+   - Global pause/resume toggle
+   - Relative time display ("in 2 hours")
+   - Auto-refresh polling
 
-14. **Jobs Page UI**
-    - Activity monitoring
-    - Inline logs
-    - Retry/cancel support
+4. ✅ **Lists UI Integration**
+   - Next run subtitle on Lists page
+   - Edit form syncs with APScheduler
+   - Wizard save registers schedules
+   - Graceful error handling
 
-### Phase 5: Advanced Features
+5. ✅ **Dashboard Upcoming Widget**
+   - Shows next 5 scheduled jobs
+   - Displays "Paused" badge when globally paused
+   - Integrated polling refresh
 
-15. **Scheduling System**: Cron integration
-16. **Cache Management**: TTL tracking and refresh logic
-17. **Global Blacklist**: User-defined content filtering
+**Success Criteria — ALL MET**:
+
+- ✅ Cron schedules work for automated execution
+- ✅ Global pause toggle functional
+- ✅ Schedule page displays all scheduled lists
+- ✅ Lists page shows next run times
+- ✅ Dashboard shows upcoming jobs
+- ✅ Single-worker pattern prevents duplicate jobs
+
+---
+
+### Phase 8+: Advanced Features (NEXT PRIORITY)
+
+- **Settings Caching**: Background refresh of Radarr/Sonarr settings
+- **Cache Management**: TTL tracking and refresh logic
+- **Global Blacklist**: User-defined content filtering
+- **User Authentication**: Login system for web interface
+- **Direct API**: Replace pyarr with direct Radarr/Sonarr API calls

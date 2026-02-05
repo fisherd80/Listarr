@@ -10,7 +10,10 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
 - 📤 **Queue-based Imports**: Push content to media servers (planned)
 - 📊 **Dashboard Stats**: Read-only summary from Radarr/Sonarr with cached stats, "Added by Listarr" counter, and recent jobs
 - 🔒 **Encrypted Storage**: API keys encrypted at rest with Fernet encryption
-- ⏰ **Scheduled Execution**: Cron-based list automation (planned)
+- ⏰ **Automated Scheduling**: Cron-based scheduling for automatic list execution
+  - Presets for common intervals (hourly, daily, weekly)
+  - Custom cron expressions for advanced users
+  - Global pause toggle for maintenance
 - 💾 **SQLite Database**: Persistent storage with no external database required
 - 🐳 **Docker-first**: Container-ready deployment
 
@@ -82,6 +85,8 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
 - `FERNET_KEY`: Optional override for encryption key (default: loaded from file)
 - `FLASK_ENV`: Flask environment (development/production)
 - `PORT`: Port to run the application on (default: 5000)
+- `TZ`: Server timezone for schedule interpretation (default: UTC)
+- `SCHEDULER_WORKER`: Internal Gunicorn worker flag (auto-managed, do not set manually)
 
 ### API Keys
 
@@ -98,6 +103,32 @@ Configure API keys through the web interface:
    - Set default import settings (quality profile, root folder, season folder, monitoring)
 
 All API keys are encrypted at rest using Fernet symmetric encryption.
+
+## Usage
+
+### Scheduling Lists
+
+Listarr allows you to automate list execution using cron-based scheduling:
+
+1. **Create a scheduled list** via the wizard:
+   - Select a schedule preset (hourly, daily, weekly, etc.)
+   - Or use a custom cron expression for advanced scheduling
+   - The list will execute automatically at the specified intervals
+
+2. **Edit existing lists** to add or change schedules:
+   - Navigate to the Lists page and click "Edit"
+   - Update the schedule preset or cron expression
+   - Changes take effect immediately
+
+3. **Manage schedules** on the Schedule page (`/schedule`):
+   - View all scheduled lists and their next run times
+   - Global pause toggle for maintenance (pauses all scheduled jobs)
+   - Resume scheduling when ready
+
+4. **Monitor upcoming jobs** on the Dashboard:
+   - The Upcoming widget shows the next 5 scheduled jobs
+   - Displays relative times ("in 2 hours", "in 3 days")
+   - Updates automatically during job execution
 
 ## Project Structure
 
@@ -124,9 +155,9 @@ listarr/
 
 ## Development Status
 
-**~80% Complete** - 10 of 13 phases complete. All core features implemented including list management, wizard UI, TMDB caching, import automation, job execution framework, and comprehensive test coverage. Remaining: scheduler, settings caching, authentication, and pyarr migration.
+**~85% Complete** - 11 of 13 phases complete. All core features implemented including list management, wizard UI, TMDB caching, import automation, job execution framework, comprehensive test coverage, and automated scheduling. Remaining: settings caching, authentication, and pyarr migration.
 
-### Completed Phases (1-6.3)
+### Completed Phases (1-7)
 
 - ✅ **Phase 1: List Management** - CRUD operations for TMDB lists
 - ✅ **Phase 2: List Creation Wizard** - 4-step wizard with presets, filters, live preview
@@ -138,10 +169,10 @@ listarr/
 - ✅ **Phase 6.1: Bug Fixes** - Tag override logic, logging, UI feedback
 - ✅ **Phase 6.2: List Enhancements** - Top Rated presets, region filtering, larger limits
 - ✅ **Phase 6.3: Test Coverage** - 444 tests, 56% coverage
+- ✅ **Phase 7: Scheduler System** - Cron-based automated list execution
 
-### Planned Phases (7-10)
+### Planned Phases (8-10)
 
-- 📋 **Phase 7: Scheduler** - Cron-based automated list refresh
 - 📋 **Phase 8: Settings Caching** - Background refresh of service settings
 - 🔮 **Phase 9: Authentication** - User login to secure web interface
 - 🔮 **Phase 10: Direct API** - Replace pyarr with direct Radarr/Sonarr API calls
@@ -229,7 +260,7 @@ The `instance/` folder contains all runtime data:
 | 6.1 Bug Fixes | ✅ Complete | Bugs from manual testing resolved |
 | 6.2 List Enhancements | ✅ Complete | Top Rated presets, region filtering, larger limits |
 | 6.3 Test Coverage | ✅ Complete | Enhanced coverage (52% → 56%, 444 tests) |
-| 7. Scheduler | 📋 Planned | Cron-based automated list refresh |
+| 7. Scheduler System | ✅ Complete | Cron-based automated list execution |
 | 8. Settings Caching | 📋 Planned | Background refresh of Radarr/Sonarr settings |
 | 9. Authentication | 🔮 Planned | Login system to secure web interface |
 | 10. Direct API | 🔮 Planned | Replace pyarr with direct Radarr/Sonarr API calls |

@@ -67,6 +67,12 @@
                 Jobs
               </a>
               <a
+                href="{{ url_for('main.schedule_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.schedule_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Schedule
+              </a>
+              <a
                 href="{{ url_for('main.config_page') }}"
                 class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.config_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
               >

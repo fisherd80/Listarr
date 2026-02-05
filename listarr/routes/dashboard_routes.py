@@ -1,12 +1,16 @@
+from datetime import datetime, timezone
+
 from flask import current_app, jsonify, render_template, request
 
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
+from listarr.models.service_config_model import ServiceConfig
 from listarr.routes import bp
 from listarr.services.dashboard_cache import (
     get_dashboard_cache,
     refresh_dashboard_cache,
 )
+from listarr.services.scheduler import get_next_run_time
 
 
 @bp.route("/")
@@ -165,3 +169,109 @@ def recent_jobs():
         current_app.logger.error(f"Error fetching recent jobs: {e}", exc_info=True)
         # Return empty jobs array on error
         return jsonify({"jobs": []})
+
+
+def format_relative_time(dt):
+    """
+    Format a datetime as a relative time string.
+
+    Args:
+        dt: datetime object (timezone-aware)
+
+    Returns:
+        str: Relative time string (e.g., "in 2 hours", "in 5 minutes")
+    """
+    if not dt:
+        return "unknown"
+
+    try:
+        now = datetime.now(timezone.utc)
+        # Ensure dt is timezone-aware
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        diff = dt - now
+        total_seconds = diff.total_seconds()
+
+        if total_seconds < 0:
+            return "overdue"
+
+        # Convert to appropriate unit
+        if total_seconds < 60:
+            return "in less than a minute"
+        elif total_seconds < 3600:  # Less than 1 hour
+            minutes = int(total_seconds / 60)
+            return f"in {minutes} minute{'s' if minutes != 1 else ''}"
+        elif total_seconds < 86400:  # Less than 1 day
+            hours = int(total_seconds / 3600)
+            return f"in {hours} hour{'s' if hours != 1 else ''}"
+        else:  # 1 day or more
+            days = int(total_seconds / 86400)
+            return f"in {days} day{'s' if days != 1 else ''}"
+
+    except Exception as e:
+        current_app.logger.warning(f"Error formatting relative time: {e}")
+        return "unknown"
+
+
+@bp.route("/api/dashboard/upcoming", methods=["GET"])
+def upcoming_jobs():
+    """
+    Returns the next 5 scheduled jobs for dashboard display.
+
+    Returns:
+        JSON response with structure:
+        {
+            "upcoming": [
+                {
+                    "list_id": int,
+                    "list_name": str,
+                    "service": str,
+                    "next_run": str (ISO format),
+                    "next_run_relative": str
+                }
+            ],
+            "scheduler_paused": bool
+        }
+    """
+    try:
+        # Check if scheduler is paused
+        config = ServiceConfig.query.first()
+        scheduler_paused = config.scheduler_paused if config else False
+
+        # Query all lists with schedules that are active
+        scheduled_lists = List.query.filter(
+            List.schedule_cron.isnot(None),
+            List.is_active == True,  # noqa: E712
+        ).all()
+
+        # Get next run times and sort by soonest
+        upcoming = []
+        for list_obj in scheduled_lists:
+            next_run = get_next_run_time(list_obj.id)
+            if next_run:
+                upcoming.append(
+                    {
+                        "list_id": list_obj.id,
+                        "list_name": list_obj.name,
+                        "service": list_obj.target_service,
+                        "next_run": next_run.isoformat(),
+                        "next_run_relative": format_relative_time(next_run),
+                        "_sort_key": next_run,  # For sorting
+                    }
+                )
+
+        # Sort by next run time (soonest first)
+        upcoming.sort(key=lambda x: x["_sort_key"])
+
+        # Remove sort key and limit to 5
+        for item in upcoming:
+            del item["_sort_key"]
+        upcoming = upcoming[:5]
+
+        return jsonify({"upcoming": upcoming, "scheduler_paused": scheduler_paused})
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching upcoming jobs: {e}", exc_info=True)
+        # Return empty array on error
+        return jsonify({"upcoming": [], "scheduler_paused": False})

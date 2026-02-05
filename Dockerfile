@@ -60,10 +60,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run setup on first start (if key doesn't exist), then start application
 CMD python setup.py && \
-    gunicorn --bind 0.0.0.0:5000 \
-             --workers 2 \
-             --threads 4 \
-             --timeout 120 \
-             --access-logfile - \
-             --error-logfile - \
-             'listarr:create_app()'
+    gunicorn --config gunicorn_config.py 'listarr:create_app()'

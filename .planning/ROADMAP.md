@@ -213,11 +213,19 @@ Plans:
 
 ---
 
-### Phase 7: Scheduler System
+### Phase 7: Scheduler System (Complete)
 
 **Goal:** Implement cron-based scheduler for automated list refresh on schedule
 
 **Deliverable:** Lists can be configured with cron schedules and execute automatically without manual intervention
+
+**Status:** Complete (2026-02-05) - 6/6 plans executed
+- 07-01: Scheduler dependencies and Gunicorn worker config
+- 07-02: Scheduler service (APScheduler wrapper)
+- 07-03: Schedule page (routes + UI)
+- 07-04: Lists/Wizard scheduler integration
+- 07-05: Dashboard upcoming widget
+- 07-06: Documentation updates
 
 **Verification:**
 - Configure a list to run every 5 minutes
@@ -228,58 +236,119 @@ Plans:
 
 ---
 
-### Phase 8: Service Settings Caching & Background Refresh
+### Phase 8: Architecture & API Consolidation
 
-**Goal:** Refactor caching from Radarr/Sonarr to collect settings and figures on launch, with background refresh to prevent data rot
+**Goal:** Remove third-party API wrapper libraries (pyarr, tmdbv3api), consolidate to direct HTTP calls, and review architecture for over-engineering
 
-**Deliverable:** Service settings (quality profiles, root folders, tags) are cached on application startup and refreshed periodically in the background, reducing API calls and improving responsiveness
+**Deliverable:** All external API interactions use direct `requests` calls with shared HTTP sessions, reducing dependencies and improving consistency
+
+**Scope:**
+- Remove pyarr library → direct Radarr/Sonarr API calls
+- Remove tmdbv3api library → direct TMDB API calls
+- Consolidate HTTP client patterns (shared sessions, consistent error handling)
+- Evaluate service settings caching needs (implement if beneficial, defer if not)
+- Identify and document over-engineering, bad abstractions, tight coupling
 
 **Verification:**
-- Start the application and verify Radarr/Sonarr settings are fetched on launch
-- Check that cached settings are used for list creation wizard without additional API calls
-- Wait for background refresh interval and verify settings are updated
-- Modify settings in Radarr/Sonarr and verify they appear after next refresh
-- Verify application remains responsive even if services are temporarily unavailable
+- All Radarr functionality works (test connection, profiles, folders, tags, add movie)
+- All Sonarr functionality works (test connection, profiles, folders, tags, add series)
+- All TMDB functionality works (trending, popular, top_rated, discover, details)
+- Dependency count reduced (pyarr, tmdbv3api removed from requirements.txt)
+- All existing tests pass with new implementations
+- Architecture concerns documented for Phase 9
 
 ---
 
-### Phase 9: User Authentication
+### Phase 9: Code Quality & Refactoring
 
-**Goal:** Implement user login system to secure the web interface
+**Goal:** Address technical debt, remove redundant code, optimize database models, and simplify abstractions
 
-**Deliverable:** Users must authenticate to access the application, with session management and logout capability
+**Deliverable:** Cleaner codebase with reduced duplication, optimized queries, and simplified patterns
 
-**Research Required:**
-- Existing users table structure in database
-- Settings page placeholder for user management
-- Flask-Login or similar authentication approach
+**Scope:**
+- Database model review and optimization
+- Remove redundant/dead code identified in Phase 8
+- Fix N+1 query patterns (e.g., dashboard recent jobs)
+- Consolidate duplicate code between Radarr/Sonarr services
+- Remove hallucinated patterns or over-abstractions
+- Simplify oversized modules (e.g., config_routes.py at 592 lines)
 
 **Verification:**
-- Unauthenticated users are redirected to login page
-- Valid credentials allow access to application
-- Invalid credentials show appropriate error
-- Session persists across page navigation
-- Logout clears session and redirects to login
-- Protected routes reject unauthenticated requests
+- No dead code or unused imports remain
+- Database queries are efficient (no N+1 patterns)
+- Code duplication reduced measurably
+- All tests pass after refactoring
+- Module sizes are reasonable (< 400 lines preferred)
 
 ---
 
-### Phase 10: Migrate from pyarr to Direct API
+### Phase 10: UI/UX Simplification
 
-**Goal:** Replace pyarr library with direct Radarr/Sonarr API calls for full control and feature support
+**Goal:** Simplify Jinja templates, status indicators, warnings, and frontend state management
 
-**Deliverable:** All Radarr and Sonarr API interactions use direct HTTP requests instead of pyarr, enabling access to all API features including tags on series add
+**Deliverable:** Cleaner, more consistent UI with simplified template logic and better user feedback
 
-**Research Required:**
-- Radarr API documentation: https://radarr.video/docs/api/
-- Sonarr API documentation: https://sonarr.tv/docs/api/
+**Scope:**
+- Audit Jinja templates for complexity and duplication
+- Standardize status bars and indicators across pages
+- Review and consolidate warning/error messaging patterns
+- Simplify template state management (reduce JavaScript complexity)
+- Ensure consistent styling and component patterns
 
 **Verification:**
-- All existing Radarr functionality works (test connection, fetch profiles/folders/tags, add movie)
-- All existing Sonarr functionality works (test connection, fetch profiles/folders/tags, add series with tags)
-- Tags are properly applied when adding series to Sonarr
-- Error handling matches or improves upon pyarr behavior
-- All existing tests pass with new implementation
+- Templates use consistent patterns and partials
+- Status indicators behave consistently across pages
+- Warning/error messages follow single pattern
+- JavaScript state management is straightforward
+- UI responds correctly to all states (loading, success, error, empty)
+
+---
+
+### Phase 11: Security Hardening
+
+**Goal:** Fix Flask and Docker security foot-guns, validate inputs, secure configuration
+
+**Deliverable:** Production-ready security posture with hardened Flask config and secure Docker deployment
+
+**Scope:**
+- Flask security configuration (SECRET_KEY, session config, CSRF)
+- Docker security (non-root user, read-only filesystem where possible)
+- Input validation audit (all user inputs, API parameters)
+- Bare exception clause cleanup (mask errors → specific handling)
+- HTTP status code validation in frontend AJAX calls
+- Environment variable security (secrets not logged, .env handling)
+
+**Verification:**
+- Flask runs with secure production configuration
+- Docker container runs as non-root user
+- All user inputs are validated before use
+- No bare `except:` clauses remain
+- Frontend handles HTTP errors appropriately
+- No secrets exposed in logs or error messages
+
+---
+
+### Phase 12: Release Readiness
+
+**Goal:** Final audit and polish before v1.0 release
+
+**Deliverable:** Production-ready application with complete documentation and deployment confidence
+
+**Scope:**
+- User authentication decision (implement for v1.0 or defer to v1.1)
+- Final test suite run and coverage review
+- Documentation audit (README, CHANGELOG, deployment guide)
+- Docker Compose production configuration
+- Version tagging and release notes preparation
+- Sanity check: full user workflow end-to-end
+
+**Verification:**
+- All tests pass (target: 95%+ pass rate)
+- Documentation is accurate and complete
+- Docker deployment works from fresh clone
+- Full workflow succeeds: configure services → create list → schedule → verify import
+- No critical bugs or security issues remain
+- Ready for v1.0.0 tag
 
 ---
 
@@ -295,9 +364,12 @@ All phases delivered and verified:
 - Bug fixes from manual testing resolved
 - List enhancements (Top preset, expanded limits, region filtering) complete
 - Scheduler runs lists automatically on cron schedules
-- Service settings cached on launch with background refresh
-- User authentication secures web interface
-- Direct API calls replace pyarr for full feature support
+- Direct API calls replace pyarr and tmdbv3api (reduced dependencies)
+- Architecture reviewed and simplified
+- Code quality improved (no dead code, optimized queries)
+- UI/UX consistent and simplified
+- Security hardened for production
+- Release-ready with complete documentation
 
 **Success criteria:** User can configure a trending movies list, schedule it to run daily, and verify that new movies automatically appear in Radarr without any manual intervention.
 
@@ -314,6 +386,7 @@ This ensures documentation stays current with development progress.
 ---
 
 *Roadmap created: 2026-01-12*
-*Last updated: 2026-02-01*
-*Phases: 13 (10 complete, 3 remaining)*
+*Last updated: 2026-02-05*
+*Phases: 12 (7 complete + 4 sub-phases, 5 remaining)*
 *Depth: Standard (3-5 plans per phase)*
+*Restructured: 2026-02-05 - Consolidated feature phases into quality/release phases*

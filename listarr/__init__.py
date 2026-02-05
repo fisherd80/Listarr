@@ -13,14 +13,43 @@ db = SQLAlchemy()
 csrf = CSRFProtect()
 
 
-# Enable SQLite WAL mode for better concurrent access
+# Track if we've already logged WAL mode status (avoid log spam)
+_wal_mode_logged = False
+
+
+# Enable SQLite optimizations for better concurrent access
 # This listener is registered at module level to catch all engine connections
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
+    global _wal_mode_logged
     # Only apply to SQLite connections
     if "sqlite" in str(type(dbapi_connection)).lower():
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
+        journal_mode = "WAL"
+        try:
+            # Try WAL mode first (best for concurrent access)
+            cursor.execute("PRAGMA journal_mode=WAL")
+            result = cursor.fetchone()
+            if result and result[0].upper() != "WAL":
+                # WAL mode was requested but filesystem returned different mode
+                journal_mode = result[0].upper()
+                raise ValueError(f"Filesystem returned {journal_mode} instead of WAL")
+        except Exception as e:
+            # WAL mode can fail on certain filesystems (NFS, FUSE, network shares)
+            # Fall back to DELETE mode which is universally supported
+            journal_mode = "DELETE"
+            try:
+                cursor.execute("PRAGMA journal_mode=DELETE")
+            except Exception:
+                journal_mode = "default"
+            if not _wal_mode_logged:
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"SQLite WAL mode unavailable ({e}), using {journal_mode} mode. "
+                    "This may reduce concurrent performance but ensures stability."
+                )
+                _wal_mode_logged = True
+        # Set busy timeout regardless of journal mode
         cursor.execute("PRAGMA busy_timeout=5000")  # 5 second wait on locks
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
@@ -81,6 +110,16 @@ def create_app(test_config=None):
 
         # Recover interrupted jobs
         recover_interrupted_jobs(app)
+
+        # Initialize scheduler (only in designated worker or development)
+        scheduler_worker = os.environ.get("SCHEDULER_WORKER", "true")  # Default true for dev
+        if scheduler_worker == "true":
+            from listarr.services.scheduler import init_scheduler
+
+            init_scheduler(app)
+            app.logger.info("Scheduler initialized")
+        else:
+            app.logger.debug("Scheduler not initialized in this worker")
 
     return app
 

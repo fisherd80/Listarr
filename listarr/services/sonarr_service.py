@@ -347,7 +347,7 @@ def add_series(
     url = f"{base_url}api/v3/series"
     headers = {"X-Api-Key": api_key}
 
-    response = requests.post(url, json=series_payload, headers=headers)
+    response = requests.post(url, json=series_payload, headers=headers, timeout=30)
 
     if response.status_code == 201:
         return response.json()

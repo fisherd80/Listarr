@@ -9,12 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned (Phases 7-10)
+### Planned (Phases 8-10)
 
-- **Phase 7: Scheduler System** - Cron-based automated list refresh
 - **Phase 8: Settings Caching** - Background refresh of Radarr/Sonarr settings
 - **Phase 9: User Authentication** - Login system to secure web interface
 - **Phase 10: Direct API** - Replace pyarr with direct Radarr/Sonarr API calls
+
+---
+
+## Phase 7 - Scheduler System (2026-02-05)
+
+### Added
+
+- **APScheduler Integration** - Cron-based job scheduling for automated list execution
+  - APScheduler 3.11.2 with BackgroundScheduler
+  - cronsim 2.7 for next run calculations
+  - cron-descriptor 2.0.5 for human-readable cron descriptions
+  - Single-worker scheduler pattern (Gunicorn post_fork hook)
+
+- **Scheduler Service** (`listarr/services/scheduler.py`)
+  - `schedule_list()` - Register lists with APScheduler using cron expressions
+  - `unschedule_list()` - Remove scheduled jobs
+  - `pause_scheduler()` / `resume_scheduler()` - Global pause toggle
+  - `validate_cron_expression()` - Cron syntax validation
+  - `get_next_runs()` - Calculate upcoming execution times
+  - Singleton pattern for scheduler instance
+  - Loads existing schedules from database on startup
+
+- **Schedule Management Page** (`/schedule`)
+  - View all lists with schedule status
+  - Status hierarchy: Running > Paused > Scheduled > Manual only
+  - Global pause/resume toggle for maintenance
+  - Relative time display for next runs ("in 2 hours", "in 3 days")
+  - Auto-refresh polling (5-second interval when jobs running)
+
+- **Lists UI Scheduler Integration**
+  - Next run subtitle on Lists page with relative times
+  - Edit form syncs schedule changes with APScheduler
+  - Wizard save registers schedules on list creation
+  - Toggle/delete routes update scheduler state
+  - Graceful error handling for scheduler operations
+
+- **Dashboard Upcoming Widget**
+  - Shows next 5 scheduled jobs with relative times
+  - Displays "Paused" badge when scheduler globally paused
+  - Integrated polling refresh (2-second interval when jobs running)
+  - Two-column layout with Recent Jobs widget
+
+### Changed
+
+- **ServiceConfig Model** - Added `scheduler_paused` boolean column for global pause toggle
+- **Gunicorn Configuration** - Added post_fork hook for single-worker scheduler pattern
+
+### Technical
+
+- **Dependencies**:
+  - APScheduler 3.11.2 - Cron-based scheduling
+  - cronsim 2.7 - Next run calculations
+  - cron-descriptor 2.0.5 - Human-readable cron descriptions
+- **Scheduler Worker Pattern**: Only one Gunicorn worker runs scheduler (age==1) to prevent duplicate job execution
+- **Database Integration**: Schedules stored in List model, loaded on startup
+- **Error Handling**: Non-blocking operations allow list management in non-scheduler workers
 
 ---
 
@@ -461,7 +516,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Development Status
 
-**Current Completion: ~80%** (10 of 13 phases complete)
+**Current Completion: ~85%** (11 of 13 phases complete)
 
 ### Completed Phases
 - ✅ **Phase 1**: List Management System - CRUD operations for TMDB lists
@@ -474,9 +529,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Phase 6.1**: Bug Fixes - Tag override, logging, UI feedback
 - ✅ **Phase 6.2**: List Enhancements - Top Rated, region filtering, larger limits
 - ✅ **Phase 6.3**: Test Coverage - 444 tests, 52% → 56% coverage
+- ✅ **Phase 7**: Scheduler System - Cron-based automated list execution
 
 ### Planned Phases
-- 📋 **Phase 7**: Scheduler System - Cron-based automated list refresh
 - 📋 **Phase 8**: Settings Caching - Background refresh of service settings
 - 🔮 **Phase 9**: User Authentication - Login system for web interface
 - 🔮 **Phase 10**: Direct API - Replace pyarr with direct API calls
@@ -495,4 +550,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Last Updated:** 2025-02-01
+**Last Updated:** 2026-02-05

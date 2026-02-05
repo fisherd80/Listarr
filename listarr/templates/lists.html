@@ -145,8 +145,19 @@
         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
           {% for list in lists %}
           <tr>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-              {{ list.name }}
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {{ list.name }}
+              </div>
+              {% if list.next_run_formatted %}
+              <div class="text-xs text-gray-500 dark:text-gray-400">
+                Next: {{ list.next_run_formatted }}
+              </div>
+              {% elif list.schedule_cron and not list.is_active %}
+              <div class="text-xs text-gray-400 dark:text-gray-500 italic">
+                Disabled
+              </div>
+              {% endif %}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
               {{ list.target_service }}

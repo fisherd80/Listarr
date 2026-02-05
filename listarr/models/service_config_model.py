@@ -20,6 +20,9 @@ class ServiceConfig(db.Model):
     # TMDB-specific settings
     tmdb_region = db.Column(db.String(2), nullable=True)  # ISO 3166-1 Alpha-2 code
 
+    # Scheduler settings (global pause toggle)
+    scheduler_paused = db.Column(db.Boolean, default=False, nullable=False)
+
     created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))
 
 

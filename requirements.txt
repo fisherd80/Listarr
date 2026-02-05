@@ -13,7 +13,7 @@ WTForms==3.1.1
 cachetools>=5.3.0
 
 # Encryption
-cryptography==43.0.1
+cryptography==44.0.1
 
 # HTTP Requests (for external APIs)
 requests==2.32.4
@@ -27,9 +27,7 @@ pyarr>=5.0.0
 # Production WSGI Server (required for Docker deployment)
 gunicorn==22.0.0
 
-# Optional: Scheduler (uncomment when implementing scheduling)
-# APScheduler==3.10.4
-
-# Optional: Task Queue (uncomment if using Celery)
-# celery==5.3.4
-# redis==5.0.1
+# Scheduler
+APScheduler==3.11.2
+cronsim==2.7
+cron-descriptor==2.0.5
