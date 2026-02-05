@@ -1,6 +1,15 @@
+"""
+Sonarr API integration using direct HTTP calls.
+
+All functions use the shared HTTP client for consistent timeout handling,
+retry behavior, and connection reuse.
+"""
+
 import logging
 
-from pyarr import SonarrAPI
+import requests
+
+from listarr.services.http_client import DEFAULT_TIMEOUT, http_session, normalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +25,14 @@ def validate_sonarr_api_key(base_url: str, api_key: str):
     Returns:
         bool: True if valid, False otherwise.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/system/status"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        sonarr.get_system_status()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
         return True
-    except Exception:
+    except requests.exceptions.RequestException:
         return False
 
 
@@ -39,15 +47,15 @@ def get_quality_profiles(base_url: str, api_key: str):
     Returns:
         list: List of quality profile dicts with 'id' and 'name' keys, or empty list on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/qualityprofile"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        profiles = sonarr.get_quality_profile()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        profiles = response.json()
         return [{"id": p["id"], "name": p["name"]} for p in profiles]
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching quality profiles: {e}", exc_info=True)
         return []
 
@@ -63,15 +71,15 @@ def get_root_folders(base_url: str, api_key: str):
     Returns:
         list: List of root folder dicts with 'id' and 'path' keys, or empty list on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/rootfolder"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        folders = sonarr.get_root_folder()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        folders = response.json()
         return [{"id": f["id"], "path": f["path"]} for f in folders]
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching root folders: {e}", exc_info=True)
         return []
 
@@ -88,20 +96,20 @@ def get_system_status(base_url: str, api_key: str):
         dict: System status information with keys: version, instance_name, is_production, is_debug.
               Returns empty dict on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/system/status"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        status = sonarr.get_system_status()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        status = response.json()
         return {
             "version": status.get("version"),
             "instance_name": status.get("instanceName"),
             "is_production": status.get("isProduction", False),
             "is_debug": status.get("isDebug", False),
         }
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching system status: {e}", exc_info=True)
         return {}
 
@@ -117,15 +125,15 @@ def get_series_count(base_url: str, api_key: str):
     Returns:
         int: Total number of series, or 0 on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/series"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        series = sonarr.get_series()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        series = response.json()
         return len(series) if series else 0
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching series count: {e}", exc_info=True)
         return 0
 
@@ -141,15 +149,15 @@ def get_tags(base_url: str, api_key: str):
     Returns:
         list: List of tag dicts with 'id' and 'label' keys, or empty list on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/tag"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        tags = sonarr.get_tag()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        tags = response.json()
         return [{"id": t["id"], "label": t["label"]} for t in tags]
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching tags: {e}", exc_info=True)
         return []
 
@@ -157,7 +165,7 @@ def get_tags(base_url: str, api_key: str):
 def get_missing_series_count(base_url: str, api_key: str):
     """
     Fetches the count of series with missing episodes from Sonarr.
-    Uses Pyarr's get_wanted() function which directly returns missing episodes,
+    Uses the /api/v3/wanted/missing endpoint which directly returns missing episodes,
     making this much more efficient than checking all series individually.
     A series is considered "missing" if it has at least one monitored episode without a file.
 
@@ -168,20 +176,18 @@ def get_missing_series_count(base_url: str, api_key: str):
     Returns:
         int: Total number of series with missing episodes, or 0 on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/wanted/missing"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        # Use get_wanted() to directly fetch missing episodes
-        # This is much more efficient than iterating through all series
-        wanted_response = sonarr.get_wanted()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        wanted_response = response.json()
 
         if not wanted_response:
             return 0
 
-        # Extract records from response (get_wanted returns a dict with 'records' key)
+        # Extract records from response
         records = wanted_response.get("records", [])
         if not records:
             return 0
@@ -201,7 +207,7 @@ def get_missing_series_count(base_url: str, api_key: str):
                     unique_series_ids.add(series.get("id"))
 
         return len(unique_series_ids)
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching missing series count: {e}", exc_info=True)
         return 0
 
@@ -209,7 +215,7 @@ def get_missing_series_count(base_url: str, api_key: str):
 def get_missing_episodes_count(base_url: str, api_key: str):
     """
     Fetches the total count of missing episodes from Sonarr.
-    Uses Pyarr's get_wanted() function which directly returns missing episodes.
+    Uses the /api/v3/wanted/missing endpoint which directly returns missing episodes.
     The response includes a 'totalRecords' field with the count.
 
     Args:
@@ -219,22 +225,21 @@ def get_missing_episodes_count(base_url: str, api_key: str):
     Returns:
         int: Total number of missing episodes, or 0 on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/wanted/missing"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        # Use get_wanted() to directly fetch missing episodes
-        wanted_response = sonarr.get_wanted()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        wanted_response = response.json()
 
         if not wanted_response:
             return 0
 
-        # The get_wanted() response includes 'totalRecords' field with the count
+        # The response includes 'totalRecords' field with the count
         total_records = wanted_response.get("totalRecords", 0)
         return int(total_records) if total_records is not None else 0
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching missing episodes count: {e}", exc_info=True)
         return 0
 
@@ -251,15 +256,15 @@ def get_existing_series_tvdb_ids(base_url: str, api_key: str) -> set[int]:
     Returns:
         set[int]: Set of TVDB IDs, empty set on error.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/series"
+    headers = {"X-Api-Key": api_key}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
-        series = sonarr.get_series()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        series = response.json()
         return {s.get("tvdbId") for s in series if s.get("tvdbId")}
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching existing series TVDB IDs: {e}", exc_info=True)
         return set()
 
@@ -276,18 +281,19 @@ def lookup_series(base_url: str, api_key: str, tvdb_id: int) -> dict | None:
     Returns:
         dict: Series data suitable for add_series(), or None if not found.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/series/lookup"
+    headers = {"X-Api-Key": api_key}
+    params = {"term": f"tvdb:{tvdb_id}"}
 
     try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
         logger.debug(f"Looking up series with TVDB ID: {tvdb_id}")
-        results = sonarr.lookup_series(id_=tvdb_id)
+        response = http_session.get(url, headers=headers, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        results = response.json()
         if results:
             return results[0]
         return None
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True)
         return None
 
@@ -323,17 +329,12 @@ def add_series(
     Raises:
         Exception: On API error (caller should handle).
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
+    url = f"{normalize_url(base_url)}/api/v3/series"
+    headers = {"X-Api-Key": api_key}
 
     title = series_data.get("title", "Unknown")
     tvdb_id = series_data.get("tvdbId", "Unknown")
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
-
-    # Use direct API call instead of pyarr to support tags parameter
-    # pyarr's add_series doesn't support tags, but Sonarr API does
-    import requests
 
     # Build the series payload
     series_payload = series_data.copy()
@@ -344,10 +345,7 @@ def add_series(
     series_payload["tags"] = tags or []
     series_payload["addOptions"] = {"searchForMissingEpisodes": search_on_add}
 
-    url = f"{base_url}api/v3/series"
-    headers = {"X-Api-Key": api_key}
-
-    response = requests.post(url, json=series_payload, headers=headers, timeout=30)
+    response = http_session.post(url, json=series_payload, headers=headers, timeout=DEFAULT_TIMEOUT)
 
     if response.status_code == 201:
         return response.json()
@@ -369,10 +367,6 @@ def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
     Returns:
         int or None: Tag ID if successful, None on error or if label is empty.
     """
-    # Ensure base_url ends with a slash
-    if not base_url.endswith("/"):
-        base_url += "/"
-
     # Normalize tag label
     # 1. Convert to lowercase
     # 2. Replace spaces with hyphens
@@ -388,11 +382,15 @@ def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
     if not normalized_label:
         return None
 
-    try:
-        sonarr = SonarrAPI(host_url=base_url, api_key=api_key)
+    base = normalize_url(base_url)
+    url = f"{base}/api/v3/tag"
+    headers = {"X-Api-Key": api_key}
 
+    try:
         # Fetch all existing tags
-        tags = sonarr.get_tag()
+        response = http_session.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        tags = response.json()
 
         # Search for existing tag (case-insensitive match)
         for tag in tags:
@@ -400,8 +398,15 @@ def create_or_get_tag_id(base_url: str, api_key: str, tag_label: str):
                 return tag["id"]
 
         # Tag not found, create new one
-        new_tag = sonarr.create_tag(label=normalized_label)
+        create_response = http_session.post(
+            url,
+            json={"label": normalized_label},
+            headers=headers,
+            timeout=DEFAULT_TIMEOUT,
+        )
+        create_response.raise_for_status()
+        new_tag = create_response.json()
         return new_tag["id"]
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error creating/fetching tag '{tag_label}': {e}", exc_info=True)
         return None

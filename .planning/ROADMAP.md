@@ -236,25 +236,26 @@ Plans:
 
 ---
 
-### Phase 8: Architecture & API Consolidation
+### Phase 8: Architecture & API Consolidation (Complete)
 
 **Goal:** Remove third-party API wrapper libraries (pyarr, tmdbv3api), consolidate to direct HTTP calls, and review architecture for over-engineering
 
 **Deliverable:** All external API interactions use direct `requests` calls with shared HTTP sessions, reducing dependencies and improving consistency
 
-**Scope:**
-- Remove pyarr library → direct Radarr/Sonarr API calls
-- Remove tmdbv3api library → direct TMDB API calls
-- Consolidate HTTP client patterns (shared sessions, consistent error handling)
-- Evaluate service settings caching needs (implement if beneficial, defer if not)
-- Identify and document over-engineering, bad abstractions, tight coupling
+**Status:** Complete (2026-02-05) - 6/6 plans executed
+- 08-01: HTTP Client module (shared session, retry, timeout, connection pooling)
+- 08-02: Radarr direct API (replaced pyarr with http_session)
+- 08-03: Sonarr direct API (replaced pyarr with http_session)
+- 08-04: TMDB direct API (replaced tmdbv3api with http_session)
+- 08-05: Dependency cleanup (removed pyarr, tmdbv3api from requirements.txt)
+- 08-06: Architecture documentation (6 concerns documented for Phase 9)
 
 **Verification:**
 - All Radarr functionality works (test connection, profiles, folders, tags, add movie)
 - All Sonarr functionality works (test connection, profiles, folders, tags, add series)
 - All TMDB functionality works (trending, popular, top_rated, discover, details)
 - Dependency count reduced (pyarr, tmdbv3api removed from requirements.txt)
-- All existing tests pass with new implementations
+- All existing tests pass with new implementations (452 tests)
 - Architecture concerns documented for Phase 9
 
 ---
@@ -387,6 +388,6 @@ This ensures documentation stays current with development progress.
 
 *Roadmap created: 2026-01-12*
 *Last updated: 2026-02-05*
-*Phases: 12 (7 complete + 4 sub-phases, 5 remaining)*
+*Phases: 12 (8 complete + 4 sub-phases, 4 remaining)*
 *Depth: Standard (3-5 plans per phase)*
 *Restructured: 2026-02-05 - Consolidated feature phases into quality/release phases*

@@ -1,34 +1,20 @@
 """
 TMDB API Service
-Handles all interactions with The Movie Database (TMDB) API using tmdbv3api library.
+Handles all interactions with The Movie Database (TMDB) API using direct HTTP calls.
 """
 
 import logging
 
-from tmdbv3api import TV, Discover, Movie, TMDb, Trending
+import requests
+
+from listarr.services.http_client import API_BASE_TMDB, DEFAULT_TIMEOUT, http_session
 
 logger = logging.getLogger(__name__)
 
 
-def _init_tmdb(api_key: str) -> TMDb:
-    """
-    Initialize TMDB API client with the provided API key.
-
-    Args:
-        api_key (str): TMDB API key
-
-    Returns:
-        TMDb: Initialized TMDB client instance
-    """
-    tmdb = TMDb()
-    tmdb.api_key = api_key
-    tmdb.language = "en"  # Default language
-    return tmdb
-
-
 def validate_tmdb_api_key(api_key: str) -> bool:
     """
-    Test the TMDB API key by fetching TMDB configuration.
+    Test the TMDB API key by fetching popular movies.
 
     Args:
         api_key (str): TMDB API key to test
@@ -40,13 +26,12 @@ def validate_tmdb_api_key(api_key: str) -> bool:
         return False
 
     try:
-        _init_tmdb(api_key)
-        # Test by fetching configuration
-        # tmdbv3api will raise exception if API key is invalid
-        movie = Movie()
-        _ = movie.popular(page=1)  # Simple test call
+        url = f"{API_BASE_TMDB}/movie/popular"
+        params = {"api_key": api_key, "page": 1, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
         return True
-    except Exception:
+    except requests.exceptions.RequestException:
         return False
 
 
@@ -65,11 +50,13 @@ def get_tvdb_id_from_tmdb(tmdb_id: int, api_key: str) -> int | None:
         return None
 
     try:
-        _init_tmdb(api_key)
-        tv = TV()
-        external_ids = tv.external_ids(tmdb_id)
-        return external_ids.get("tvdb_id")
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/tv/{tmdb_id}/external_ids"
+        params = {"api_key": api_key}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("tvdb_id")
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching TVDB ID for TMDB TV show {tmdb_id}: {e}", exc_info=True)
         return None
 
@@ -89,20 +76,17 @@ def get_imdb_id_from_tmdb(tmdb_id: int, api_key: str, media_type: str = "movie")
     if not api_key or not tmdb_id:
         return None
 
+    if media_type not in ("movie", "tv"):
+        return None
+
     try:
-        _init_tmdb(api_key)
-
-        if media_type == "movie":
-            movie = Movie()
-            external_ids = movie.external_ids(tmdb_id)
-        elif media_type == "tv":
-            tv = TV()
-            external_ids = tv.external_ids(tmdb_id)
-        else:
-            return None
-
-        return external_ids.get("imdb_id")
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/{media_type}/{tmdb_id}/external_ids"
+        params = {"api_key": api_key}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("imdb_id")
+    except requests.exceptions.RequestException as e:
         logger.error(
             f"Error fetching IMDB ID for TMDB {media_type} {tmdb_id}: {e}",
             exc_info=True,
@@ -126,11 +110,13 @@ def get_trending_movies(api_key: str, time_window: str = "week", page: int = 1) 
         return []
 
     try:
-        _init_tmdb(api_key)
-        trending = Trending()
-        results = trending.movie_week(page=page) if time_window == "week" else trending.movie_day(page=page)
-        return results
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/trending/movie/{time_window}"
+        params = {"api_key": api_key, "page": page, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching trending movies: {e}", exc_info=True)
         return []
 
@@ -151,11 +137,13 @@ def get_trending_tv(api_key: str, time_window: str = "week", page: int = 1) -> l
         return []
 
     try:
-        _init_tmdb(api_key)
-        trending = Trending()
-        results = trending.tv_week(page=page) if time_window == "week" else trending.tv_day(page=page)
-        return results
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/trending/tv/{time_window}"
+        params = {"api_key": api_key, "page": page, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching trending TV shows: {e}", exc_info=True)
         return []
 
@@ -176,12 +164,15 @@ def get_popular_movies(api_key: str, page: int = 1, region: str = None) -> list:
         return []
 
     try:
-        _init_tmdb(api_key)
-        movie = Movie()
-        # tmdbv3api popular() accepts region parameter
-        results = movie.popular(page=page, region=region) if region else movie.popular(page=page)
-        return results
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/movie/popular"
+        params = {"api_key": api_key, "page": page, "language": "en"}
+        if region:
+            params["region"] = region
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching popular movies: {e}", exc_info=True)
         return []
 
@@ -201,11 +192,13 @@ def get_popular_tv(api_key: str, page: int = 1) -> list:
         return []
 
     try:
-        _init_tmdb(api_key)
-        tv = TV()
-        results = tv.popular(page=page)
-        return results
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/tv/popular"
+        params = {"api_key": api_key, "page": page, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching popular TV shows: {e}", exc_info=True)
         return []
 
@@ -226,12 +219,15 @@ def get_top_rated_movies(api_key: str, page: int = 1, region: str = None) -> lis
         return []
 
     try:
-        _init_tmdb(api_key)
-        movie = Movie()
-        # tmdbv3api top_rated() accepts region parameter
-        results = movie.top_rated(page=page, region=region) if region else movie.top_rated(page=page)
-        return results
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/movie/top_rated"
+        params = {"api_key": api_key, "page": page, "language": "en"}
+        if region:
+            params["region"] = region
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching top rated movies: {e}", exc_info=True)
         return []
 
@@ -251,11 +247,13 @@ def get_top_rated_tv(api_key: str, page: int = 1) -> list:
         return []
 
     try:
-        _init_tmdb(api_key)
-        tv = TV()
-        results = tv.top_rated(page=page)
-        return results
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/tv/top_rated"
+        params = {"api_key": api_key, "page": page, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching top rated TV shows: {e}", exc_info=True)
         return []
 
@@ -283,19 +281,17 @@ def discover_movies(api_key: str, filters: dict = None, page: int = 1, region: s
         return []
 
     try:
-        _init_tmdb(api_key)
-        discover = Discover()
-
-        # Build discover parameters
-        params = {"page": page}
+        url = f"{API_BASE_TMDB}/discover/movie"
+        params = {"api_key": api_key, "page": page, "language": "en"}
         if region:
             params["region"] = region
         if filters:
             params.update(filters)
-
-        results = discover.discover_movies(params)
-        return results
-    except Exception as e:
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error discovering movies: {e}", exc_info=True)
         return []
 
@@ -322,19 +318,17 @@ def discover_tv(api_key: str, filters: dict = None, page: int = 1, region: str =
         return []
 
     try:
-        _init_tmdb(api_key)
-        discover = Discover()
-
-        # Build discover parameters
-        params = {"page": page}
+        url = f"{API_BASE_TMDB}/discover/tv"
+        params = {"api_key": api_key, "page": page, "language": "en"}
         if region:
             params["region"] = region
         if filters:
             params.update(filters)
-
-        results = discover.discover_tv_shows(params)
-        return results
-    except Exception as e:
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error discovering TV shows: {e}", exc_info=True)
         return []
 
@@ -354,11 +348,12 @@ def get_movie_details(tmdb_id: int, api_key: str) -> dict:
         return {}
 
     try:
-        _init_tmdb(api_key)
-        movie = Movie()
-        details = movie.details(tmdb_id)
-        return details
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/movie/{tmdb_id}"
+        params = {"api_key": api_key, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching movie details for ID {tmdb_id}: {e}", exc_info=True)
         return {}
 
@@ -378,10 +373,11 @@ def get_tv_details(tmdb_id: int, api_key: str) -> dict:
         return {}
 
     try:
-        _init_tmdb(api_key)
-        tv = TV()
-        details = tv.details(tmdb_id)
-        return details
-    except Exception as e:
+        url = f"{API_BASE_TMDB}/tv/{tmdb_id}"
+        params = {"api_key": api_key, "language": "en"}
+        response = http_session.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching TV show details for ID {tmdb_id}: {e}", exc_info=True)
         return {}

@@ -67,6 +67,34 @@ def _calculate_radarr_stats() -> Dict:
         "added_by_listarr": 0,
     }
 
+    # Calculate total items added by Listarr for Radarr FIRST
+    # This is database-only and should work regardless of service configuration
+    try:
+        try:
+            # Use case-insensitive query to handle any case variations in stored data
+            radarr_lists = List.query.filter(db.func.upper(List.target_service) == "RADARR").all()
+        except Exception as db_error:
+            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
+                logger.debug("Database tables not yet initialized for lists query")
+                radarr_lists = []
+            else:
+                raise
+        if radarr_lists:
+            list_ids = [lst.id for lst in radarr_lists]
+            # Count all jobs with items_added > 0, regardless of status
+            # (failed/timed out jobs may have still added items)
+            total_added = (
+                db.session.query(db.func.sum(Job.items_added))
+                .filter(Job.list_id.in_(list_ids), Job.items_added > 0)
+                .scalar()
+                or 0
+            )
+            result["added_by_listarr"] = int(total_added)
+            logger.debug(f"Radarr added_by_listarr: {total_added} from {len(radarr_lists)} lists")
+    except Exception as e:
+        logger.error(f"Error calculating Radarr items added by Listarr: {e}", exc_info=True)
+        result["added_by_listarr"] = 0
+
     try:
         # Check if Radarr is configured
         # Handle case where database tables don't exist yet (e.g., during test setup)
@@ -137,30 +165,6 @@ def _calculate_radarr_stats() -> Dict:
         logger.error(f"Unexpected error calculating Radarr stats: {e}", exc_info=True)
         result["status"] = "offline"
 
-    # Calculate total items added by Listarr for Radarr
-    try:
-        # Sum items_added from all completed jobs for Radarr lists
-        # Handle case where tables don't exist
-        try:
-            radarr_lists = List.query.filter_by(target_service="RADARR").all()
-        except Exception as db_error:
-            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
-                logger.debug("Database tables not yet initialized for lists query")
-                return result
-            raise
-        if radarr_lists:
-            list_ids = [lst.id for lst in radarr_lists]
-            total_added = (
-                db.session.query(db.func.sum(Job.items_added))
-                .filter(Job.list_id.in_(list_ids), Job.status == "completed")
-                .scalar()
-                or 0
-            )
-            result["added_by_listarr"] = int(total_added)
-    except Exception as e:
-        logger.error(f"Error calculating Radarr items added by Listarr: {e}", exc_info=True)
-        result["added_by_listarr"] = 0
-
     return result
 
 
@@ -179,6 +183,34 @@ def _calculate_sonarr_stats() -> Dict:
         "missing_episodes": 0,
         "added_by_listarr": 0,
     }
+
+    # Calculate total items added by Listarr for Sonarr FIRST
+    # This is database-only and should work regardless of service configuration
+    try:
+        try:
+            # Use case-insensitive query to handle any case variations in stored data
+            sonarr_lists = List.query.filter(db.func.upper(List.target_service) == "SONARR").all()
+        except Exception as db_error:
+            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
+                logger.debug("Database tables not yet initialized for lists query")
+                sonarr_lists = []
+            else:
+                raise
+        if sonarr_lists:
+            list_ids = [lst.id for lst in sonarr_lists]
+            # Count all jobs with items_added > 0, regardless of status
+            # (failed/timed out jobs may have still added items)
+            total_added = (
+                db.session.query(db.func.sum(Job.items_added))
+                .filter(Job.list_id.in_(list_ids), Job.items_added > 0)
+                .scalar()
+                or 0
+            )
+            result["added_by_listarr"] = int(total_added)
+            logger.debug(f"Sonarr added_by_listarr: {total_added} from {len(sonarr_lists)} lists")
+    except Exception as e:
+        logger.error(f"Error calculating Sonarr items added by Listarr: {e}", exc_info=True)
+        result["added_by_listarr"] = 0
 
     try:
         # Check if Sonarr is configured
@@ -250,30 +282,6 @@ def _calculate_sonarr_stats() -> Dict:
             return result
         logger.error(f"Unexpected error calculating Sonarr stats: {e}", exc_info=True)
         result["status"] = "offline"
-
-    # Calculate total items added by Listarr for Sonarr
-    try:
-        # Sum items_added from all completed jobs for Sonarr lists
-        # Handle case where tables don't exist
-        try:
-            sonarr_lists = List.query.filter_by(target_service="SONARR").all()
-        except Exception as db_error:
-            if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
-                logger.debug("Database tables not yet initialized for lists query")
-                return result
-            raise
-        if sonarr_lists:
-            list_ids = [lst.id for lst in sonarr_lists]
-            total_added = (
-                db.session.query(db.func.sum(Job.items_added))
-                .filter(Job.list_id.in_(list_ids), Job.status == "completed")
-                .scalar()
-                or 0
-            )
-            result["added_by_listarr"] = int(total_added)
-    except Exception as e:
-        logger.error(f"Error calculating Sonarr items added by Listarr: {e}", exc_info=True)
-        result["added_by_listarr"] = 0
 
     return result
 

@@ -209,8 +209,74 @@ class TestDashboardStatsGET:
         assert response.status_code == 200
         data = response.get_json()
 
-        # Should sum items_added from completed jobs only (45 + 25 = 70)
+        # Should sum items_added from jobs with items_added > 0 (45 + 25 = 70)
+        # The failed job with items_added=0 is not counted
         assert data["radarr"]["added_by_listarr"] == 70
+
+    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
+    @patch("listarr.services.dashboard_cache.get_movie_count")
+    @patch("listarr.services.dashboard_cache.get_missing_movies_count")
+    def test_dashboard_stats_added_by_listarr_includes_failed_jobs_with_items(
+        self, mock_missing, mock_count, mock_status, app, client, temp_instance_path
+    ):
+        """Test that failed jobs with items_added > 0 are counted (e.g., timeout after adding items)."""
+        mock_status.return_value = {"version": "4.5.2.7388"}
+        mock_count.return_value = 150
+        mock_missing.return_value = 12
+
+        with app.app_context():
+            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+            config = ServiceConfig(
+                service="RADARR",
+                base_url="http://localhost:7878",
+                api_key_encrypted=encrypted,
+            )
+            db.session.add(config)
+
+            # Create a Radarr list
+            radarr_list = List(
+                name="Test Movies",
+                target_service="RADARR",
+                tmdb_list_type="trending_movies",
+                filters_json={},
+            )
+            db.session.add(radarr_list)
+            db.session.flush()
+
+            # Completed job
+            job1 = Job(
+                list_id=radarr_list.id,
+                status="completed",
+                items_found=50,
+                items_added=45,
+                items_skipped=5,
+                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
+            )
+            # Failed job that still added items before timeout
+            job2 = Job(
+                list_id=radarr_list.id,
+                status="failed",
+                items_found=100,
+                items_added=30,  # Added 30 items before timing out
+                items_skipped=10,
+                started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
+                completed_at=datetime(2024, 1, 14, 10, 30, 0, tzinfo=timezone.utc),
+            )
+            db.session.add_all([job1, job2])
+            db.session.commit()
+
+            from listarr.services.dashboard_cache import refresh_dashboard_cache
+
+            refresh_dashboard_cache()
+
+        response = client.get("/api/dashboard/stats")
+        assert response.status_code == 200
+        data = response.get_json()
+
+        # Should sum items_added from ALL jobs with items_added > 0, including failed ones
+        # 45 (completed) + 30 (failed but added items) = 75
+        assert data["radarr"]["added_by_listarr"] == 75
 
     @patch("listarr.services.dashboard_cache.get_sonarr_system_status")
     @patch("listarr.services.dashboard_cache.get_series_count")

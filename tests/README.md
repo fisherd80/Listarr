@@ -185,19 +185,20 @@ def app(temp_instance_path):
 
 ### API Service Mocking Pattern
 
-External API calls are mocked to avoid live dependencies:
+External API calls are mocked via the shared HTTP session to avoid live dependencies:
 
 ```python
-@patch('listarr.services.tmdb_service.Movie')
-def test_get_popular_movies(mock_movie_class):
-    mock_movie = MagicMock()
-    mock_movie.popular.return_value = [{'id': 1, 'title': 'Test Movie'}]
-    mock_movie_class.return_value = mock_movie
+@patch('listarr.services.tmdb_service.http_session')
+def test_get_popular_movies(mock_session):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"results": [{"id": 1, "title": "Test Movie"}]}
+    mock_response.raise_for_status = MagicMock()
+    mock_session.get.return_value = mock_response
 
     result = get_popular_movies("test_key")
 
     assert len(result) == 1
-    assert result[0]['title'] == 'Test Movie'
+    assert result[0]["title"] == "Test Movie"
 ```
 
 ### Encryption Testing Pattern

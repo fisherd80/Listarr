@@ -9,11 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned (Phases 8-10)
+### Planned (Phases 9-12)
 
-- **Phase 8: Settings Caching** - Background refresh of Radarr/Sonarr settings
-- **Phase 9: User Authentication** - Login system to secure web interface
-- **Phase 10: Direct API** - Replace pyarr with direct Radarr/Sonarr API calls
+- **Phase 9: Code Quality** - Refactoring and code cleanup
+- **Phase 10: UI/UX Simplification** - User interface improvements
+- **Phase 11: Security Hardening** - Security enhancements
+- **Phase 12: Release Readiness** - Final polish and release preparation
+
+---
+
+## Phase 8 - Architecture & API Consolidation (2026-02-05)
+
+### Changed
+
+- Replaced pyarr library with direct Radarr API calls
+- Replaced pyarr library with direct Sonarr API calls
+- Replaced tmdbv3api library with direct TMDB API calls
+- Consolidated HTTP client with shared session, retry logic, and connection pooling
+
+### Removed
+
+- Removed pyarr dependency (inactive since July 2023)
+- Removed tmdbv3api dependency
+
+### Technical
+
+- Created `listarr/services/http_client.py` for shared HTTP session
+- All API calls now use `urllib3.Retry` for exponential backoff (retry on 429, 500, 502, 503, 504)
+- Consistent 30-second timeout on all external requests
+- Connection pooling enabled (10 connections) for better performance
+- URL normalization helper (`normalize_url()`) for consistent API endpoint construction
+
+### Documentation
+
+- Created `08-ARCHITECTURE-CONCERNS.md` documenting technical debt for Phase 9 review
+- Updated README.md with direct API architecture
+- Updated development status to 88% complete
 
 ---
 

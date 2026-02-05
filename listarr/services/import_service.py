@@ -304,7 +304,7 @@ def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict
         time.sleep(API_CALL_DELAY)
 
     logger.info(
-        f"Import complete: {len(result.added)} added, " f"{len(result.skipped)} skipped, {len(result.failed)} failed"
+        f"Import complete: {len(result.added)} added, {len(result.skipped)} skipped, {len(result.failed)} failed"
     )
     return result
 
@@ -408,7 +408,7 @@ def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict
         time.sleep(API_CALL_DELAY)
 
     logger.info(
-        f"Import complete: {len(result.added)} added, " f"{len(result.skipped)} skipped, {len(result.failed)} failed"
+        f"Import complete: {len(result.added)} added, {len(result.skipped)} skipped, {len(result.failed)} failed"
     )
     return result
 

@@ -139,9 +139,10 @@ listarr/
 │   ├── models/          # SQLAlchemy database models
 │   ├── routes/          # Blueprint-based routes
 │   ├── services/        # Business logic layer
-│   │   ├── tmdb_service.py      # TMDB API integration (tmdbv3api)
-│   │   ├── radarr_service.py    # Radarr API integration (pyarr)
-│   │   ├── sonarr_service.py    # Sonarr API integration (pyarr)
+│   │   ├── http_client.py       # Shared HTTP client with retry logic
+│   │   ├── tmdb_service.py      # Direct TMDB API calls
+│   │   ├── radarr_service.py    # Direct Radarr API calls
+│   │   ├── sonarr_service.py    # Direct Sonarr API calls
 │   │   └── crypto_utils.py      # Fernet encryption utilities
 │   ├── static/          # Static assets (JS, images)
 │   └── templates/       # Jinja2 HTML templates
@@ -155,7 +156,7 @@ listarr/
 
 ## Development Status
 
-**~85% Complete** - 11 of 13 phases complete. All core features implemented including list management, wizard UI, TMDB caching, import automation, job execution framework, comprehensive test coverage, and automated scheduling. Remaining: settings caching, authentication, and pyarr migration.
+**~88% Complete** - 12 of 13 phases complete. All core features implemented including list management, wizard UI, TMDB caching, import automation, job execution framework, comprehensive test coverage, automated scheduling, and direct API integration. Remaining: code quality refactoring, UI/UX simplification, security hardening, and release readiness.
 
 ### Completed Phases (1-7)
 
@@ -170,12 +171,14 @@ listarr/
 - ✅ **Phase 6.2: List Enhancements** - Top Rated presets, region filtering, larger limits
 - ✅ **Phase 6.3: Test Coverage** - 444 tests, 56% coverage
 - ✅ **Phase 7: Scheduler System** - Cron-based automated list execution
+- ✅ **Phase 8: API Consolidation** - Direct API calls replacing pyarr and tmdbv3api
 
-### Planned Phases (8-10)
+### Planned Phases (9-12)
 
-- 📋 **Phase 8: Settings Caching** - Background refresh of service settings
-- 🔮 **Phase 9: Authentication** - User login to secure web interface
-- 🔮 **Phase 10: Direct API** - Replace pyarr with direct Radarr/Sonarr API calls
+- 📋 **Phase 9: Code Quality** - Refactoring and code cleanup
+- 🔮 **Phase 10: UI/UX Simplification** - User interface improvements
+- 🔮 **Phase 11: Security Hardening** - Security enhancements
+- 🔮 **Phase 12: Release Readiness** - Final polish and release preparation
 
 See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
 
@@ -187,8 +190,8 @@ See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
 - **SQLAlchemy 2.0.23**: ORM and database management
 - **Flask-WTF**: CSRF protection and forms
 - **cryptography 41.0.7**: Fernet encryption for API keys
-- **tmdbv3api 1.9.0**: TMDB API client
-- **pyarr >=5.0.0**: Radarr/Sonarr API client
+- **requests**: Direct HTTP integration with Radarr/Sonarr/TMDB APIs
+- **urllib3**: Shared HTTP client with retry logic and connection pooling
 - **gunicorn 21.2.0**: Production WSGI server
 
 ### Frontend
@@ -261,9 +264,11 @@ The `instance/` folder contains all runtime data:
 | 6.2 List Enhancements | ✅ Complete | Top Rated presets, region filtering, larger limits |
 | 6.3 Test Coverage | ✅ Complete | Enhanced coverage (52% → 56%, 444 tests) |
 | 7. Scheduler System | ✅ Complete | Cron-based automated list execution |
-| 8. Settings Caching | 📋 Planned | Background refresh of Radarr/Sonarr settings |
-| 9. Authentication | 🔮 Planned | Login system to secure web interface |
-| 10. Direct API | 🔮 Planned | Replace pyarr with direct Radarr/Sonarr API calls |
+| 8. API Consolidation | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api |
+| 9. Code Quality | 📋 Planned | Refactoring and code cleanup |
+| 10. UI/UX Simplification | 🔮 Planned | User interface improvements |
+| 11. Security Hardening | 🔮 Planned | Security enhancements |
+| 12. Release Readiness | 🔮 Planned | Final polish and release preparation |
 
 ## License
 

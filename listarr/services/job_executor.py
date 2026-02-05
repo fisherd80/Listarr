@@ -189,7 +189,7 @@ def _mark_job_completed(job_id, result, start_time):
 
     db.session.commit()
     logger.info(
-        f"Job {job_id} completed: {job.items_added} added, " f"{job.items_skipped} skipped, {job.items_failed} failed"
+        f"Job {job_id} completed: {job.items_added} added, {job.items_skipped} skipped, {job.items_failed} failed"
     )
 
 

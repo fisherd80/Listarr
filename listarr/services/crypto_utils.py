@@ -67,8 +67,7 @@ def load_encryption_key(*, instance_path=None, allow_generate=False) -> bytes:
 
     else:
         raise RuntimeError(
-            "Encryption key not found! Set FERNET_KEY environment variable "
-            "or place .fernet_key in the instance folder."
+            "Encryption key not found! Set FERNET_KEY environment variable or place .fernet_key in the instance folder."
         )
 
     # 4️⃣ Validate key format

@@ -7,9 +7,9 @@
 ## Current Status
 
 **Phase:** 8 - Architecture & API Consolidation
-**Plan:** 0 of ? (Not started)
-**Status:** Ready for planning
-**Last activity:** 2026-02-05 - Completed Phase 7 (Scheduler System)
+**Plan:** 6 of 6 (Complete)
+**Status:** Phase complete
+**Last activity:** 2026-02-05 - Completed 08-06-PLAN (Documentation Update)
 
 ## Phase Progress
 
@@ -26,7 +26,7 @@
 | 6.2 List Enhancements | Complete | 3/3 | Verified |
 | 6.3 Update Testing | Complete | 4/4 | Verified |
 | 7. Scheduler System | Complete | 6/6 | Verified |
-| 8. Architecture & API Consolidation | Not started | 0/? | - |
+| 8. Architecture & API Consolidation | Complete | 6/6 | Verified |
 | 9. Code Quality & Refactoring | Not started | 0/? | - |
 | 10. UI/UX Simplification | Not started | 0/? | - |
 | 11. Security Hardening | Not started | 0/? | - |
@@ -34,6 +34,47 @@
 
 ## Recent Activity
 
+- 2026-02-05: Completed 08-06-PLAN (Documentation Update)
+  - Created 08-ARCHITECTURE-CONCERNS.md with 6 prioritized technical debt items
+  - Updated README.md with direct API architecture, 88% development status
+  - Updated CHANGELOG.md with Phase 8 entry
+  - Phase 8 complete (6/6 plans)
+  - Commits: c0f3560, a5678ae, 3a855da
+- 2026-02-05: Completed 08-05-PLAN (Dependency Removal)
+  - Removed pyarr and tmdbv3api from requirements.txt
+  - Verified all 423 tests pass without legacy dependencies
+- 2026-02-05: Completed 08-04-PLAN (TMDB Service Migration)
+  - Replaced tmdbv3api with direct HTTP calls using http_session
+  - All 14 tmdb_service functions now use TMDB API v3 endpoints directly
+  - Updated 52 tests to mock http_session instead of tmdbv3api classes
+  - Maintained backward compatibility with identical function signatures
+  - tmdb_cache.py continues to work without modification
+  - 87 TMDB-related tests pass, 423 total tests pass
+  - Commit: c35b275
+  - Phase 8 progress (4/? plans complete)
+- 2026-02-05: Completed 08-03-PLAN (Sonarr Service Migration)
+  - Replaced pyarr with direct HTTP calls using http_session
+  - All 12 sonarr_service functions now use Sonarr API v3 endpoints directly
+  - Updated 29 tests to mock http_session instead of SonarrAPI
+  - Maintained backward compatibility with identical function signatures
+  - Full test suite passes (400 tests)
+  - Commit: ad5b54b
+  - Phase 8 progress (3/? plans complete)
+- 2026-02-05: Completed 08-02-PLAN (Radarr Service Migration)
+  - Replaced pyarr with direct HTTP calls using http_session
+  - All 11 radarr_service functions now use Radarr API v3 endpoints directly
+  - Updated 26 tests to mock http_session instead of RadarrAPI
+  - Maintained backward compatibility with identical function signatures
+  - Full test suite passes (400 tests)
+  - Commit: 6d1309c
+  - Phase 8 progress (2/? plans complete)
+- 2026-02-05: Completed 08-01-PLAN (HTTP Client Module)
+  - Created listarr/services/http_client.py with shared session
+  - Configured retry strategy for 429, 500, 502, 503, 504 with exponential backoff
+  - Added connection pooling (10 connections), 30-second timeout
+  - Added normalize_url() helper for URL construction
+  - Commits: f1a8601, a1d7eb6
+  - Phase 8 started (1/? plans complete)
 - 2026-02-05: Roadmap restructured for quality-focused finish
   - Phases 8-11 replaced with: Architecture & API Consolidation, Code Quality & Refactoring, UI/UX Simplification, Security Hardening, Release Readiness
   - pyarr and tmdbv3api removal consolidated into Phase 8
@@ -196,11 +237,11 @@
 
 ## Next Steps
 
-1. Plan Phase 8 (Architecture & API Consolidation) — `/gsd:discuss-phase 8` or `/gsd:plan-phase 8`
-   - Remove pyarr and tmdbv3api libraries
-   - Consolidate to direct API calls with shared HTTP sessions
-   - Review architecture for over-engineering
-2. Remaining phases: Code Quality (9), UI/UX (10), Security (11), Release (12)
+1. Start Phase 9 (Code Quality & Refactoring)
+   - Review 08-ARCHITECTURE-CONCERNS.md for prioritized technical debt
+   - Address duplicate code consolidation (HIGH priority)
+   - Standardize error handling (HIGH priority)
+2. Remaining phases: UI/UX (10), Security (11), Release (12)
 
 ## Blockers
 
@@ -209,7 +250,7 @@ None
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 07-06-PLAN.md (Documentation Update) - Phase 7 complete, awaiting verification checkpoint
+Stopped at: Completed 08-06-PLAN.md (Documentation Update) - Phase 8 complete
 Resume file: None
 
 ## Notes
@@ -242,6 +283,10 @@ Resume file: None
 - **Phase 7** Schedule page: UI for managing scheduled lists with status display
 - **Phase 7** Global pause toggle: Pause/resume all scheduled jobs from UI
 - **Phase 7** Auto-refresh polling: 5-second updates when jobs running
+- **Phase 8** HTTP client module: Shared session with connection pooling and retry strategy
+- **Phase 8** Radarr service: pyarr replaced with direct HTTP calls via http_session
+- **Phase 8** Sonarr service: pyarr replaced with direct HTTP calls via http_session
+- **Phase 8** TMDB service: tmdbv3api replaced with direct HTTP calls via http_session
 
 ## Git Workflow
 
@@ -282,6 +327,15 @@ Commits are **rejected** if not complying with:
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Direct HTTP calls in tmdb_service.py | Replace tmdbv3api dependency with http_session for consistent retry/timeout behavior | 2026-02-05 |
+| Architecture concerns documentation | Document 6 technical debt items for Phase 9 review (duplicate code, error handling, module size, cache async, rate limiting, service layer value) | 2026-02-05 |
+| Development status 88% | Phase 8 complete, reflects 12 of 13 phases done | 2026-02-05 |
+| Direct HTTP calls in sonarr_service.py | Replace pyarr dependency with http_session for consistent retry/timeout behavior | 2026-02-05 |
+| Direct HTTP calls in radarr_service.py | Replace pyarr dependency with http_session for consistent retry/timeout behavior | 2026-02-05 |
+| 30-second default timeout for HTTP requests | Sufficient for slow API responses while preventing indefinite hangs | 2026-02-05 |
+| Retry on 429, 500, 502, 503, 504 errors | Handles common transient errors (rate limits, server errors) | 2026-02-05 |
+| Connection pool size of 10 | Matches typical service count (Radarr, Sonarr, TMDB) | 2026-02-05 |
+| Module-level singleton http_session | Ensures all services share connection pool for efficiency | 2026-02-05 |
 | Lists page shows next run subtitles for scheduled lists | At-a-glance visibility of next scheduled run without navigating to schedule page | 2026-02-05 |
 | Scheduler sync after DB commit in routes | Ensures database consistency before registering/updating APScheduler jobs | 2026-02-05 |
 | Graceful scheduler error handling in routes | Non-blocking operations allow list management in non-scheduler workers | 2026-02-05 |
