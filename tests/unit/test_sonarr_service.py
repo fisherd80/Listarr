@@ -31,7 +31,7 @@ from listarr.services.sonarr_service import (
 class TestValidateSonarrAPIKey:
     """Tests for validate_sonarr_api_key function."""
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_sonarr_api_key_with_valid_credentials(self, mock_session):
         """Test that valid credentials return True."""
         mock_response = MagicMock()
@@ -47,7 +47,7 @@ class TestValidateSonarrAPIKey:
         assert "http://localhost:8989/api/v3/system/status" == call_args[0][0]
         assert call_args[1]["headers"] == {"X-Api-Key": "valid_key"}
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_sonarr_api_key_strips_trailing_slash(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -61,7 +61,7 @@ class TestValidateSonarrAPIKey:
         # normalize_url strips trailing slash, then /api/v3/... is appended
         assert "http://localhost:8989/api/v3/system/status" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_sonarr_api_key_with_invalid_credentials(self, mock_session):
         """Test that invalid credentials return False."""
         mock_session.get.side_effect = requests.exceptions.HTTPError("401 Unauthorized")
@@ -70,7 +70,7 @@ class TestValidateSonarrAPIKey:
 
         assert result is False
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_sonarr_api_key_handles_connection_error(self, mock_session):
         """Test that connection errors return False."""
         mock_session.get.side_effect = requests.exceptions.ConnectionError("Connection refused")
@@ -79,7 +79,7 @@ class TestValidateSonarrAPIKey:
 
         assert result is False
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_sonarr_api_key_handles_timeout(self, mock_session):
         """Test that timeouts return False."""
         mock_session.get.side_effect = requests.exceptions.Timeout("Request timeout")
@@ -92,7 +92,7 @@ class TestValidateSonarrAPIKey:
 class TestGetQualityProfiles:
     """Tests for get_quality_profiles function."""
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_returns_formatted_list(self, mock_session):
         """Test that quality profiles are returned in correct format."""
         mock_response = MagicMock()
@@ -113,7 +113,7 @@ class TestGetQualityProfiles:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/qualityprofile" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_strips_trailing_slash(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -126,7 +126,7 @@ class TestGetQualityProfiles:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/qualityprofile" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_returns_empty_list_on_error(self, mock_session):
         """Test that errors return empty list."""
         mock_session.get.side_effect = requests.exceptions.HTTPError("API Error")
@@ -135,7 +135,7 @@ class TestGetQualityProfiles:
 
         assert result == []
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_handles_empty_response(self, mock_session):
         """Test that empty API response returns empty list."""
         mock_response = MagicMock()
@@ -151,7 +151,7 @@ class TestGetQualityProfiles:
 class TestGetRootFolders:
     """Tests for get_root_folders function."""
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_root_folders_returns_formatted_list(self, mock_session):
         """Test that root folders are returned in correct format."""
         mock_response = MagicMock()
@@ -170,7 +170,7 @@ class TestGetRootFolders:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/rootfolder" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_root_folders_strips_trailing_slash(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -183,7 +183,7 @@ class TestGetRootFolders:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/rootfolder" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_root_folders_returns_empty_list_on_error(self, mock_session):
         """Test that errors return empty list."""
         mock_session.get.side_effect = requests.exceptions.HTTPError("API Error")
@@ -196,7 +196,7 @@ class TestGetRootFolders:
 class TestGetSystemStatus:
     """Tests for get_system_status function."""
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_returns_formatted_dict(self, mock_session):
         """Test that system status is returned in correct format."""
         mock_response = MagicMock()
@@ -220,7 +220,7 @@ class TestGetSystemStatus:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/system/status" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_handles_missing_fields(self, mock_session):
         """Test that missing fields use defaults."""
         mock_response = MagicMock()
@@ -239,7 +239,7 @@ class TestGetSystemStatus:
         assert result["is_production"] is False  # Default
         assert result["is_debug"] is False  # Default
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_returns_empty_dict_on_error(self, mock_session):
         """Test that errors return empty dict."""
         mock_session.get.side_effect = requests.exceptions.HTTPError("API Error")
@@ -248,7 +248,7 @@ class TestGetSystemStatus:
 
         assert result == {}
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_strips_trailing_slash(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -265,7 +265,7 @@ class TestGetSystemStatus:
 class TestGetSeriesCount:
     """Tests for get_series_count function."""
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_series_count_returns_correct_count(self, mock_session):
         """Test that series count is calculated correctly."""
         mock_response = MagicMock()
@@ -283,7 +283,7 @@ class TestGetSeriesCount:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/series" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_series_count_returns_zero_for_empty_list(self, mock_session):
         """Test that empty series list returns 0."""
         mock_response = MagicMock()
@@ -295,7 +295,7 @@ class TestGetSeriesCount:
 
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_series_count_returns_zero_for_none(self, mock_session):
         """Test that None response returns 0."""
         mock_response = MagicMock()
@@ -307,7 +307,7 @@ class TestGetSeriesCount:
 
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_series_count_returns_zero_on_error(self, mock_session):
         """Test that errors return 0."""
         mock_session.get.side_effect = requests.exceptions.HTTPError("API Error")
@@ -316,7 +316,7 @@ class TestGetSeriesCount:
 
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_series_count_strips_trailing_slash(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -333,7 +333,7 @@ class TestGetSeriesCount:
 class TestGetMissingSeriesCount:
     """Tests for get_missing_series_count function."""
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_counts_series_with_missing_episodes(self, mock_session):
         """Test that missing series are counted correctly using wanted/missing endpoint."""
         mock_response = MagicMock()
@@ -359,7 +359,7 @@ class TestGetMissingSeriesCount:
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/wanted/missing" == call_args[0][0]
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_returns_zero_for_empty_list(self, mock_session):
         """Test that empty wanted list returns 0."""
         mock_response = MagicMock()
@@ -371,7 +371,7 @@ class TestGetMissingSeriesCount:
 
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_handles_none_response(self, mock_session):
         """Test that None response returns 0."""
         mock_response = MagicMock()
@@ -383,7 +383,7 @@ class TestGetMissingSeriesCount:
 
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_handles_missing_records_key(self, mock_session):
         """Test that missing 'records' key returns 0."""
         mock_response = MagicMock()
@@ -395,7 +395,7 @@ class TestGetMissingSeriesCount:
 
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_uses_series_id_from_nested_series(self, mock_session):
         """Test that seriesId can be extracted from nested series object."""
         mock_response = MagicMock()
@@ -423,7 +423,7 @@ class TestGetMissingSeriesCount:
         # Should count unique series: 1, 2 = 2 series
         assert result == 2
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_handles_episodes_without_series_id(self, mock_session):
         """Test that episodes without seriesId are skipped."""
         mock_response = MagicMock()
@@ -442,7 +442,7 @@ class TestGetMissingSeriesCount:
         # Should count unique series: 1, 2 = 2 series (episode without seriesId skipped)
         assert result == 2
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_returns_zero_on_error(self, mock_session):
         """Test that API errors are handled gracefully."""
         mock_session.get.side_effect = requests.exceptions.HTTPError("API Error")
@@ -452,7 +452,7 @@ class TestGetMissingSeriesCount:
         # Should return 0 on error
         assert result == 0
 
-    @patch("listarr.services.sonarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_series_count_strips_trailing_slash(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()

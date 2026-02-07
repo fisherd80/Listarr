@@ -28,6 +28,7 @@ from listarr.services.tmdb_cache import (
     get_trending_movies_cached,
     get_trending_tv_cached,
 )
+from listarr.utils.time_utils import format_relative_time
 
 # Helper functions for tri-state boolean conversion
 # Database stores: 0 (False), 1 (True), None (inherit/unset)
@@ -58,39 +59,6 @@ def _db_to_form_str(value):
     if value is not None:
         return str(value)
     return ""
-
-
-def format_relative_time(dt):
-    """
-    Format datetime as relative time string.
-
-    Args:
-        dt: datetime object (timezone-aware)
-
-    Returns:
-        string: Relative time description (e.g., "in 2 hours", "tomorrow")
-    """
-    if not dt:
-        return None
-    now = datetime.now(timezone.utc)
-    diff = dt - now
-    seconds = diff.total_seconds()
-
-    if seconds < 0:
-        return "overdue"
-    elif seconds < 60:
-        return "in less than a minute"
-    elif seconds < 3600:
-        minutes = int(seconds / 60)
-        return f"in {minutes} minute{'s' if minutes != 1 else ''}"
-    elif seconds < 86400:
-        hours = int(seconds / 3600)
-        return f"in {hours} hour{'s' if hours != 1 else ''}"
-    else:
-        days = int(seconds / 86400)
-        if days == 1:
-            return "tomorrow"
-        return f"in {days} day{'s' if days != 1 else ''}"
 
 
 @bp.route("/lists")

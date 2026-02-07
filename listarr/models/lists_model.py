@@ -23,14 +23,9 @@ class List(db.Model):
     filters_json = db.Column(db.JSON, nullable=False)
     limit = db.Column(db.Integer)
 
-    cache_enabled = db.Column(db.Boolean, default=False)
-    cache_ttl_hours = db.Column(db.Integer)
-
     schedule_cron = db.Column(db.String(50))
     is_active = db.Column(db.Boolean, default=True, index=True)
 
     last_run_at = db.Column(TZDateTime)
-    last_tmdb_fetch_at = db.Column(TZDateTime)
-    cache_valid_until = db.Column(TZDateTime)
 
     created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))

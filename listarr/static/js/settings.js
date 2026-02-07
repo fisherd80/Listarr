@@ -1,27 +1,4 @@
 // ----------------------
-// Helper Functions
-// ----------------------
-function formatTimestamp(isoTimestamp) {
-  const date = new Date(isoTimestamp);
-  return date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
-}
-
-function generateStatusHTML(success, timestamp) {
-  const statusIcon = success ? "✓" : "✗";
-  const statusClass = success
-    ? "text-green-600 dark:text-green-400"
-    : "text-red-600 dark:text-red-400";
-  const formattedTime = formatTimestamp(timestamp);
-
-  return `
-    <span class="inline-flex items-center gap-1">
-      <span class="${statusClass}">${statusIcon}</span>
-      Last tested: <span id="tmdb-last-test-time" data-timestamp="${timestamp}">${formattedTime}</span>
-    </span>
-  `;
-}
-
-// ----------------------
 // Toggle TMDB Key Visibility
 // ----------------------
 function toggleTMDBKey() {
@@ -54,7 +31,12 @@ document
       },
       body: JSON.stringify({ api_key: apiKey }),
     })
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      })
       .then((data) => {
         showToast(data.message, data.success ? "success" : "error");
 

@@ -266,6 +266,16 @@ Plans:
 
 **Deliverable:** Cleaner codebase with reduced duplication, optimized queries, and simplified patterns
 
+**Plans:** 6 plans in 2 waves
+
+Plans:
+- [ ] 09-01-PLAN.md — Consolidate format_relative_time() to utils module
+- [ ] 09-02-PLAN.md — Fix N+1 query in dashboard recent jobs
+- [ ] 09-03-PLAN.md — Consolidate dashboard stats calculation functions
+- [ ] 09-04-PLAN.md — Add HTTP status checks to JavaScript fetch calls
+- [ ] 09-05-PLAN.md — Create shared arr_service.py for Radarr/Sonarr common code
+- [ ] 09-06-PLAN.md — Consolidate config route status functions + clean List model
+
 **Scope:**
 - Database model review and optimization
 - Remove redundant/dead code identified in Phase 8
@@ -280,6 +290,48 @@ Plans:
 - Code duplication reduced measurably
 - All tests pass after refactoring
 - Module sizes are reasonable (< 400 lines preferred)
+
+---
+
+### Phase 9.1: Config & JS Deduplication (Complete)
+
+**Goal:** Eliminate Radarr/Sonarr horizontal duplication in config routes and JavaScript by parameterizing service-specific code
+
+**Depends on:** Phase 9
+**Source:** 09-SLOP-REVIEW.md (flask-slop-refactor agent findings, verified with line numbers)
+
+**Deliverable:** config_routes.py reduced from 897 to 404 lines, config.js reduced from 746 to 322 lines (~920 lines removed total)
+
+**Status:** Complete (2026-02-07) - 3/3 plans executed
+- 09.1-01: Parameterize config_routes.py (8 duplicate routes to 4, extract helpers)
+- 09.1-02: Update test mock paths for parameterized routes (115 tests updated)
+- 09.1-03: Consolidate config.js + extract shared utils.js
+
+Plans:
+- [x] 09.1-01-PLAN.md — Parameterize config_routes.py (8 duplicate routes to 4, extract helpers, clean docstrings)
+- [x] 09.1-02-PLAN.md — Update test_config_routes.py mock paths and function references
+- [x] 09.1-03-PLAN.md — Consolidate config.js fetch functions + extract shared utils.js
+
+**Scope (from 09-SLOP-REVIEW.md):**
+
+| # | Finding | Priority | Lines Saved |
+|---|---------|----------|------------:|
+| 1 | Parameterize 8 duplicate config routes with `<service>` | HIGH | ~550 |
+| 2 | Consolidate duplicate JS fetch functions into parameterized helpers | HIGH | ~400 |
+| 3 | Delete redundant wrapper functions (lines 90-97) | MEDIUM | 7 |
+| 4 | Extract shared JS utilities (formatTimestamp, generateStatusHTML) | MEDIUM | ~40 |
+| 5 | Extract `_save_service_config()` from 177-line config_page() | MEDIUM | ~100 |
+| 6 | Simplify verbose AI-generated docstrings | LOW | ~30 |
+| 7 | Remove obvious comments | LOW | ~5 |
+
+**Verification:**
+- config_routes.py < 400 lines
+- config.js < 400 lines
+- No duplicate Radarr/Sonarr fetch functions remain
+- No wrapper functions that only delegate to another function
+- All 453 tests pass after refactoring
+- Settings page test connection works for both services
+- Config page quality profiles, root folders, import settings all load correctly
 
 ---
 
@@ -387,7 +439,7 @@ This ensures documentation stays current with development progress.
 ---
 
 *Roadmap created: 2026-01-12*
-*Last updated: 2026-02-05*
-*Phases: 12 (8 complete + 4 sub-phases, 4 remaining)*
+*Last updated: 2026-02-07*
+*Phases: 12 (8 complete + 6 sub-phases, 4 remaining)*
 *Depth: Standard (3-5 plans per phase)*
 *Restructured: 2026-02-05 - Consolidated feature phases into quality/release phases*

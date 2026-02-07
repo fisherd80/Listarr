@@ -575,6 +575,10 @@ async function rerunJob(jobId, button) {
       },
     });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
     const data = await response.json();
 
     if (response.ok && data.success) {
@@ -629,6 +633,10 @@ async function clearAllJobs() {
       },
     });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
     const data = await response.json();
 
     if (response.ok && data.success) {

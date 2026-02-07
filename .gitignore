@@ -241,3 +241,7 @@ _ai/
 sandbox/
 *.local
 .claude/
+CLAUDE.md
+
+.ruff_cache
+

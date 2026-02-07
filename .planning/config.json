@@ -1,6 +1,12 @@
 {
   "mode": "interactive",
   "depth": "standard",
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  },
   "gates": {
     "confirm_project": true,
     "confirm_phases": true,

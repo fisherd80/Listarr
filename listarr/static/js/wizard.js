@@ -1036,6 +1036,9 @@ async function fetchImportDefaults() {
 
     try {
         const response = await fetch(`/lists/wizard/defaults/${wizardState.service}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
         const data = await response.json();
 
         // Hide loading
@@ -1759,6 +1762,10 @@ async function submitWizard() {
             body: JSON.stringify(payload),
         });
 
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
         const data = await response.json();
 
         if (data.success) {

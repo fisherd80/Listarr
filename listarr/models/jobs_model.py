@@ -7,6 +7,7 @@ class Job(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     list_id = db.Column(db.Integer, db.ForeignKey("lists.id"))
+    list = db.relationship("List", backref=db.backref("jobs", lazy="dynamic"))
     list_name = db.Column(db.String(255))  # Denormalized, survives list deletion
 
     status = db.Column(db.String(20))  # pending/running/failed/completed

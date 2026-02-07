@@ -31,7 +31,7 @@ from listarr.services.radarr_service import (
 class TestValidateRadarrAPIKey:
     """Tests for validate_radarr_api_key function."""
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_radarr_api_key_with_valid_credentials(self, mock_session):
         """Test that valid credentials return True."""
         mock_response = MagicMock()
@@ -47,7 +47,7 @@ class TestValidateRadarrAPIKey:
         assert "http://localhost:7878/api/v3/system/status" == call_args[0][0]
         assert call_args[1]["headers"]["X-Api-Key"] == "valid_key"
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_radarr_api_key_normalizes_url(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -63,7 +63,7 @@ class TestValidateRadarrAPIKey:
         # URL should be normalized (no double slashes)
         assert "http://localhost:7878/api/v3/system/status" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_radarr_api_key_with_invalid_credentials(self, mock_session):
         """Test that invalid credentials return False."""
         mock_response = MagicMock()
@@ -74,7 +74,7 @@ class TestValidateRadarrAPIKey:
 
         assert result is False
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_radarr_api_key_handles_connection_error(self, mock_session):
         """Test that connection errors return False."""
         mock_session.get.side_effect = requests.exceptions.ConnectionError("Connection refused")
@@ -83,7 +83,7 @@ class TestValidateRadarrAPIKey:
 
         assert result is False
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_validate_radarr_api_key_handles_timeout(self, mock_session):
         """Test that timeouts return False."""
         mock_session.get.side_effect = requests.exceptions.Timeout("Request timeout")
@@ -96,7 +96,7 @@ class TestValidateRadarrAPIKey:
 class TestGetQualityProfiles:
     """Tests for get_quality_profiles function."""
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_returns_formatted_list(self, mock_session):
         """Test that quality profiles are returned in correct format."""
         mock_response = MagicMock()
@@ -117,7 +117,7 @@ class TestGetQualityProfiles:
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/qualityprofile" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_normalizes_url(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -130,7 +130,7 @@ class TestGetQualityProfiles:
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/qualityprofile" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_returns_empty_list_on_error(self, mock_session):
         """Test that errors return empty list."""
         mock_response = MagicMock()
@@ -141,7 +141,7 @@ class TestGetQualityProfiles:
 
         assert result == []
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_quality_profiles_handles_empty_response(self, mock_session):
         """Test that empty API response returns empty list."""
         mock_response = MagicMock()
@@ -157,7 +157,7 @@ class TestGetQualityProfiles:
 class TestGetRootFolders:
     """Tests for get_root_folders function."""
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_root_folders_returns_formatted_list(self, mock_session):
         """Test that root folders are returned in correct format."""
         mock_response = MagicMock()
@@ -176,7 +176,7 @@ class TestGetRootFolders:
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/rootfolder" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_root_folders_normalizes_url(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -189,7 +189,7 @@ class TestGetRootFolders:
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/rootfolder" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_root_folders_returns_empty_list_on_error(self, mock_session):
         """Test that errors return empty list."""
         mock_response = MagicMock()
@@ -204,7 +204,7 @@ class TestGetRootFolders:
 class TestGetSystemStatus:
     """Tests for get_system_status function."""
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_returns_formatted_dict(self, mock_session):
         """Test that system status is returned in correct format."""
         mock_response = MagicMock()
@@ -228,7 +228,7 @@ class TestGetSystemStatus:
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/system/status" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_handles_missing_fields(self, mock_session):
         """Test that missing fields use defaults."""
         mock_response = MagicMock()
@@ -247,7 +247,7 @@ class TestGetSystemStatus:
         assert result["is_production"] is False  # Default
         assert result["is_debug"] is False  # Default
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_returns_empty_dict_on_error(self, mock_session):
         """Test that errors return empty dict."""
         mock_response = MagicMock()
@@ -258,7 +258,7 @@ class TestGetSystemStatus:
 
         assert result == {}
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_system_status_normalizes_url(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -275,7 +275,7 @@ class TestGetSystemStatus:
 class TestGetMovieCount:
     """Tests for get_movie_count function."""
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_movie_count_returns_correct_count(self, mock_session):
         """Test that movie count is calculated correctly."""
         mock_response = MagicMock()
@@ -293,7 +293,7 @@ class TestGetMovieCount:
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/movie" == call_args[0][0]
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_movie_count_returns_zero_for_empty_list(self, mock_session):
         """Test that empty movie list returns 0."""
         mock_response = MagicMock()
@@ -305,7 +305,7 @@ class TestGetMovieCount:
 
         assert result == 0
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_movie_count_returns_zero_for_none(self, mock_session):
         """Test that None response returns 0."""
         mock_response = MagicMock()
@@ -317,7 +317,7 @@ class TestGetMovieCount:
 
         assert result == 0
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_movie_count_returns_zero_on_error(self, mock_session):
         """Test that errors return 0."""
         mock_response = MagicMock()
@@ -328,7 +328,7 @@ class TestGetMovieCount:
 
         assert result == 0
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_movie_count_normalizes_url(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()
@@ -345,7 +345,7 @@ class TestGetMovieCount:
 class TestGetMissingMoviesCount:
     """Tests for get_missing_movies_count function."""
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_movies_count_counts_monitored_without_file(self, mock_session):
         """Test that missing movies are counted correctly."""
         mock_response = MagicMock()
@@ -382,7 +382,7 @@ class TestGetMissingMoviesCount:
 
         assert result == 2  # Only movies 1 and 4 are monitored and missing files
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_movies_count_returns_zero_for_empty_list(self, mock_session):
         """Test that empty movie list returns 0."""
         mock_response = MagicMock()
@@ -394,7 +394,7 @@ class TestGetMissingMoviesCount:
 
         assert result == 0
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_movies_count_handles_missing_fields(self, mock_session):
         """Test that missing fields are handled gracefully."""
         mock_response = MagicMock()
@@ -411,7 +411,7 @@ class TestGetMissingMoviesCount:
         # All should be treated as not missing (defaults to False)
         assert result == 0
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_movies_count_returns_zero_on_error(self, mock_session):
         """Test that errors return 0."""
         mock_response = MagicMock()
@@ -422,7 +422,7 @@ class TestGetMissingMoviesCount:
 
         assert result == 0
 
-    @patch("listarr.services.radarr_service.http_session")
+    @patch("listarr.services.arr_service.http_session")
     def test_get_missing_movies_count_normalizes_url(self, mock_session):
         """Test that base_url trailing slash is normalized."""
         mock_response = MagicMock()

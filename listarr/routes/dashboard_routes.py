@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
-
 from flask import current_app, jsonify, render_template, request
+from sqlalchemy.orm import joinedload
 
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
@@ -11,6 +10,7 @@ from listarr.services.dashboard_cache import (
     refresh_dashboard_cache,
 )
 from listarr.services.scheduler import get_next_run_time
+from listarr.utils.time_utils import format_relative_time
 
 
 @bp.route("/")
@@ -85,11 +85,10 @@ def recent_jobs():
         }
     """
     try:
-        # Query last 5 finished jobs, ordered by most recent first
-        # Only include jobs with completed_at (completed or failed jobs)
-        # Use outerjoin to include jobs even if their list doesn't exist
+        # Query last 5 finished jobs with eager-loaded list relationship
+        # This eliminates N+1 queries by fetching list data in single query
         jobs = (
-            Job.query.outerjoin(List)
+            Job.query.options(joinedload(Job.list))
             .filter(Job.completed_at.isnot(None))
             .order_by(Job.completed_at.desc(), Job.started_at.desc())
             .limit(5)
@@ -98,18 +97,16 @@ def recent_jobs():
 
         jobs_data = []
         for job in jobs:
-            # Get list information - handle None list_id or deleted lists
-            if job.list_id:
-                list_obj = List.query.get(job.list_id)
-                if list_obj:
-                    job_name = list_obj.name
-                    service = list_obj.target_service
-                else:
-                    # List was deleted
-                    job_name = f"Job #{job.id}"
-                    service = "Unknown"
+            # Get list information from eager-loaded relationship
+            if job.list:
+                job_name = job.list.name
+                service = job.list.target_service
+            elif job.list_name:
+                # List was deleted but we have denormalized name
+                job_name = job.list_name
+                service = "Unknown"
             else:
-                # No list_id
+                # No list information available
                 job_name = f"Job #{job.id}"
                 service = "Unknown"
 
@@ -169,49 +166,6 @@ def recent_jobs():
         current_app.logger.error(f"Error fetching recent jobs: {e}", exc_info=True)
         # Return empty jobs array on error
         return jsonify({"jobs": []})
-
-
-def format_relative_time(dt):
-    """
-    Format a datetime as a relative time string.
-
-    Args:
-        dt: datetime object (timezone-aware)
-
-    Returns:
-        str: Relative time string (e.g., "in 2 hours", "in 5 minutes")
-    """
-    if not dt:
-        return "unknown"
-
-    try:
-        now = datetime.now(timezone.utc)
-        # Ensure dt is timezone-aware
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-
-        diff = dt - now
-        total_seconds = diff.total_seconds()
-
-        if total_seconds < 0:
-            return "overdue"
-
-        # Convert to appropriate unit
-        if total_seconds < 60:
-            return "in less than a minute"
-        elif total_seconds < 3600:  # Less than 1 hour
-            minutes = int(total_seconds / 60)
-            return f"in {minutes} minute{'s' if minutes != 1 else ''}"
-        elif total_seconds < 86400:  # Less than 1 day
-            hours = int(total_seconds / 3600)
-            return f"in {hours} hour{'s' if hours != 1 else ''}"
-        else:  # 1 day or more
-            days = int(total_seconds / 86400)
-            return f"in {days} day{'s' if days != 1 else ''}"
-
-    except Exception as e:
-        current_app.logger.warning(f"Error formatting relative time: {e}")
-        return "unknown"
 
 
 @bp.route("/api/dashboard/upcoming", methods=["GET"])

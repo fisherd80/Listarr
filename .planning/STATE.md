@@ -2,14 +2,14 @@
 
 **Project:** Listarr
 **Milestone:** v1.0 - Automated Media Discovery
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-07
 
 ## Current Status
 
-**Phase:** 8 - Architecture & API Consolidation
-**Plan:** 6 of 6 (Complete)
-**Status:** Phase complete
-**Last activity:** 2026-02-05 - Completed 08-06-PLAN (Documentation Update)
+**Phase:** 9.1 - Config & JS Deduplication
+**Plan:** 3 of 3 (Complete)
+**Status:** Complete
+**Last activity:** 2026-02-07 - Completed 09.1-03-PLAN.md (Config.js & Utils.js Consolidation)
 
 ## Phase Progress
 
@@ -27,13 +27,38 @@
 | 6.3 Update Testing | Complete | 4/4 | Verified |
 | 7. Scheduler System | Complete | 6/6 | Verified |
 | 8. Architecture & API Consolidation | Complete | 6/6 | Verified |
-| 9. Code Quality & Refactoring | Not started | 0/? | - |
+| 9. Code Quality & Refactoring | Complete | 6/6 | Verified |
+| 9.1 Config & JS Deduplication | Complete | 3/3 | - |
 | 10. UI/UX Simplification | Not started | 0/? | - |
 | 11. Security Hardening | Not started | 0/? | - |
 | 12. Release Readiness | Not started | 0/? | - |
 
 ## Recent Activity
 
+- 2026-02-07: Completed 09.1-03-PLAN (Config.js & Utils.js Consolidation)
+  - Consolidated config.js from 746 to 322 lines (57% reduction)
+  - Created utils.js with shared formatTimestamp and generateStatusHTML
+  - Replaced 12 duplicate JS functions with 6 parameterized versions
+  - Phase 9.1 complete (3/3 plans)
+  - Commits: 70d9bdb, 07111c9
+- 2026-02-07: Completed 09.1-02-PLAN (Test Mock Path Updates)
+  - Updated mock paths in 115 config tests (route + integration)
+  - Replaced service-specific mock paths with arr_service shared functions
+  - Collapsed dual validate patches into single validate_api_key mock
+  - 453 tests pass, 0 failures
+  - Commit: 962ba33
+- 2026-02-06: Completed 09.1-01-PLAN (Config Routes Deduplication)
+  - Refactored config_routes.py from 897 to 404 lines (55% reduction)
+  - Parameterized 8 duplicate Radarr/Sonarr routes into 4 shared endpoints
+  - Replaced 18 service-specific imports with 5 arr_service shared functions
+  - Extracted _save_service_config helper to eliminate 108 lines of duplication
+  - Commit: 29545f6
+  - Phase 9.1 progress (1/3 plans complete)
+- 2026-02-05: Phase 9.1 inserted after Phase 9: Config & JS Deduplication (URGENT)
+  - Source: 09-SLOP-REVIEW.md (flask-slop-refactor agent findings)
+  - Target: config_routes.py (897→~350 lines), config.js (747→~350 lines)
+  - ~950 lines of Radarr/Sonarr horizontal duplication to eliminate
+- 2026-02-05: Phase 9 UAT complete (6/6 passed, 0 issues)
 - 2026-02-05: Completed 08-06-PLAN (Documentation Update)
   - Created 08-ARCHITECTURE-CONCERNS.md with 6 prioritized technical debt items
   - Updated README.md with direct API architecture, 88% development status
@@ -249,8 +274,8 @@ None
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Completed 08-06-PLAN.md (Documentation Update) - Phase 8 complete
+Last session: 2026-02-07
+Stopped at: Phase 9.1 complete (3/3 plans). Next: Phase 10 (UI/UX Simplification)
 Resume file: None
 
 ## Notes
@@ -327,6 +352,8 @@ Commits are **rejected** if not complying with:
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Service-parameterized Flask routes with <service> URL parameter | Eliminate horizontal duplication between Radarr/Sonarr routes - same logic, different service names | 2026-02-06 |
+| arr_service.py as single source of truth for Radarr/Sonarr operations | Phase 9 created shared functions (validate_api_key, get_quality_profiles, etc.) working for both services | 2026-02-06 |
 | Direct HTTP calls in tmdb_service.py | Replace tmdbv3api dependency with http_session for consistent retry/timeout behavior | 2026-02-05 |
 | Architecture concerns documentation | Document 6 technical debt items for Phase 9 review (duplicate code, error handling, module size, cache async, rate limiting, service layer value) | 2026-02-05 |
 | Development status 88% | Phase 8 complete, reflects 12 of 13 phases done | 2026-02-05 |
@@ -396,6 +423,7 @@ Commits are **rejected** if not complying with:
 
 ## Roadmap Evolution
 
+- 2026-02-05: Phase 9.1 inserted after Phase 9: Config & JS Deduplication (flask-slop-refactor review found ~950 lines of Radarr/Sonarr horizontal duplication in config_routes.py and config.js)
 - 2026-02-05: Roadmap restructured for quality-focused finish:
   - Old Phase 8 (Service Settings Caching) → evaluated during new Phase 8
   - Old Phase 9 (User Authentication) → deferred to Phase 12 decision point
