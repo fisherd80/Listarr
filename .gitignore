@@ -241,7 +241,9 @@ _ai/
 sandbox/
 *.local
 .claude/
-CLAUDE.md
+.planning/
+.claude2/
+.planning2/
 
 .ruff_cache
 
