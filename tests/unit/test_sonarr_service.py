@@ -19,6 +19,8 @@ import pytest
 import requests
 
 from listarr.services.sonarr_service import (
+    bulk_add_series,
+    get_exclusions,
     get_missing_series_count,
     get_quality_profiles,
     get_root_folders,
@@ -464,3 +466,112 @@ class TestGetMissingSeriesCount:
 
         call_args = mock_session.get.call_args
         assert "http://localhost:8989/api/v3/wanted/missing" == call_args[0][0]
+
+
+class TestGetExclusions:
+    """Tests for get_exclusions function."""
+
+    @patch("listarr.services.arr_service.http_session")
+    def test_get_exclusions_returns_tvdb_ids(self, mock_session):
+        """Test that exclusion list returns set of TVDB IDs."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = [
+            {"tvdbId": 300, "title": "Excluded Series 1"},
+            {"tvdbId": 400, "title": "Excluded Series 2"},
+        ]
+        mock_session.get.return_value = mock_response
+
+        result = get_exclusions("http://localhost:8989", "key")
+        assert result == {300, 400}
+
+    @patch("listarr.services.arr_service.http_session")
+    def test_get_exclusions_empty_list(self, mock_session):
+        """Test that empty exclusion list returns empty set."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_session.get.return_value = mock_response
+
+        result = get_exclusions("http://localhost:8989", "key")
+        assert result == set()
+
+    @patch("listarr.services.arr_service.http_session")
+    def test_get_exclusions_api_error(self, mock_session):
+        """Test that API error returns empty set."""
+        mock_session.get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        result = get_exclusions("http://localhost:8989", "key")
+        assert result == set()
+
+
+class TestBulkAddSeries:
+    """Tests for bulk_add_series function."""
+
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_bulk_add_series_success(self, mock_session):
+        """Test that bulk add series returns list of added series."""
+        # Mock successful response with 2 series
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"tvdbId": 1396, "title": "Breaking Bad"},
+            {"tvdbId": 1399, "title": "Game of Thrones"},
+        ]
+        mock_session.post.return_value = mock_response
+
+        payload1 = {"tvdbId": 1396, "title": "Breaking Bad"}
+        payload2 = {"tvdbId": 1399, "title": "Game of Thrones"}
+
+        result = bulk_add_series("http://localhost:8989", "test_key", [payload1, payload2])
+
+        assert len(result) == 2
+        assert result[0]["tvdbId"] == 1396
+        mock_session.post.assert_called_once()
+        call_args = mock_session.post.call_args
+        assert call_args[0][0].endswith("/api/v3/series/import")
+
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_bulk_add_series_empty_batch(self, mock_session):
+        """Test that empty batch still makes API call."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+        mock_session.post.return_value = mock_response
+
+        result = bulk_add_series("http://localhost:8989", "test_key", [])
+
+        assert result == []
+        mock_session.post.assert_called_once()
+        call_args = mock_session.post.call_args
+        assert call_args[1]["json"] == []
+
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_bulk_add_series_api_error(self, mock_session):
+        """Test that API errors are raised."""
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+        mock_session.post.return_value = mock_response
+
+        with pytest.raises(Exception):
+            bulk_add_series("http://localhost:8989", "test_key", [{"tvdbId": 1396}])
+
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_bulk_add_series_uses_bulk_timeout(self, mock_session):
+        """Test that bulk add uses BULK_TIMEOUT (300) not ADD_TIMEOUT (120)."""
+        from listarr.services.http_client import BULK_TIMEOUT
+
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = [{"tvdbId": 1396}]
+        mock_session.post.return_value = mock_response
+
+        bulk_add_series("http://localhost:8989", "test_key", [{"tvdbId": 1396}])
+
+        call_args = mock_session.post.call_args
+        assert call_args[1]["timeout"] == BULK_TIMEOUT
+        assert call_args[1]["timeout"] == 300

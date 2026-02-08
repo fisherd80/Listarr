@@ -8,7 +8,7 @@ SCHEDULE_CHOICES = [
     ("0 * * * *", "Every hour"),
     ("0 */6 * * *", "Every 6 hours"),
     ("0 0 * * *", "Daily (midnight)"),
-    ("0 0 * * 0", "Weekly (Sunday midnight)"),
+    ("0 0 * * SUN", "Weekly (Sunday midnight)"),
 ]
 
 # Tri-state choices for Yes/No/Default

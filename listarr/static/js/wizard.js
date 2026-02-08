@@ -71,6 +71,7 @@ const LANGUAGE_OPTIONS = [
 // Preview debounce timer
 let previewDebounceTimer = null;
 const PREVIEW_DEBOUNCE_MS = 300;
+const API_TIMEOUT_MS = 10000; // 10 second timeout for external API calls
 
 // Wizard state management
 const wizardState = {
@@ -594,6 +595,7 @@ async function fetchPreview() {
                 preset: wizardState.preset,
                 filters: wizardState.filters,
             }),
+            signal: AbortSignal.timeout(API_TIMEOUT_MS)
         });
 
         const data = await response.json();
@@ -626,7 +628,11 @@ async function fetchPreview() {
         loadingEl.classList.add("hidden");
         const errorMsgEl = document.getElementById("preview-error-message");
         if (errorMsgEl) {
-            errorMsgEl.textContent = "Network error - please try again";
+            if (error.name === "TimeoutError" || error.message.includes("timed out")) {
+                errorMsgEl.textContent = "TMDB request timed out - please try again";
+            } else {
+                errorMsgEl.textContent = "Network error - please try again";
+            }
         }
         errorEl.classList.remove("hidden");
     }
@@ -1035,7 +1041,9 @@ async function fetchImportDefaults() {
     updateImportSettingsServiceBadge();
 
     try {
-        const response = await fetch(`/lists/wizard/defaults/${wizardState.service}`);
+        const response = await fetch(`/lists/wizard/defaults/${wizardState.service}`, {
+            signal: AbortSignal.timeout(API_TIMEOUT_MS)
+        });
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -1077,7 +1085,12 @@ async function fetchImportDefaults() {
         if (loadingEl) loadingEl.classList.add("hidden");
         const errorMsgEl = document.getElementById("import-settings-error-message");
         if (errorMsgEl) {
-            errorMsgEl.textContent = "Network error - please try again";
+            if (error.name === "TimeoutError" || error.message.includes("timed out")) {
+                const serviceName = wizardState.service.charAt(0).toUpperCase() + wizardState.service.slice(1);
+                errorMsgEl.textContent = `${serviceName} is not responding. Check if the service is running.`;
+            } else {
+                errorMsgEl.textContent = "Network error - please try again";
+            }
         }
         if (errorEl) errorEl.classList.remove("hidden");
     }

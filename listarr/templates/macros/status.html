@@ -1,0 +1,41 @@
+{# Status badge macro - renders a colored pill badge for any status #}
+{% macro status_badge(status, label=none, size='xs', animate=false) %}
+{%- set colors = {
+  'online': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'connected': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'active': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'completed': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'scheduled': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'running': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  'failed': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  'offline': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  'inactive': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  'not_configured': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  'manual_only': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+} -%}
+{%- set color = colors.get(status|lower, 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') -%}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-{{ size }} font-medium {{ color }}">
+  {%- if animate and status|lower == 'running' %}
+  <svg class="animate-spin -ml-1 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+  {%- endif %}
+  {{ label if label else status|replace('_', ' ')|title }}
+</span>
+{% endmacro %}
+
+{# Service badge macro - renders radarr (amber) or sonarr (blue) pill #}
+{% macro service_badge(service) %}
+{%- if service|lower == 'radarr' -%}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+  {{ service|title }}
+</span>
+{%- else -%}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+  {{ service|title }}
+</span>
+{%- endif -%}
+{% endmacro %}

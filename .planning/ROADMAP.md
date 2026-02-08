@@ -32,7 +32,7 @@ Build automated media discovery and import that just works - fresh content flows
 **Deliverable:** Users can create lists through a guided 4-step wizard with preset templates, see live preview of TMDB results, and configure per-list import settings that override service defaults
 
 **Wizard Steps:**
-1. **Type** - Movies (→Radarr) or TV Shows (→Sonarr)
+1. **Type** - Movies (->Radarr) or TV Shows (->Sonarr)
 2. **Filters** - Genre, year range, min rating with live TMDB preview
 3. **Import Settings** - Quality profile, root folder, tags, monitored, search on add (pre-filled from service defaults, all editable)
 4. **Schedule** - Run frequency
@@ -200,10 +200,10 @@ Plans:
 - 06.3-04: Final coverage verification (56%, +4% improvement)
 
 **Results:**
-- Test count: 415 → 444 (+29 tests)
-- Overall coverage: 52% → 56%
-- tmdb_cache.py: 14% → 40% (+26%)
-- tmdb_service.py: 71% → 83% (+12%)
+- Test count: 415 -> 444 (+29 tests)
+- Overall coverage: 52% -> 56%
+- tmdb_cache.py: 14% -> 40% (+26%)
+- tmdb_service.py: 71% -> 83% (+12%)
 
 **Verification:**
 - Run full test suite and verify all tests pass (430+)
@@ -341,6 +341,15 @@ Plans:
 
 **Deliverable:** Cleaner, more consistent UI with simplified template logic and better user feedback
 
+**Plans:** 5 plans in 3 waves
+
+Plans:
+- [x] 10-01-PLAN.md — Jinja2 macros for status badges, loading spinners, empty states
+- [x] 10-02-PLAN.md — JavaScript utility consolidation into shared utils.js
+- [x] 10-03-PLAN.md — Dashboard.js parameterization and cleanup
+- [x] 10-04-PLAN.md — Jobs.js, schedule.js, lists.js cleanup and performance fixes
+- [x] 10-05-PLAN.md — Config.html form macro and full verification
+
 **Scope:**
 - Audit Jinja templates for complexity and duplication
 - Standardize status bars and indicators across pages
@@ -357,6 +366,173 @@ Plans:
 
 ---
 
+### Phase 10.1: UI Review Fixes (INSERTED)
+
+**Goal:** Address remaining UI/UX inconsistencies identified by flask-ui-state-reviewer audit of Phase 10
+
+**Depends on:** Phase 10
+**Source:** 10-REVIEW-REPORT.md (flask-ui-state-reviewer agent findings)
+
+**Deliverable:** Consistent status indicators, error feedback patterns, and service badge rendering across all pages
+
+**Plans:** 3 plans in 1 wave
+
+Plans:
+- [x] 10.1-01-PLAN.md — Replace alert() with showToast(), add generateServiceBadge() utility, fix jobs dropdown heights
+- [x] 10.1-02-PLAN.md — Add error_state() macro, simplify lists.html status badges, standardize wizard error states
+- [x] 10.1-03-PLAN.md — Extract wizard preset metadata to Python PRESET_METADATA constant
+
+**Scope (from 10-REVIEW-REPORT.md):**
+
+| # | Finding | Priority | Effort |
+|---|---------|----------|--------|
+| 1 | Replace 4 alert() calls with showToast() in config.js | HIGH | 30 min |
+| 2 | Expand status_badge() macro to lists.html inline badges | HIGH | 1 hour |
+| 3 | Add error_state() macro for consistent error boundaries | MEDIUM | 1 hour |
+| 4 | Add generateServiceBadge() JS utility for color consistency | MEDIUM | 30 min |
+| 5 | Wizard preset metadata extraction to Python constants | MEDIUM | 2 hours |
+| 6 | Jobs page filter dropdown height fix (cosmetic) | LOW | 15 min |
+
+**Excluded (low value / high effort):**
+- Schedule page UI state model (4 hours, triple-render works acceptably)
+- Wizard server-side validation (6 hours, not needed for single-user app)
+- Dashboard UI state model (3 hours, current JS state management is appropriate)
+
+**Verification:**
+- No alert() dialogs remain in JavaScript (all use showToast())
+- All server-rendered status badges use status_badge() macro
+- error_state() macro exists and is used for API failure conditions
+- Radarr/Sonarr badge colors consistent across server and client rendering
+- Wizard template reduced by ~100 lines via preset metadata extraction
+- All 453 tests pass after changes
+
+---
+
+### Phase 10.2: Schedule Bug Fixes (INSERTED)
+
+**Goal:** Fix two scheduler/job execution bugs: (1) scheduled jobs run without validating target service is reachable, causing massive error cascades; (2) static 10-minute wall-clock timeout incorrectly marks completed jobs as failed instead of using activity-based idle detection
+
+**Depends on:** Phase 10.1
+**Source:** Debug investigation `.planning/debug/schedule-health-and-timeout.md`
+
+**Deliverable:** Robust scheduled job execution with pre-flight service health checks and activity-based timeout that only triggers on idle (no progress), not on large jobs that are actively processing items
+
+**Plans:** 2 plans in 1 wave
+
+Plans:
+- [x] 10.2-01-PLAN.md — Pre-flight service health check in scheduler
+- [x] 10.2-02-PLAN.md — Activity-based idle timeout replacing fixed wall-clock timer
+
+**Verification:**
+- Scheduled jobs validate target service is reachable before submitting job
+- Jobs that take >10 minutes with active progress complete successfully (not marked as timed out)
+- Jobs that stall (no progress for N seconds) are correctly timed out
+- Import loops check stop_event for early termination when timeout triggers
+- All existing tests pass after changes
+
+---
+
+### Phase 10.3: Import & Schedule Bug Fixes (Complete)
+
+**Goal:** Fix three issues found during testing: (1) Radarr add_movie 400 Bad Request due to unsafe payload construction, (2) missing exclusion/blocklist validation before import, (3) no dedicated schedule edit form on schedule page
+
+**Depends on:** Phase 10.2
+**Source:** Debug investigations `.planning/debug/import-400-and-blocklist.md` and `.planning/debug/resolved/schedule-edit-and-nextrun.md`
+
+**Deliverable:** Movies add successfully to Radarr with clean payload, import skips items on exclusion lists, schedule page has dedicated edit form with granular controls (cron input, day/hour selectors)
+
+**Status:** Complete (2026-02-08) - 2/2 plans executed
+- 10.3-01: Fix add_movie/add_series payload, error logging, and exclusion list validation
+- 10.3-02: Schedule edit modal and weekly cron preset fix
+
+Plans:
+- [x] 10.3-01-PLAN.md -- Fix add_movie/add_series payload, error logging, and exclusion list validation
+- [x] 10.3-02-PLAN.md -- Schedule edit modal and weekly cron preset fix
+
+**Verification:**
+- Movies add to Radarr without 400 errors (clean payload with explicit field mapping)
+- Radarr error responses logged before raise_for_status
+- Items on Radarr exclusion list skipped with reason "on_exclusion_list"
+- Items on Sonarr exclusion list skipped with reason "on_exclusion_list"
+- Schedule page has edit button that opens dedicated schedule edit form
+- Schedule edit form supports native cron input, weekly day/hour, daily hour
+- All existing tests pass after changes (476 total)
+
+---
+
+### Phase 10.4: Bulk Import API (INSERTED)
+
+**Goal:** Replace sequential single-item POST `/api/v3/movie` and `/api/v3/series` calls with bulk import endpoints (`POST /api/v3/movie/import` for Radarr, equivalent for Sonarr) to dramatically improve import speed and reliability
+
+**Depends on:** Phase 10.3
+**Source:** Kometa comparison analysis — Kometa uses arrapi's `add_multiple_movies()` which calls bulk `POST /api/v3/movie/import` endpoint, batching up to 100 items per request. Listarr currently adds items one at a time with 200ms delays.
+
+**Deliverable:** Import service uses bulk API endpoints for both Radarr and Sonarr, sending batches of items in single API calls. Results are categorized (added/exists/invalid/excluded) from the bulk response.
+
+**Plans:** 2 plans in 2 waves
+
+Plans:
+- [ ] 10.4-01-PLAN.md -- Bulk service functions + batch-based import rewrite
+- [ ] 10.4-02-PLAN.md -- Tests for bulk functions and batch import flow
+
+**Scope:**
+- Replace `add_movie()` individual POST with bulk `POST /api/v3/movie/import` in radarr_service
+- Replace `add_series()` individual POST with bulk Sonarr endpoint in sonarr_service
+- Update import_service to batch items and parse categorized bulk responses
+- Maintain existing pre-flight duplicate/exclusion checks as optimization layer
+- Handle partial failures within bulk responses gracefully
+
+**Verification:**
+- Radarr import uses bulk endpoint (single API call for multiple movies)
+- Sonarr import uses bulk endpoint (single API call for multiple series)
+- Bulk response correctly categorizes: added, already exists, invalid, excluded
+- Import speed significantly improved (no 200ms per-item delay)
+- Existing pre-flight checks still skip known duplicates before bulk call
+- All existing tests pass after changes
+
+---
+
+### Phase 10.5: UI Performance & State Consolidation (Complete)
+
+**Goal:** Address critical UI/UX issues identified by flask-ui-state-reviewer: timeout handling for external APIs, config page loading optimization, date formatter consolidation, status badge deduplication, and loading skeleton states
+
+**Depends on:** Phase 10.4
+**Source:** flask-ui-state-reviewer audit of phases 10-10.4
+
+**Status:** Complete (2026-02-08) - 4/4 plans executed
+
+**Deliverable:** Responsive UI with timeout handling (no 30s+ hangs), optimized loading (parallel API calls + skeletons), consolidated utilities (single date formatter, backend-rendered badges)
+
+**Plans:** 4 plans in 3 waves
+
+Plans:
+- [x] 10.5-01-PLAN.md — fetchWithTimeout + consolidate formatTimestamp in utils.js
+- [x] 10.5-02-PLAN.md — Timeout handling for wizard.js and config.js
+- [x] 10.5-03-PLAN.md — Server-rendered status badges for schedule, jobs badge consolidation
+- [x] 10.5-04-PLAN.md — Skeleton loading states for config and dashboard
+
+**Scope:**
+
+| # | Issue | Priority | Effort |
+|---|-------|----------|--------|
+| 1 | Add timeout handling for external APIs (wizard, config) | CRITICAL | 4h |
+| 2 | Optimize config page loading (parallel calls + skeleton) | CRITICAL | 3h |
+| 3 | Consolidate date formatters into single unified function | HIGH | 2h |
+| 4 | Eliminate status badge duplication (backend-rendered HTML) | HIGH | 4h |
+| 5 | Backend-derived UI state for schedule page status | MEDIUM | 6h |
+| 6 | Add loading skeletons throughout (dashboard, config, wizard) | MEDIUM | 3h |
+
+**Verification:**
+- Wizard Step 3 and config page API calls have 10-second timeout with error handling
+- Config import settings show loading skeleton, load in <3 seconds
+- Single formatTimestamp() function replaces 3 separate formatters
+- Status badges rendered server-side via macros, no JS badge rendering
+- Schedule page uses backend-derived ScheduleUIState
+- Loading skeletons appear during API calls (dashboard, config, wizard)
+- All existing tests pass after changes
+
+---
+
 ### Phase 11: Security Hardening
 
 **Goal:** Fix Flask and Docker security foot-guns, validate inputs, secure configuration
@@ -367,7 +543,7 @@ Plans:
 - Flask security configuration (SECRET_KEY, session config, CSRF)
 - Docker security (non-root user, read-only filesystem where possible)
 - Input validation audit (all user inputs, API parameters)
-- Bare exception clause cleanup (mask errors → specific handling)
+- Bare exception clause cleanup (mask errors -> specific handling)
 - HTTP status code validation in frontend AJAX calls
 - Environment variable security (secrets not logged, .env handling)
 
@@ -399,7 +575,7 @@ Plans:
 - All tests pass (target: 95%+ pass rate)
 - Documentation is accurate and complete
 - Docker deployment works from fresh clone
-- Full workflow succeeds: configure services → create list → schedule → verify import
+- Full workflow succeeds: configure services -> create list -> schedule -> verify import
 - No critical bugs or security issues remain
 - Ready for v1.0.0 tag
 
@@ -439,7 +615,7 @@ This ensures documentation stays current with development progress.
 ---
 
 *Roadmap created: 2026-01-12*
-*Last updated: 2026-02-07*
-*Phases: 12 (8 complete + 6 sub-phases, 4 remaining)*
+*Last updated: 2026-02-08*
+*Phases: 12 (8 complete + 8 sub-phases, 4 remaining)*
 *Depth: Standard (3-5 plans per phase)*
 *Restructured: 2026-02-05 - Consolidated feature phases into quality/release phases*

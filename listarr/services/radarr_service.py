@@ -26,7 +26,7 @@ from listarr.services.arr_service import (
 from listarr.services.arr_service import (
     get_tags as get_tags,
 )
-from listarr.services.http_client import DEFAULT_TIMEOUT, http_session, normalize_url
+from listarr.services.http_client import ADD_TIMEOUT, BULK_TIMEOUT, DEFAULT_TIMEOUT, http_session, normalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ def get_missing_movies_count(base_url: str, api_key: str) -> int:
     return missing_count
 
 
-def get_existing_movie_tmdb_ids(base_url: str, api_key: str) -> set[int]:
+def get_existing_movie_tmdb_ids(base_url: str, api_key: str) -> set[int] | None:
     """
     Fetches all TMDB IDs of movies currently in Radarr.
     Used for pre-flight duplicate detection.
@@ -101,12 +101,29 @@ def get_existing_movie_tmdb_ids(base_url: str, api_key: str) -> set[int]:
         api_key: Radarr API key.
 
     Returns:
-        Set of TMDB IDs, empty set on error.
+        Set of TMDB IDs, or None on API error (distinguishes from empty library).
     """
     movies = arr_api_get(base_url, api_key, "movie")
     if movies is None:
-        return set()
+        return None
     return {m.get("tmdbId") for m in movies if m.get("tmdbId")}
+
+
+def get_exclusions(base_url: str, api_key: str) -> set[int]:
+    """
+    Fetch excluded TMDB IDs from Radarr's exclusion list.
+
+    Args:
+        base_url: Base URL of Radarr.
+        api_key: Radarr API key.
+
+    Returns:
+        Set of excluded TMDB IDs, empty set on error.
+    """
+    exclusions = arr_api_get(base_url, api_key, "exclusions")
+    if not exclusions:
+        return set()
+    return {e.get("tmdbId") for e in exclusions if e.get("tmdbId")}
 
 
 def lookup_movie(base_url: str, api_key: str, tmdb_id: int) -> dict | None:
@@ -174,13 +191,58 @@ def add_movie(
     tmdb_id = movie_data.get("tmdbId", "Unknown")
     logger.info(f"Adding movie: {title} (TMDB: {tmdb_id})")
 
-    payload = movie_data.copy()
-    payload["rootFolderPath"] = root_folder
-    payload["qualityProfileId"] = quality_profile_id
-    payload["monitored"] = monitored
-    payload["tags"] = tags or []
-    payload["addOptions"] = {"searchForMovie": search_on_add}
+    payload = {
+        "title": movie_data.get("title"),
+        "tmdbId": movie_data.get("tmdbId"),
+        "year": movie_data.get("year"),
+        "qualityProfileId": quality_profile_id,
+        "titleSlug": movie_data.get("titleSlug"),
+        "images": movie_data.get("images", []),
+        "rootFolderPath": root_folder,
+        "monitored": monitored,
+        "addOptions": {"searchForMovie": search_on_add},
+        "tags": tags or [],
+    }
 
-    response = http_session.post(url, headers=headers, json=payload, timeout=DEFAULT_TIMEOUT)
+    response = http_session.post(url, headers=headers, json=payload, timeout=ADD_TIMEOUT)
+    if not response.ok:
+        logger.error(f"Radarr API error adding movie {title} ({response.status_code}): {response.text}")
     response.raise_for_status()
     return response.json()
+
+
+def bulk_add_movies(
+    base_url: str,
+    api_key: str,
+    movie_payloads: list[dict],
+) -> dict:
+    """
+    Add multiple movies to Radarr using bulk import endpoint.
+
+    Args:
+        base_url: Base URL of Radarr.
+        api_key: Radarr API key.
+        movie_payloads: List of movie payload dicts (pre-built with all required fields).
+
+    Returns:
+        List of added movie data from Radarr.
+
+    Raises:
+        Exception: On API error (caller should handle).
+    """
+    url = f"{normalize_url(base_url)}/api/v3/movie/import"
+    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
+
+    logger.info(f"Bulk adding {len(movie_payloads)} movies to Radarr")
+
+    try:
+        response = http_session.post(url, headers=headers, json=movie_payloads, timeout=BULK_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        status = response.status_code if "response" in locals() else "N/A"
+        error_text = response.text if "response" in locals() else str(e)
+        logger.error(f"Bulk import failed ({status}): {error_text}", exc_info=True)
+        if "response" in locals():
+            response.raise_for_status()
+        raise

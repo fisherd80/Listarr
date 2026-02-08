@@ -19,66 +19,6 @@ const state = {
   expandedRows: new Set(),
 };
 
-/**
- * Gets the CSRF token from the meta tag.
- * @returns {string} CSRF token value
- */
-function getCsrfToken() {
-  const metaTag = document.querySelector('meta[name="csrf-token"]');
-  return metaTag ? metaTag.content : "";
-}
-
-/**
- * Escape HTML to prevent XSS.
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
-function escapeHtmlLocal(text) {
-  if (!text) return "";
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-/**
- * Format ISO date string to local readable format.
- * @param {string} isoString - ISO date string
- * @returns {string} Formatted date string
- */
-function formatDate(isoString) {
-  if (!isoString) return "-";
-  try {
-    const date = new Date(isoString);
-    return date.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch (e) {
-    return "-";
-  }
-}
-
-/**
- * Format duration in seconds to human readable format.
- * @param {number} seconds - Duration in seconds
- * @returns {string} Formatted duration string
- */
-function formatDuration(seconds) {
-  if (seconds === null || seconds === undefined) return "-";
-  if (seconds < 1) return "<1s";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  if (minutes < 60) {
-    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-}
 
 /**
  * Load lists for the filter dropdown.
@@ -221,7 +161,7 @@ function renderJobRow(job, isExpanded) {
     ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />'
     : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />';
 
-  const statusBadge = renderStatus(job.status);
+  const statusBadge = renderStatusBadge(job.status);
   const results = renderResults(job);
   const actions = renderActions(job);
 
@@ -239,13 +179,13 @@ function renderJobRow(job, isExpanded) {
         </button>
       </td>
       <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-        ${escapeHtmlLocal(job.list_name || `List #${job.list_id}`)}
+        ${escapeHtml(job.list_name || `List #${job.list_id}`)}
       </td>
       <td class="px-6 py-4 whitespace-nowrap">
         ${statusBadge}
       </td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        ${formatDate(job.started_at)}
+        ${formatTimestamp(job.started_at, "absolute")}
       </td>
       <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
         ${formatDuration(job.duration)}
@@ -282,44 +222,43 @@ function renderJobRow(job, isExpanded) {
 }
 
 /**
- * Render status badge.
- * @param {string} status - Job status
+ * Render status badge HTML matching server-side macro colors.
+ * Colors match listarr/templates/macros/status.html exactly.
+ * @param {string} status - Job status (running, completed, failed, pending)
  * @returns {string} HTML string for status badge
  */
-function renderStatus(status) {
+function renderStatusBadge(status) {
+  // Color map matches listarr/templates/macros/status.html exactly
   const statusConfig = {
     running: {
-      bg: "bg-blue-100 dark:bg-blue-900",
-      text: "text-blue-800 dark:text-blue-200",
+      color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       label: "Running",
       icon: '<svg class="animate-spin -ml-0.5 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>',
     },
     completed: {
-      bg: "bg-green-100 dark:bg-green-900",
-      text: "text-green-800 dark:text-green-200",
+      color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
       label: "Completed",
       icon: "",
     },
     failed: {
-      bg: "bg-red-100 dark:bg-red-900",
-      text: "text-red-800 dark:text-red-200",
+      color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
       label: "Failed",
+      icon: "",
+    },
+    pending: {
+      color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      label: "Pending",
       icon: "",
     },
   };
 
   const config = statusConfig[status] || {
-    bg: "bg-gray-100 dark:bg-gray-700",
-    text: "text-gray-800 dark:text-gray-300",
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
     label: status || "Unknown",
     icon: "",
   };
 
-  return `
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}">
-      ${config.icon}${escapeHtmlLocal(config.label)}
-    </span>
-  `;
+  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}">${config.icon}${escapeHtml(config.label)}</span>`;
 }
 
 /**
@@ -469,7 +408,7 @@ function renderJobDetails(job) {
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
         <span class="text-gray-500 dark:text-gray-400">Triggered By:</span>
-        <span class="ml-1 text-gray-900 dark:text-gray-100">${escapeHtmlLocal(job.triggered_by || "manual")}</span>
+        <span class="ml-1 text-gray-900 dark:text-gray-100">${escapeHtml(job.triggered_by || "manual")}</span>
       </div>
       <div>
         <span class="text-gray-500 dark:text-gray-400">Items Found:</span>
@@ -484,7 +423,7 @@ function renderJobDetails(job) {
           ? `
       <div>
         <span class="text-gray-500 dark:text-gray-400">Completed:</span>
-        <span class="ml-1 text-gray-900 dark:text-gray-100">${formatDate(job.completed_at)}</span>
+        <span class="ml-1 text-gray-900 dark:text-gray-100">${formatTimestamp(job.completed_at, "absolute")}</span>
       </div>
       `
           : ""
@@ -497,7 +436,7 @@ function renderJobDetails(job) {
     html += `
       <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
         <span class="font-medium text-red-800 dark:text-red-200">Error:</span>
-        <span class="text-red-700 dark:text-red-300">${escapeHtmlLocal(job.error_message)}</span>
+        <span class="text-red-700 dark:text-red-300">${escapeHtml(job.error_message)}</span>
       </div>
     `;
   }
@@ -531,10 +470,10 @@ function renderJobDetails(job) {
 
       html += `
         <tr>
-          <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${escapeHtmlLocal(item.title || "Unknown")}</td>
+          <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${escapeHtml(item.title || "Unknown")}</td>
           <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${item.tmdb_id || "-"}</td>
-          <td class="px-4 py-2 text-sm ${statusClass} capitalize">${escapeHtmlLocal(itemStatus)}</td>
-          <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${escapeHtmlLocal(item.message || "-")}</td>
+          <td class="px-4 py-2 text-sm ${statusClass} capitalize">${escapeHtml(itemStatus)}</td>
+          <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(item.message || "-")}</td>
         </tr>
       `;
     });
@@ -704,6 +643,7 @@ function startPolling() {
   if (state.pollingInterval) return; // Already polling
 
   state.pollingInterval = setInterval(async () => {
+    if (document.visibilityState !== "visible") return;
     if (state.runningJobs.size === 0) {
       stopPolling();
       return;
@@ -778,13 +718,9 @@ function initJobsPage() {
   document.getElementById("pagination-prev")?.addEventListener("click", () => changePage(-1));
   document.getElementById("pagination-next")?.addEventListener("click", () => changePage(1));
 
-  // Allow Enter key to apply filters
-  document.getElementById("filter-list")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") applyFilters();
-  });
-  document.getElementById("filter-status")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") applyFilters();
-  });
+  // Auto-apply filters on dropdown change
+  document.getElementById("filter-list")?.addEventListener("change", applyFilters);
+  document.getElementById("filter-status")?.addEventListener("change", applyFilters);
 }
 
 // Initialize when DOM is ready
@@ -792,3 +728,12 @@ document.addEventListener("DOMContentLoaded", initJobsPage);
 
 // Stop polling on page unload
 window.addEventListener("beforeunload", stopPolling);
+
+// Pause/resume polling on tab visibility change
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopPolling();
+  } else if (state.runningJobs.size > 0) {
+    startPolling();
+  }
+});

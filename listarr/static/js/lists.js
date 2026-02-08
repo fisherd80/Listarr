@@ -3,15 +3,6 @@
 // ----------------------
 
 /**
- * Gets the CSRF token from the meta tag.
- * @returns {string} CSRF token value
- */
-function getCsrfToken() {
-  const metaTag = document.querySelector('meta[name="csrf-token"]');
-  return metaTag ? metaTag.content : "";
-}
-
-/**
  * Toggles a list's active status via AJAX.
  * @param {number} listId - The ID of the list to toggle
  * @param {HTMLButtonElement} button - The button that was clicked

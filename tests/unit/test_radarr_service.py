@@ -19,6 +19,8 @@ import pytest
 import requests
 
 from listarr.services.radarr_service import (
+    bulk_add_movies,
+    get_exclusions,
     get_missing_movies_count,
     get_movie_count,
     get_quality_profiles,
@@ -434,3 +436,130 @@ class TestGetMissingMoviesCount:
 
         call_args = mock_session.get.call_args
         assert "http://localhost:7878/api/v3/movie" == call_args[0][0]
+
+
+class TestGetExclusions:
+    """Tests for get_exclusions function."""
+
+    @patch("listarr.services.arr_service.http_session")
+    def test_get_exclusions_returns_tmdb_ids(self, mock_session):
+        """Test that exclusion list returns set of TMDB IDs."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = [
+            {"tmdbId": 100, "movieTitle": "Excluded Movie 1"},
+            {"tmdbId": 200, "movieTitle": "Excluded Movie 2"},
+        ]
+        mock_session.get.return_value = mock_response
+
+        result = get_exclusions("http://localhost:7878", "key")
+        assert result == {100, 200}
+
+    @patch("listarr.services.arr_service.http_session")
+    def test_get_exclusions_empty_list(self, mock_session):
+        """Test that empty exclusion list returns empty set."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_session.get.return_value = mock_response
+
+        result = get_exclusions("http://localhost:7878", "key")
+        assert result == set()
+
+    @patch("listarr.services.arr_service.http_session")
+    def test_get_exclusions_api_error(self, mock_session):
+        """Test that API error returns empty set."""
+        mock_session.get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        result = get_exclusions("http://localhost:7878", "key")
+        assert result == set()
+
+
+class TestBulkAddMovies:
+    """Tests for bulk_add_movies function."""
+
+    @patch("listarr.services.radarr_service.http_session")
+    def test_bulk_add_movies_success(self, mock_session):
+        """Test that bulk add movies returns list of added movies."""
+        # Mock successful response with 3 movies
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"tmdbId": 238, "title": "The Godfather"},
+            {"tmdbId": 278, "title": "The Shawshank Redemption"},
+            {"tmdbId": 240, "title": "The Godfather Part II"},
+        ]
+        mock_session.post.return_value = mock_response
+
+        payload1 = {"tmdbId": 238, "title": "The Godfather"}
+        payload2 = {"tmdbId": 278, "title": "The Shawshank Redemption"}
+        payload3 = {"tmdbId": 240, "title": "The Godfather Part II"}
+
+        result = bulk_add_movies("http://localhost:7878", "test_key", [payload1, payload2, payload3])
+
+        assert len(result) == 3
+        assert result[0]["tmdbId"] == 238
+        mock_session.post.assert_called_once()
+        call_args = mock_session.post.call_args
+        assert call_args[0][0].endswith("/api/v3/movie/import")
+        assert call_args[1]["json"] == [payload1, payload2, payload3]
+
+    @patch("listarr.services.radarr_service.http_session")
+    def test_bulk_add_movies_empty_batch(self, mock_session):
+        """Test that empty batch still makes API call."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = []
+        mock_session.post.return_value = mock_response
+
+        result = bulk_add_movies("http://localhost:7878", "test_key", [])
+
+        assert result == []
+        mock_session.post.assert_called_once()
+        call_args = mock_session.post.call_args
+        assert call_args[1]["json"] == []
+
+    @patch("listarr.services.radarr_service.http_session")
+    def test_bulk_add_movies_api_error(self, mock_session):
+        """Test that API errors are raised."""
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+        mock_session.post.return_value = mock_response
+
+        with pytest.raises(Exception):
+            bulk_add_movies("http://localhost:7878", "test_key", [{"tmdbId": 238}])
+
+    @patch("listarr.services.radarr_service.http_session")
+    def test_bulk_add_movies_uses_bulk_timeout(self, mock_session):
+        """Test that bulk add uses BULK_TIMEOUT (300) not ADD_TIMEOUT (120)."""
+        from listarr.services.http_client import BULK_TIMEOUT
+
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = [{"tmdbId": 238}]
+        mock_session.post.return_value = mock_response
+
+        bulk_add_movies("http://localhost:7878", "test_key", [{"tmdbId": 238}])
+
+        call_args = mock_session.post.call_args
+        assert call_args[1]["timeout"] == BULK_TIMEOUT
+        assert call_args[1]["timeout"] == 300
+
+    @patch("listarr.services.radarr_service.http_session")
+    def test_bulk_add_movies_sends_correct_headers(self, mock_session):
+        """Test that correct headers including X-Api-Key are sent."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = []
+        mock_session.post.return_value = mock_response
+
+        bulk_add_movies("http://localhost:7878", "test_key", [])
+
+        call_args = mock_session.post.call_args
+        headers = call_args[1]["headers"]
+        assert headers["X-Api-Key"] == "test_key"
+        assert headers["Content-Type"] == "application/json"

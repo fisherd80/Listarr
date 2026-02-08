@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/ui.html' import error_state %}
 {% block title %}Create List - Listarr{% endblock %}
 
 {% block head %}
@@ -97,34 +98,10 @@
         <!-- Preset Mode: Show preset info -->
         <div class="text-center py-6">
           <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            {% if preset == 'trending_movies' %}
-            Trending Movies
-            {% elif preset == 'trending_tv' %}
-            Trending TV Shows
-            {% elif preset == 'popular_movies' %}
-            Popular Movies
-            {% elif preset == 'popular_tv' %}
-            Popular TV Shows
-            {% elif preset == 'top_rated_movies' %}
-            Top Rated Movies
-            {% elif preset == 'top_rated_tv' %}
-            Top Rated TV Shows
-            {% endif %}
+            {{ preset_info.title }}
           </h2>
           <p class="text-gray-500 dark:text-gray-400 mb-4">
-            {% if preset == 'trending_movies' %}
-            Discover movies that are trending this week on TMDB
-            {% elif preset == 'trending_tv' %}
-            Discover TV shows that are trending this week on TMDB
-            {% elif preset == 'popular_movies' %}
-            The most popular movies on TMDB right now
-            {% elif preset == 'popular_tv' %}
-            The most popular TV shows on TMDB right now
-            {% elif preset == 'top_rated_movies' %}
-            The highest rated movies of all time on TMDB
-            {% elif preset == 'top_rated_tv' %}
-            The highest rated TV shows of all time on TMDB
-            {% endif %}
+            {{ preset_info.description }}
           </p>
           <!-- Service Badge -->
           <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
@@ -206,28 +183,10 @@
             </svg>
             <div>
               <p class="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                {% if preset == 'trending_movies' %}
-                Trending Movies This Week
-                {% elif preset == 'trending_tv' %}
-                Trending TV Shows This Week
-                {% elif preset == 'popular_movies' %}
-                Most Popular Movies
-                {% elif preset == 'popular_tv' %}
-                Most Popular TV Shows
-                {% elif preset == 'top_rated_movies' %}
-                Top Rated Movies
-                {% elif preset == 'top_rated_tv' %}
-                Top Rated TV Shows
-                {% endif %}
+                {{ preset_info.filter_title }}
               </p>
               <p class="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                {% if 'trending' in preset %}
-                Fetches movies/shows that are trending on TMDB based on recent activity, views, and ratings.
-                {% elif 'popular' in preset %}
-                Fetches the most popular movies/shows on TMDB based on overall popularity scores.
-                {% elif 'top_rated' in preset %}
-                Fetches the highest rated movies/shows on TMDB based on user ratings and votes.
-                {% endif %}
+                {{ preset_info.filter_description }}
               </p>
             </div>
           </div>
@@ -253,11 +212,12 @@
               </svg>
               <p class="text-sm">Loading preview...</p>
             </div>
-            <div id="preview-error" class="hidden flex flex-col items-center justify-center py-8 text-red-500 dark:text-red-400">
-              <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div id="preview-error" class="hidden text-center py-8">
+              <svg class="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p id="preview-error-message" class="text-sm">Failed to load preview</p>
+              <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Preview Error</h3>
+              <p id="preview-error-message" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Failed to load preview</p>
             </div>
             <div id="preview-results" class="hidden space-y-2">
               <!-- Preview items will be inserted here by JavaScript -->
@@ -382,11 +342,12 @@
                 <p class="text-sm">Preview will appear here</p>
                 <p class="text-xs mt-1">Adjust filters to see matching results</p>
               </div>
-              <div id="preview-error" class="hidden flex flex-col items-center justify-center py-8 text-red-500 dark:text-red-400">
-                <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div id="preview-error" class="hidden text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <p id="preview-error-message" class="text-sm">Failed to load preview</p>
+                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Preview Error</h3>
+                <p id="preview-error-message" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Failed to load preview</p>
               </div>
               <div id="preview-results" class="hidden space-y-2">
                 <!-- Preview items will be inserted here by JavaScript -->
@@ -569,7 +530,7 @@
                 <option value="0 * * * *">Every hour</option>
                 <option value="0 */6 * * *">Every 6 hours</option>
                 <option value="0 0 * * *">Daily (midnight)</option>
-                <option value="0 0 * * 0">Weekly (Sunday midnight)</option>
+                <option value="0 0 * * SUN">Weekly (Sunday midnight)</option>
               </select>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 When to automatically refresh and import from this list

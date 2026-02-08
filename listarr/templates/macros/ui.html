@@ -1,0 +1,52 @@
+{# Loading spinner macro - renders spinner SVG + message (no wrapper div) #}
+{% macro loading_spinner(message='Loading...', size='h-8 w-8') %}
+<svg class="animate-spin {{ size }} mx-auto text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+</svg>
+<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ message }}</p>
+{% endmacro %}
+
+{# Empty state macro - renders icon + heading + description + optional action (no wrapper div) #}
+{% macro empty_state(heading, description, icon_path=none, action_url=none, action_text=none) %}
+{%- set default_icon = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' -%}
+<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon_path if icon_path else default_icon }}" />
+</svg>
+<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+  {{ heading }}
+</h3>
+<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+  {{ description }}
+</p>
+{%- if action_url and action_text %}
+<div class="mt-6">
+  <a href="{{ action_url }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+    {{ action_text }}
+  </a>
+</div>
+{%- endif %}
+{% endmacro %}
+
+{# Error state macro - renders warning icon + heading + description + optional retry (no wrapper div) #}
+{% macro error_state(heading, description, retry_action=none) %}
+<svg class="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+</svg>
+<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+  {{ heading }}
+</h3>
+<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+  {{ description }}
+</p>
+{%- if retry_action %}
+<div class="mt-4">
+  <button type="button" onclick="{{ retry_action }}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+    Retry
+  </button>
+</div>
+{%- endif %}
+{% endmacro %}

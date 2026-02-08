@@ -50,7 +50,23 @@ block content %}
       </span>
     </div>
 
-    <div class="grid grid-cols-3 gap-4 text-center">
+    <!-- Skeleton loading state -->
+    <div id="radarr-stats-skeleton" class="grid grid-cols-3 gap-4 text-center animate-pulse">
+      <div>
+        <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto mt-2"></div>
+      </div>
+      <div>
+        <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto mt-2"></div>
+      </div>
+      <div>
+        <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mx-auto mt-2"></div>
+      </div>
+    </div>
+    <!-- Actual stats content -->
+    <div id="radarr-stats" class="hidden grid grid-cols-3 gap-4 text-center">
       <div>
         <p
           id="radarr-total-movies"
@@ -95,7 +111,23 @@ block content %}
       </span>
     </div>
 
-    <div class="grid grid-cols-3 gap-4 text-center">
+    <!-- Skeleton loading state -->
+    <div id="sonarr-stats-skeleton" class="grid grid-cols-3 gap-4 text-center animate-pulse">
+      <div>
+        <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 mx-auto mt-2"></div>
+      </div>
+      <div>
+        <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mx-auto mt-2"></div>
+      </div>
+      <div>
+        <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-12 mx-auto"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mx-auto mt-2"></div>
+      </div>
+    </div>
+    <!-- Actual stats content -->
+    <div id="sonarr-stats" class="hidden grid grid-cols-3 gap-4 text-center">
       <div>
         <p
           id="sonarr-total-series"

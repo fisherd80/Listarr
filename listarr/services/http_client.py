@@ -14,7 +14,9 @@ from urllib3.util.retry import Retry
 logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_TIMEOUT = 30  # seconds
+DEFAULT_TIMEOUT = 30  # seconds — used for GETs, lookups, validation
+ADD_TIMEOUT = 120  # seconds — used for add_movie/add_series (Radarr can be slow)
+BULK_TIMEOUT = 300  # seconds — used for bulk import operations (5 minutes)
 API_BASE_TMDB = "https://api.themoviedb.org/3"
 
 # Retry strategy for transient errors
@@ -23,7 +25,7 @@ retry_strategy = Retry(
     total=3,
     backoff_factor=1,
     status_forcelist=[429, 500, 502, 503, 504],
-    allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+    allowed_methods=["HEAD", "GET", "OPTIONS"],
     raise_on_status=False,
 )
 

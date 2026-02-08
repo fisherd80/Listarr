@@ -4,17 +4,18 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
 
 ## Features
 
-- 🎬 **TMDB Integration**: Discover movies and TV shows (Trending, Popular, Discover with filters)
+- 🎬 **TMDB Integration**: Discover movies and TV shows (Trending, Popular, Top Rated, Discover with filters)
 - 🔗 **IMDB ID Mapping**: Legal IMDB ID retrieval via TMDB (no web scraping)
 - 🎯 **Radarr/Sonarr Import**: Fully configured import settings with quality profiles and root folders
-- 📤 **Queue-based Imports**: Push content to media servers (planned)
+- 🚀 **Bulk Import API**: 8x faster imports using batch operations (50 items per batch)
 - 📊 **Dashboard Stats**: Read-only summary from Radarr/Sonarr with cached stats, "Added by Listarr" counter, and recent jobs
 - 🔒 **Encrypted Storage**: API keys encrypted at rest with Fernet encryption
 - ⏰ **Automated Scheduling**: Cron-based scheduling for automatic list execution
   - Presets for common intervals (hourly, daily, weekly)
   - Custom cron expressions for advanced users
   - Global pause toggle for maintenance
-- 💾 **SQLite Database**: Persistent storage with no external database required
+  - Pre-flight health checks before job execution
+- 💾 **SQLite Database**: Persistent storage with WAL mode
 - 🐳 **Docker-first**: Container-ready deployment
 
 ## Quick Start
@@ -156,9 +157,9 @@ listarr/
 
 ## Development Status
 
-**~88% Complete** - 12 of 13 phases complete. All core features implemented including list management, wizard UI, TMDB caching, import automation, job execution framework, comprehensive test coverage, automated scheduling, and direct API integration. Remaining: code quality refactoring, UI/UX simplification, security hardening, and release readiness.
+**~92% Complete** - 10 of 12 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, 493 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: security hardening and release readiness.
 
-### Completed Phases (1-7)
+### Completed Phases
 
 - ✅ **Phase 1: List Management** - CRUD operations for TMDB lists
 - ✅ **Phase 2: List Creation Wizard** - 4-step wizard with presets, filters, live preview
@@ -169,16 +170,18 @@ listarr/
 - ✅ **Phase 6: Job Framework** - Background processing, Jobs page, dashboard widget
 - ✅ **Phase 6.1: Bug Fixes** - Tag override logic, logging, UI feedback
 - ✅ **Phase 6.2: List Enhancements** - Top Rated presets, region filtering, larger limits
-- ✅ **Phase 6.3: Test Coverage** - 444 tests, 56% coverage
+- ✅ **Phase 6.3: Test Coverage** - 493 tests
 - ✅ **Phase 7: Scheduler System** - Cron-based automated list execution
 - ✅ **Phase 8: API Consolidation** - Direct API calls replacing pyarr and tmdbv3api
+- ✅ **Phase 9: Code Quality** - Refactoring and code cleanup
+- ✅ **Phase 9.1: Config Deduplication** - 55% route reduction, 57% JS reduction
+- ✅ **Phase 10: UI/UX Simplification** - Jinja macros, JS consolidation
+- ✅ **Phase 10.1-10.5: UI Enhancements** - Bulk import API (8x faster), skeleton loading, activity-based timeout
 
-### Planned Phases (9-12)
+### Planned Phases
 
-- 📋 **Phase 9: Code Quality** - Refactoring and code cleanup
-- 🔮 **Phase 10: UI/UX Simplification** - User interface improvements
-- 🔮 **Phase 11: Security Hardening** - Security enhancements
-- 🔮 **Phase 12: Release Readiness** - Final polish and release preparation
+- 🔮 **Phase 11: Security Hardening** - Flask/Docker security, input validation
+- 🔮 **Phase 12: Release Readiness** - Final polish and v1.0 release
 
 See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
 
@@ -187,22 +190,22 @@ See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
 ### Backend
 
 - **Flask 3.0.0**: Web framework
-- **SQLAlchemy 2.0.23**: ORM and database management
+- **SQLAlchemy 2.0.44**: ORM and database management
 - **Flask-WTF**: CSRF protection and forms
-- **cryptography 41.0.7**: Fernet encryption for API keys
-- **requests**: Direct HTTP integration with Radarr/Sonarr/TMDB APIs
-- **urllib3**: Shared HTTP client with retry logic and connection pooling
-- **gunicorn 21.2.0**: Production WSGI server
+- **cryptography 44.0.1**: Fernet encryption for API keys
+- **requests 2.32.4**: Direct HTTP integration with Radarr/Sonarr/TMDB APIs
+- **APScheduler 3.11.2**: Cron-based job scheduling
+- **gunicorn 22.0.0**: Production WSGI server
 
 ### Frontend
 
 - **Tailwind CSS**: Utility-first styling
-- **Vanilla JavaScript**: Dynamic UI interactions
-- **Jinja2**: Server-side templating
+- **Vanilla JavaScript**: Dynamic UI with shared utils.js library
+- **Jinja2**: Server-side templating with macro library
 
 ### Database
 
-- **SQLite**: Embedded database for simplicity
+- **SQLite**: Embedded database with WAL mode
 
 ## IMDB Integration Strategy
 
@@ -262,13 +265,15 @@ The `instance/` folder contains all runtime data:
 | 6. Job Framework | ✅ Complete | Background job processing with history tracking |
 | 6.1 Bug Fixes | ✅ Complete | Bugs from manual testing resolved |
 | 6.2 List Enhancements | ✅ Complete | Top Rated presets, region filtering, larger limits |
-| 6.3 Test Coverage | ✅ Complete | Enhanced coverage (52% → 56%, 444 tests) |
+| 6.3 Test Coverage | ✅ Complete | Enhanced coverage (493 tests) |
 | 7. Scheduler System | ✅ Complete | Cron-based automated list execution |
 | 8. API Consolidation | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api |
-| 9. Code Quality | 📋 Planned | Refactoring and code cleanup |
-| 10. UI/UX Simplification | 🔮 Planned | User interface improvements |
-| 11. Security Hardening | 🔮 Planned | Security enhancements |
-| 12. Release Readiness | 🔮 Planned | Final polish and release preparation |
+| 9. Code Quality | ✅ Complete | Refactoring and code cleanup |
+| 9.1 Config Deduplication | ✅ Complete | 55% route reduction, 57% JS reduction |
+| 10. UI/UX Simplification | ✅ Complete | Jinja macros, JS consolidation |
+| 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
+| 11. Security Hardening | 🔮 Planned | Flask/Docker security, input validation |
+| 12. Release Readiness | 🔮 Planned | Final polish and v1.0 release |
 
 ## License
 

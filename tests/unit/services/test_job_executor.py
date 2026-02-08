@@ -8,12 +8,17 @@ Tests cover:
 - get_executor() function - ThreadPoolExecutor lazy initialization
 """
 
+import threading
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from listarr.services.job_executor import (
+    IDLE_TIMEOUT_SECONDS,
+    ActivityTracker,
+    _execute_job,
+    _monitor_idle,
     get_executor,
     get_job_status,
     is_list_running,
@@ -293,3 +298,238 @@ class TestJobLifecycle:
                 job = Job.query.get(job_id)
                 assert job.started_at is not None
                 assert isinstance(job.started_at, datetime)
+
+
+class TestActivityTracker:
+    """Tests for ActivityTracker class."""
+
+    def test_initial_idle_seconds_near_zero(self):
+        """ActivityTracker initializes with idle_seconds near zero."""
+        import time
+
+        tracker = ActivityTracker()
+        assert tracker.idle_seconds < 1.0
+
+    def test_update_resets_idle(self):
+        """update() resets idle_seconds to near zero."""
+        import time
+
+        tracker = ActivityTracker()
+        time.sleep(0.1)
+        tracker.update()
+        assert tracker.idle_seconds < 0.1
+
+    def test_idle_seconds_increases_over_time(self):
+        """idle_seconds increases as time passes."""
+        import time
+
+        tracker = ActivityTracker()
+        time.sleep(0.2)
+        assert tracker.idle_seconds >= 0.2
+
+    def test_thread_safe_update(self):
+        """ActivityTracker handles concurrent updates safely."""
+        import threading
+
+        tracker = ActivityTracker()
+
+        def update_many():
+            for _ in range(100):
+                tracker.update()
+
+        thread1 = threading.Thread(target=update_many)
+        thread2 = threading.Thread(target=update_many)
+
+        thread1.start()
+        thread2.start()
+        thread1.join()
+        thread2.join()
+
+        # No crash = success
+        assert tracker.idle_seconds >= 0
+
+
+class TestIdleTimeout:
+    """Tests for idle timeout monitoring."""
+
+    def test_submit_job_creates_activity_tracker(self, app):
+        """submit_job passes ActivityTracker to executor."""
+        from unittest.mock import ANY
+
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
+            mock_submit = MagicMock()
+            mock_executor.return_value.submit = mock_submit
+
+            submit_job(11, "Test", app)
+
+            # Verify _execute_job was called with ActivityTracker instance
+            mock_submit.assert_called_once()
+            args = mock_submit.call_args[0]
+            # args[0] is the function _execute_job
+            # Then come the actual arguments
+            assert args[1] == 1  # job_id (auto-incremented in test DB)
+            assert args[2] == 11  # list_id
+            assert isinstance(args[3], threading.Event)  # stop_event
+            assert isinstance(args[4], ActivityTracker)  # activity_tracker
+            assert args[5] == app
+
+    def test_monitor_stops_on_monitor_stop_event(self):
+        """_monitor_idle exits immediately when monitor_stop is set."""
+        import threading
+        import time
+
+        tracker = ActivityTracker()
+        stop_event = threading.Event()
+        monitor_stop = threading.Event()
+
+        # Set monitor_stop immediately
+        monitor_stop.set()
+
+        # Call _monitor_idle
+        _monitor_idle(999, tracker, monitor_stop)
+
+        # stop_event should NOT be set (no timeout triggered)
+        assert not stop_event.is_set()
+
+    def test_idle_job_triggers_timeout(self):
+        """_monitor_idle sets stop_event when job is idle."""
+        import threading
+        import time
+
+        from listarr.services.job_executor import _stop_events, _stop_events_lock
+
+        tracker = ActivityTracker()
+        stop_event = threading.Event()
+        monitor_stop = threading.Event()
+
+        # Set last_activity to simulate idle timeout
+        tracker._last_activity = time.time() - (IDLE_TIMEOUT_SECONDS + 10)
+
+        # Register stop_event
+        job_id = 12345
+        with _stop_events_lock:
+            _stop_events[job_id] = stop_event
+
+        # Call _monitor_idle (should trigger immediately)
+        _monitor_idle(job_id, tracker, monitor_stop)
+
+        # stop_event should be set
+        assert stop_event.is_set()
+
+        # Cleanup
+        with _stop_events_lock:
+            _stop_events.pop(job_id, None)
+
+
+class TestImportStopEvent:
+    """Tests for import service stop_event integration."""
+
+    def test_import_movies_checks_stop_event(self, app):
+        """_import_movies respects stop_event."""
+        import threading
+
+        from listarr.services.import_service import _import_movies
+
+        stop_event = threading.Event()
+        stop_event.set()  # Signal stop before import
+
+        settings = {
+            "root_folder": "/movies",
+            "quality_profile_id": 1,
+            "monitored": True,
+            "search_on_add": True,
+            "tags": [],
+        }
+
+        tmdb_items = [{"id": 1, "title": "Test Movie"}]
+
+        result = _import_movies(
+            tmdb_items,
+            "http://localhost:7878",
+            "fake_key",
+            settings,
+            "tmdb_key",
+            stop_event=stop_event,
+            activity_tracker=None,
+        )
+
+        # Should have stopped immediately (no processing)
+        assert result.total == 0
+
+    def test_import_movies_updates_activity_tracker(self, app):
+        """_import_movies updates activity_tracker on progress."""
+        import threading
+
+        from listarr.services.import_service import _import_movies
+
+        activity_tracker = ActivityTracker()
+        stop_event = threading.Event()
+
+        settings = {
+            "root_folder": "/movies",
+            "quality_profile_id": 1,
+            "monitored": True,
+            "search_on_add": True,
+            "tags": [],
+        }
+
+        tmdb_items = [
+            {"id": 100, "title": "Movie 1"},
+            {"id": 200, "title": "Movie 2"},
+        ]
+
+        with patch("listarr.services.radarr_service.get_existing_movie_tmdb_ids") as mock_existing:
+            # Return all IDs to skip (triggers activity update)
+            mock_existing.return_value = {100, 200}
+
+            result = _import_movies(
+                tmdb_items,
+                "http://localhost:7878",
+                "fake_key",
+                settings,
+                "tmdb_key",
+                stop_event=stop_event,
+                activity_tracker=activity_tracker,
+            )
+
+        # Should have skipped both items
+        assert result.skipped == [
+            {"tmdb_id": 100, "title": "Movie 1", "reason": "already_exists"},
+            {"tmdb_id": 200, "title": "Movie 2", "reason": "already_exists"},
+        ]
+
+        # Activity tracker should show recent activity
+        assert activity_tracker.idle_seconds < 1.0
+
+    def test_import_series_checks_stop_event(self, app):
+        """_import_series respects stop_event."""
+        import threading
+
+        from listarr.services.import_service import _import_series
+
+        stop_event = threading.Event()
+        stop_event.set()  # Signal stop before import
+
+        settings = {
+            "root_folder": "/tv",
+            "quality_profile_id": 1,
+            "monitored": True,
+            "search_on_add": True,
+            "season_folder": True,
+            "tags": [],
+        }
+
+        tmdb_items = [{"id": 1, "name": "Test Series"}]
+
+        result = _import_series(
+            tmdb_items,
+            "http://localhost:8989",
+            "fake_key",
+            settings,
+            "tmdb_key",
+            stop_event=stop_event,
+            activity_tracker=None,
+        )
+
+        # Should have stopped immediately (no processing)
+        assert result.total == 0

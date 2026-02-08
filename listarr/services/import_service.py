@@ -26,7 +26,9 @@ from listarr.services.tmdb_cache import (
 logger = logging.getLogger(__name__)
 
 # Delay between API calls to be gentle on services
-API_CALL_DELAY = 0.2  # 200ms
+API_CALL_DELAY = 0.2  # 200ms between individual lookups
+BATCH_SIZE = 50  # Items per bulk import batch (conservative, Kometa uses 100)
+BATCH_DELAY = 0.5  # 500ms delay between batches
 
 
 @dataclass
@@ -209,13 +211,8 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
             logger.warning(f"Unknown list type: {tmdb_list_type}")
             return []
 
-        # Extract results from AsObj if needed
-        if hasattr(items, "results") and items.results:
-            page_items = list(items.results)
-        elif isinstance(items, list):
-            page_items = items
-        else:
-            page_items = []
+        # Native API returns plain list of dicts
+        page_items = items if items else []
 
         all_items.extend(page_items)
 
@@ -231,9 +228,51 @@ def _fetch_tmdb_items(list_obj: List, tmdb_api_key: str) -> list:
     return all_items[:limit]
 
 
-def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict, tmdb_api_key: str) -> ImportResult:
+def _flush_movie_batch(base_url, api_key, batch, batch_meta, result, activity_tracker=None):
     """
-    Import movies to Radarr.
+    Flush accumulated movie batch to Radarr using bulk import.
+
+    Args:
+        base_url: Radarr base URL
+        api_key: Radarr API key
+        batch: List of movie payload dicts ready for bulk import
+        batch_meta: List of {tmdb_id, title} dicts for result tracking
+        result: ImportResult to update with added/skipped/failed items
+        activity_tracker: Optional ActivityTracker to update on progress
+    """
+    try:
+        added_items = radarr_service.bulk_add_movies(base_url, api_key, batch)
+        added_tmdb_ids = set()
+        if isinstance(added_items, list):
+            for item in added_items:
+                if isinstance(item, dict):
+                    added_tmdb_ids.add(item.get("tmdbId"))
+        for meta in batch_meta:
+            if meta["tmdb_id"] in added_tmdb_ids:
+                result.added.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"]})
+            else:
+                result.skipped.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"], "reason": "already_exists"})
+        logger.info(f"Batch complete: {len(added_tmdb_ids)} added, {len(batch_meta) - len(added_tmdb_ids)} skipped")
+    except Exception as e:
+        logger.error(f"Bulk import batch failed: {e}", exc_info=True)
+        for meta in batch_meta:
+            result.failed.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"], "reason": str(e)})
+    if activity_tracker:
+        for _ in batch_meta:
+            activity_tracker.update()
+
+
+def _import_movies(
+    tmdb_items: list,
+    base_url: str,
+    api_key: str,
+    settings: dict,
+    tmdb_api_key: str,
+    stop_event=None,
+    activity_tracker=None,
+) -> ImportResult:
+    """
+    Import movies to Radarr using batch-based bulk import.
 
     Args:
         tmdb_items: List of TMDB movie items
@@ -241,6 +280,8 @@ def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict
         api_key: Radarr API key
         settings: Resolved import settings dict
         tmdb_api_key: TMDB API key (unused for movies, kept for consistency)
+        stop_event: Optional threading.Event to signal cancellation
+        activity_tracker: Optional ActivityTracker to update on progress
 
     Returns:
         ImportResult with added/skipped/failed items
@@ -249,9 +290,29 @@ def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict
 
     # Pre-flight: get existing movies
     existing_ids = radarr_service.get_existing_movie_tmdb_ids(base_url, api_key)
-    logger.info(f"Found {len(existing_ids)} existing movies in Radarr")
+    if existing_ids is None:
+        logger.warning("Failed to fetch existing movies from Radarr — duplicate check may be incomplete")
+        existing_ids = set()
+    else:
+        logger.info(f"Found {len(existing_ids)} existing movies in Radarr")
+
+    # Pre-flight: get excluded movies
+    excluded_ids = radarr_service.get_exclusions(base_url, api_key)
+    logger.info(f"Found {len(excluded_ids)} excluded movies in Radarr")
+
+    # Batch accumulation
+    batch = []
+    batch_meta = []
 
     for item in tmdb_items:
+        # Check for timeout/cancellation
+        if stop_event and stop_event.is_set():
+            logger.info("Import stopped: timeout or cancellation signal received")
+            # Flush pending batch before stopping
+            if batch:
+                _flush_movie_batch(base_url, api_key, batch, batch_meta, result, activity_tracker)
+            break
+
         # Extract TMDB ID
         try:
             tmdb_id = item["id"] if isinstance(item, dict) else getattr(item, "id", None)
@@ -262,46 +323,66 @@ def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict
 
         if not tmdb_id:
             result.failed.append({"tmdb_id": None, "title": title, "reason": "no_tmdb_id"})
+            if activity_tracker:
+                activity_tracker.update()
             continue
 
         # Check if already exists
         if tmdb_id in existing_ids:
             result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "already_exists"})
+            if activity_tracker:
+                activity_tracker.update()
             continue
 
-        try:
-            # Lookup movie in Radarr
-            movie_data = radarr_service.lookup_movie(base_url, api_key, tmdb_id)
-            if not movie_data:
-                result.failed.append(
-                    {
-                        "tmdb_id": tmdb_id,
-                        "title": title,
-                        "reason": "not_found_in_radarr",
-                    }
-                )
-                time.sleep(API_CALL_DELAY)
-                continue
+        # Check if on exclusion list
+        if tmdb_id in excluded_ids:
+            result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "on_exclusion_list"})
+            if activity_tracker:
+                activity_tracker.update()
+            continue
 
-            # Add movie to Radarr
-            radarr_service.add_movie(
-                base_url=base_url,
-                api_key=api_key,
-                movie_data=movie_data,
-                root_folder=settings["root_folder"],
-                quality_profile_id=settings["quality_profile_id"],
-                monitored=settings["monitored"],
-                search_on_add=settings["search_on_add"],
-                tags=settings["tags"],
+        # Lookup movie in Radarr
+        movie_data = radarr_service.lookup_movie(base_url, api_key, tmdb_id)
+        if not movie_data:
+            result.failed.append(
+                {
+                    "tmdb_id": tmdb_id,
+                    "title": title,
+                    "reason": "not_found_in_radarr",
+                }
             )
+            if activity_tracker:
+                activity_tracker.update()
+            time.sleep(API_CALL_DELAY)
+            continue
 
-            result.added.append({"tmdb_id": tmdb_id, "title": title})
+        # Build payload for bulk import
+        payload = {
+            "title": movie_data.get("title"),
+            "tmdbId": movie_data.get("tmdbId"),
+            "year": movie_data.get("year"),
+            "qualityProfileId": settings["quality_profile_id"],
+            "titleSlug": movie_data.get("titleSlug"),
+            "images": movie_data.get("images", []),
+            "rootFolderPath": settings["root_folder"],
+            "monitored": settings["monitored"],
+            "addOptions": {"searchForMovie": settings["search_on_add"]},
+            "tags": settings["tags"],
+        }
 
-        except Exception as e:
-            logger.error(f"Error adding movie {title} (TMDB: {tmdb_id}): {e}", exc_info=True)
-            result.failed.append({"tmdb_id": tmdb_id, "title": title, "reason": str(e)})
+        batch.append(payload)
+        batch_meta.append({"tmdb_id": tmdb_id, "title": title})
 
-        time.sleep(API_CALL_DELAY)
+        # Flush batch if full
+        if len(batch) >= BATCH_SIZE:
+            _flush_movie_batch(base_url, api_key, batch, batch_meta, result, activity_tracker)
+            batch = []
+            batch_meta = []
+            time.sleep(BATCH_DELAY)
+
+    # Flush remaining batch
+    if batch:
+        _flush_movie_batch(base_url, api_key, batch, batch_meta, result, activity_tracker)
 
     logger.info(
         f"Import complete: {len(result.added)} added, {len(result.skipped)} skipped, {len(result.failed)} failed"
@@ -309,9 +390,60 @@ def _import_movies(tmdb_items: list, base_url: str, api_key: str, settings: dict
     return result
 
 
-def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict, tmdb_api_key: str) -> ImportResult:
+def _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_tracker=None):
     """
-    Import TV shows to Sonarr.
+    Flush accumulated series batch to Sonarr using bulk import.
+
+    Args:
+        base_url: Sonarr base URL
+        api_key: Sonarr API key
+        batch: List of series payload dicts ready for bulk import
+        batch_meta: List of {tmdb_id, tvdb_id, title} dicts for result tracking
+        result: ImportResult to update with added/skipped/failed items
+        activity_tracker: Optional ActivityTracker to update on progress
+    """
+    try:
+        added_items = sonarr_service.bulk_add_series(base_url, api_key, batch)
+        added_tvdb_ids = set()
+        if isinstance(added_items, list):
+            for item in added_items:
+                if isinstance(item, dict):
+                    added_tvdb_ids.add(item.get("tvdbId"))
+        for meta in batch_meta:
+            if meta["tvdb_id"] in added_tvdb_ids:
+                result.added.append({"tmdb_id": meta["tmdb_id"], "tvdb_id": meta["tvdb_id"], "title": meta["title"]})
+            else:
+                result.skipped.append(
+                    {
+                        "tmdb_id": meta["tmdb_id"],
+                        "tvdb_id": meta["tvdb_id"],
+                        "title": meta["title"],
+                        "reason": "already_exists",
+                    }
+                )
+        logger.info(f"Batch complete: {len(added_tvdb_ids)} added, {len(batch_meta) - len(added_tvdb_ids)} skipped")
+    except Exception as e:
+        logger.error(f"Bulk import batch failed: {e}", exc_info=True)
+        for meta in batch_meta:
+            result.failed.append(
+                {"tmdb_id": meta["tmdb_id"], "tvdb_id": meta["tvdb_id"], "title": meta["title"], "reason": str(e)}
+            )
+    if activity_tracker:
+        for _ in batch_meta:
+            activity_tracker.update()
+
+
+def _import_series(
+    tmdb_items: list,
+    base_url: str,
+    api_key: str,
+    settings: dict,
+    tmdb_api_key: str,
+    stop_event=None,
+    activity_tracker=None,
+) -> ImportResult:
+    """
+    Import TV shows to Sonarr using batch-based bulk import.
 
     Args:
         tmdb_items: List of TMDB TV show items
@@ -319,6 +451,8 @@ def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict
         api_key: Sonarr API key
         settings: Resolved import settings dict
         tmdb_api_key: TMDB API key for TVDB translation
+        stop_event: Optional threading.Event to signal cancellation
+        activity_tracker: Optional ActivityTracker to update on progress
 
     Returns:
         ImportResult with added/skipped/failed items
@@ -327,9 +461,29 @@ def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict
 
     # Pre-flight: get existing series
     existing_ids = sonarr_service.get_existing_series_tvdb_ids(base_url, api_key)
-    logger.info(f"Found {len(existing_ids)} existing series in Sonarr")
+    if existing_ids is None:
+        logger.warning("Failed to fetch existing series from Sonarr — duplicate check may be incomplete")
+        existing_ids = set()
+    else:
+        logger.info(f"Found {len(existing_ids)} existing series in Sonarr")
+
+    # Pre-flight: get excluded series
+    excluded_ids_excl = sonarr_service.get_exclusions(base_url, api_key)
+    logger.info(f"Found {len(excluded_ids_excl)} excluded series in Sonarr")
+
+    # Batch accumulation
+    batch = []
+    batch_meta = []
 
     for item in tmdb_items:
+        # Check for timeout/cancellation
+        if stop_event and stop_event.is_set():
+            logger.info("Import stopped: timeout or cancellation signal received")
+            # Flush pending batch before stopping
+            if batch:
+                _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_tracker)
+            break
+
         # Extract TMDB ID and title
         try:
             tmdb_id = item["id"] if isinstance(item, dict) else getattr(item, "id", None)
@@ -340,12 +494,16 @@ def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict
 
         if not tmdb_id:
             result.failed.append({"tmdb_id": None, "title": title, "reason": "no_tmdb_id"})
+            if activity_tracker:
+                activity_tracker.update()
             continue
 
         # Translate TMDB ID to TVDB ID
         tvdb_id = tmdb_service.get_tvdb_id_from_tmdb(tmdb_id, tmdb_api_key)
         if not tvdb_id:
             result.failed.append({"tmdb_id": tmdb_id, "title": title, "reason": "no_tvdb_id"})
+            if activity_tracker:
+                activity_tracker.update()
             time.sleep(API_CALL_DELAY)
             continue
 
@@ -359,53 +517,69 @@ def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict
                     "reason": "already_exists",
                 }
             )
+            if activity_tracker:
+                activity_tracker.update()
             continue
 
-        try:
-            # Lookup series in Sonarr
-            series_data = sonarr_service.lookup_series(base_url, api_key, tvdb_id)
-            if not series_data:
-                result.failed.append(
-                    {
-                        "tmdb_id": tmdb_id,
-                        "tvdb_id": tvdb_id,
-                        "title": title,
-                        "reason": "not_found_in_sonarr",
-                    }
-                )
-                time.sleep(API_CALL_DELAY)
-                continue
-
-            # Add series to Sonarr
-            sonarr_service.add_series(
-                base_url=base_url,
-                api_key=api_key,
-                series_data=series_data,
-                root_folder=settings["root_folder"],
-                quality_profile_id=settings["quality_profile_id"],
-                monitored=settings["monitored"],
-                season_folder=settings["season_folder"],
-                search_on_add=settings["search_on_add"],
-                tags=settings["tags"],
+        # Check if on exclusion list
+        if tvdb_id in excluded_ids_excl:
+            result.skipped.append(
+                {
+                    "tmdb_id": tmdb_id,
+                    "tvdb_id": tvdb_id,
+                    "title": title,
+                    "reason": "on_exclusion_list",
+                }
             )
+            if activity_tracker:
+                activity_tracker.update()
+            continue
 
-            result.added.append({"tmdb_id": tmdb_id, "tvdb_id": tvdb_id, "title": title})
-
-        except Exception as e:
-            logger.error(
-                f"Error adding series {title} (TMDB: {tmdb_id}, TVDB: {tvdb_id}): {e}",
-                exc_info=True,
-            )
+        # Lookup series in Sonarr
+        series_data = sonarr_service.lookup_series(base_url, api_key, tvdb_id)
+        if not series_data:
             result.failed.append(
                 {
                     "tmdb_id": tmdb_id,
                     "tvdb_id": tvdb_id,
                     "title": title,
-                    "reason": str(e),
+                    "reason": "not_found_in_sonarr",
                 }
             )
+            if activity_tracker:
+                activity_tracker.update()
+            time.sleep(API_CALL_DELAY)
+            continue
 
-        time.sleep(API_CALL_DELAY)
+        # Build payload for bulk import
+        payload = {
+            "title": series_data.get("title"),
+            "tvdbId": series_data.get("tvdbId"),
+            "year": series_data.get("year"),
+            "qualityProfileId": settings["quality_profile_id"],
+            "titleSlug": series_data.get("titleSlug"),
+            "images": series_data.get("images", []),
+            "seasons": series_data.get("seasons", []),
+            "rootFolderPath": settings["root_folder"],
+            "monitored": settings["monitored"],
+            "seasonFolder": settings["season_folder"],
+            "addOptions": {"searchForMissingEpisodes": settings["search_on_add"]},
+            "tags": settings["tags"],
+        }
+
+        batch.append(payload)
+        batch_meta.append({"tmdb_id": tmdb_id, "tvdb_id": tvdb_id, "title": title})
+
+        # Flush batch if full
+        if len(batch) >= BATCH_SIZE:
+            _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_tracker)
+            batch = []
+            batch_meta = []
+            time.sleep(BATCH_DELAY)
+
+    # Flush remaining batch
+    if batch:
+        _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_tracker)
 
     logger.info(
         f"Import complete: {len(result.added)} added, {len(result.skipped)} skipped, {len(result.failed)} failed"
@@ -413,12 +587,14 @@ def _import_series(tmdb_items: list, base_url: str, api_key: str, settings: dict
     return result
 
 
-def import_list(list_id: int) -> ImportResult:
+def import_list(list_id: int, stop_event=None, activity_tracker=None) -> ImportResult:
     """
     Import all items from a TMDB list into Radarr or Sonarr.
 
     Args:
         list_id: Database ID of the List to import
+        stop_event: Optional threading.Event to signal cancellation
+        activity_tracker: Optional ActivityTracker to update on progress
 
     Returns:
         ImportResult with added/skipped/failed items
@@ -492,6 +668,22 @@ def import_list(list_id: int) -> ImportResult:
 
     # Route to appropriate import function
     if target_service == "RADARR":
-        return _import_movies(tmdb_items, base_url, service_api_key, settings, tmdb_api_key)
+        return _import_movies(
+            tmdb_items,
+            base_url,
+            service_api_key,
+            settings,
+            tmdb_api_key,
+            stop_event=stop_event,
+            activity_tracker=activity_tracker,
+        )
     else:
-        return _import_series(tmdb_items, base_url, service_api_key, settings, tmdb_api_key)
+        return _import_series(
+            tmdb_items,
+            base_url,
+            service_api_key,
+            settings,
+            tmdb_api_key,
+            stop_event=stop_event,
+            activity_tracker=activity_tracker,
+        )

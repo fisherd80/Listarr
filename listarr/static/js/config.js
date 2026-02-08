@@ -1,5 +1,21 @@
 // Data Loading State Tracking
 const dataLoaded = { radarr: false, sonarr: false };
+const API_TIMEOUT_MS = 10000; // 10 second timeout for external API calls
+
+// Skeleton Loading Functions
+function showImportSettingsSkeleton(service) {
+  const skeleton = document.getElementById(`${service}-import-skeleton`);
+  const form = document.getElementById(`${service}-import-form`);
+  if (skeleton) skeleton.classList.remove("hidden");
+  if (form) form.classList.add("hidden");
+}
+
+function hideImportSettingsSkeleton(service) {
+  const skeleton = document.getElementById(`${service}-import-skeleton`);
+  const form = document.getElementById(`${service}-import-form`);
+  if (skeleton) skeleton.classList.add("hidden");
+  if (form) form.classList.remove("hidden");
+}
 
 // Toggle Functions
 function toggleImportSettings(id, button) {
@@ -17,13 +33,23 @@ function toggleImportSettings(id, button) {
   if (wasHidden && !dataLoaded[service]) {
     dataLoaded[service] = true;
 
+    // Show skeleton while loading
+    showImportSettingsSkeleton(service);
+
     Promise.all([
       fetchRootFolders(service),
       fetchQualityProfiles(service)
     ]).then(() => {
-      loadSavedSettings(service);
+      return loadSavedSettings(service);
+    }).then(() => {
+      // Hide skeleton, show form
+      hideImportSettingsSkeleton(service);
     }).catch((error) => {
       dataLoaded[service] = false;
+      hideImportSettingsSkeleton(service);
+      if (error.name === "TimeoutError" || error.message.includes("timed out")) {
+        showToast(`${service.charAt(0).toUpperCase() + service.slice(1)} is not responding`, "error");
+      }
       console.error(`Failed to load ${service} import settings:`, error);
     });
   }
@@ -48,6 +74,7 @@ function fetchRootFolders(service) {
   return fetch(`/config/${service}/root-folders`, {
     method: "GET",
     headers: { "X-CSRFToken": csrfToken },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS)
   })
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -69,7 +96,12 @@ function fetchRootFolders(service) {
       }
     })
     .catch((error) => {
-      select.innerHTML = '<option value="">Error loading</option>';
+      if (error.name === "TimeoutError" || error.message.includes("timed out")) {
+        select.innerHTML = `<option value="">${service.charAt(0).toUpperCase() + service.slice(1)} not responding</option>`;
+        showToast(`${service.charAt(0).toUpperCase() + service.slice(1)} is not responding`, "error");
+      } else {
+        select.innerHTML = '<option value="">Error loading</option>';
+      }
       console.error("Error fetching root folders:", error);
     });
 }
@@ -86,6 +118,7 @@ function fetchQualityProfiles(service) {
   return fetch(`/config/${service}/quality-profiles`, {
     method: "GET",
     headers: { "X-CSRFToken": csrfToken },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS)
   })
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -107,7 +140,12 @@ function fetchQualityProfiles(service) {
       }
     })
     .catch((error) => {
-      select.innerHTML = '<option value="">Error loading</option>';
+      if (error.name === "TimeoutError" || error.message.includes("timed out")) {
+        select.innerHTML = `<option value="">${service.charAt(0).toUpperCase() + service.slice(1)} not responding</option>`;
+        showToast(`${service.charAt(0).toUpperCase() + service.slice(1)} is not responding`, "error");
+      } else {
+        select.innerHTML = '<option value="">Error loading</option>';
+      }
       console.error("Error fetching quality profiles:", error);
     });
 }
@@ -115,9 +153,10 @@ function fetchQualityProfiles(service) {
 function loadSavedSettings(service) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-  fetch(`/config/${service}/import-settings`, {
+  return fetch(`/config/${service}/import-settings`, {
     method: "GET",
     headers: { "X-CSRFToken": csrfToken },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS)
   })
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -187,6 +226,7 @@ function setupTestConnection(service) {
           "X-CSRFToken": csrfToken,
         },
         body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+        signal: AbortSignal.timeout(API_TIMEOUT_MS)
       })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -227,17 +267,17 @@ function setupSaveImportSettings(service) {
       const tagLabel = tagsInput ? tagsInput.value.trim() : "";
 
       if (!rootFolderId || !qualityProfileId) {
-        alert("Please select Root Folder and Quality Profile.");
+        showToast("Please select Root Folder and Quality Profile.", "warning");
         return;
       }
 
       if (!monitorValue) {
-        alert("Please select Monitor option.");
+        showToast("Please select Monitor option.", "warning");
         return;
       }
 
       if (!searchOnAddValue) {
-        alert("Please select Search on Add option.");
+        showToast("Please select Search on Add option.", "warning");
         return;
       }
 
@@ -257,7 +297,7 @@ function setupSaveImportSettings(service) {
         const seasonFolderValue = seasonFolderSelect.value;
 
         if (!seasonFolderValue) {
-          alert("Please select Season Folder option.");
+          showToast("Please select Season Folder option.", "warning");
           return;
         }
 
@@ -276,6 +316,7 @@ function setupSaveImportSettings(service) {
           "X-CSRFToken": csrfToken,
         },
         body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(API_TIMEOUT_MS)
       })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);

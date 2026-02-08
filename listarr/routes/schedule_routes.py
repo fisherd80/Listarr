@@ -2,13 +2,43 @@
 
 from flask import jsonify, render_template
 
-from listarr import csrf
+from listarr import csrf, db
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
 from listarr.routes import bp
 from listarr.services.job_executor import is_list_running
 from listarr.services.scheduler import get_next_run_time, pause_scheduler, resume_scheduler
+
+# Badge colors matching listarr/templates/macros/status.html
+_STATUS_COLORS = {
+    "running": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    "paused": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    "scheduled": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    "manual only": "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+}
+_DEFAULT_COLOR = "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+_SPINNER_SVG = (
+    '<svg class="animate-spin -ml-1 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" '
+    'fill="none" viewBox="0 0 24 24">'
+    '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">'
+    "</circle>"
+    '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4'
+    'zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>'
+    "</svg>"
+)
+
+
+def _render_status_badge(status):
+    """Render a status badge HTML string matching the Jinja2 macro colors."""
+    color = _STATUS_COLORS.get(status.lower(), _DEFAULT_COLOR)
+    base = (
+        f'<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs '
+        f'font-medium {color} status-badge" data-status="{status}">'
+    )
+    if status.lower() == "running":
+        return f"{base}{_SPINNER_SVG}{status}</span>"
+    return f"{base}{status}</span>"
 
 
 @bp.route("/schedule")
@@ -61,6 +91,7 @@ def schedule_page():
                 "last_run": last_run,
                 "items_count": items_count,
                 "has_schedule": bool(list_obj.schedule_cron),
+                "schedule_cron": list_obj.schedule_cron or "",
             }
         )
 
@@ -175,10 +206,12 @@ def get_schedule_status():
                 "name": list_obj.name,
                 "target_service": list_obj.target_service,
                 "status": status,
+                "status_html": _render_status_badge(status),
                 "next_run": next_run,
                 "last_run": last_run,
                 "items_count": items_count,
                 "has_schedule": bool(list_obj.schedule_cron),
+                "schedule_cron": list_obj.schedule_cron or "",
             }
         )
 
@@ -188,3 +221,76 @@ def get_schedule_status():
             "lists": schedule_data,
         }
     )
+
+
+@bp.route("/api/schedule/<int:list_id>/update", methods=["POST"])
+@csrf.exempt
+def update_schedule(list_id):
+    """
+    Update the schedule for a specific list.
+
+    Accepts JSON: {"schedule_cron": "0 0 * * *"} or {"schedule_cron": ""} to remove schedule.
+
+    Returns:
+        JSON: {success: true, schedule_cron: "...", status: "...", next_run: "..."}
+    """
+    from flask import current_app, request
+
+    from listarr.services.scheduler import schedule_list, unschedule_list, validate_cron_expression
+
+    list_obj = List.query.get(list_id)
+    if not list_obj:
+        return jsonify({"success": False, "error": "List not found"}), 404
+
+    data = request.get_json()
+    if data is None:
+        return jsonify({"success": False, "error": "Invalid JSON"}), 400
+
+    new_cron = data.get("schedule_cron", "").strip()
+
+    try:
+        # Validate cron expression if provided
+        if new_cron:
+            validation = validate_cron_expression(new_cron)
+            if not validation["valid"]:
+                return jsonify({"success": False, "error": f"Invalid cron: {validation['error']}"}), 400
+
+        # Update database
+        list_obj.schedule_cron = new_cron if new_cron else None
+        db.session.commit()
+
+        # Update scheduler
+        try:
+            if new_cron and list_obj.is_active:
+                schedule_list(list_obj.id, new_cron)
+            else:
+                unschedule_list(list_obj.id)
+        except Exception as e:
+            current_app.logger.warning(f"Scheduler update failed for list {list_id}: {e}")
+
+        # Get updated status
+        config = ServiceConfig.query.first()
+        scheduler_paused = config.scheduler_paused if config else False
+        status = _get_list_status(list_obj, scheduler_paused)
+
+        next_run = None
+        if new_cron and not scheduler_paused:
+            from listarr.services.scheduler import get_next_run_time
+
+            next_run_dt = get_next_run_time(list_obj.id)
+            if next_run_dt:
+                next_run = next_run_dt.isoformat()
+
+        return jsonify(
+            {
+                "success": True,
+                "schedule_cron": new_cron or "",
+                "status": status,
+                "next_run": next_run,
+            }
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating schedule for list {list_id}: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "Failed to update schedule"}), 500

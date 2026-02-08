@@ -2,14 +2,14 @@
 
 **Project:** Listarr
 **Milestone:** v1.0 - Automated Media Discovery
-**Last Updated:** 2026-02-07
+**Last Updated:** 2026-02-08
 
 ## Current Status
 
-**Phase:** 9.1 - Config & JS Deduplication
-**Plan:** 3 of 3 (Complete)
+**Phase:** 10.5 - UI Performance & State Consolidation
+**Plan:** 4 of 4
 **Status:** Complete
-**Last activity:** 2026-02-07 - Completed 09.1-03-PLAN.md (Config.js & Utils.js Consolidation)
+**Last activity:** 2026-02-08 - Fixed legacy code remnants (dashboard, wizard, schedule, import)
 
 ## Phase Progress
 
@@ -29,12 +29,204 @@
 | 8. Architecture & API Consolidation | Complete | 6/6 | Verified |
 | 9. Code Quality & Refactoring | Complete | 6/6 | Verified |
 | 9.1 Config & JS Deduplication | Complete | 3/3 | - |
-| 10. UI/UX Simplification | Not started | 0/? | - |
+| 10. UI/UX Simplification | Complete | 5/5 | Verified |
+| 10.1 UI Review Fixes | Complete | 3/3 | - |
+| 10.2 Schedule Bug Fixes | Complete | 2/2 | Verified |
+| 10.3 Import & Schedule Bug Fixes | Complete | 2/2 | Verified |
+| 10.4 Bulk Import API | Complete | 2/2 | - |
+| 10.5 UI Performance & State | Complete | 4/4 | - |
 | 11. Security Hardening | Not started | 0/? | - |
 | 12. Release Readiness | Not started | 0/? | - |
 
 ## Recent Activity
 
+- 2026-02-08: Post-Phase 10.5 bug fixes (legacy code remnants)
+  - Fixed dashboard Recent Jobs stuck on loading (formatDate → formatTimestamp)
+  - Fixed wizard preview stuck on "Loading Preview..." (.results attribute check)
+  - Fixed schedule.js formatRelativeTime undefined (→ formatTimestamp)
+  - Removed dead code in import_service.py (.results branch never executed)
+  - Root cause: Phase 8 (native API) and Phase 10 (JS consolidation) remnants
+  - Commits: 18e4232, d57e562, 37a9bfe
+  - All 493 tests pass
+
+- 2026-02-08: Completed 10.5-04-PLAN (skeleton loading states)
+  - Added skeleton loading to config import settings (forms.html macro)
+  - Added showImportSettingsSkeleton/hideImportSettingsSkeleton to config.js
+  - Added skeleton loading to dashboard service cards (Radarr/Sonarr)
+  - Updated dashboard.js showServiceLoadingState/updateServiceCard for skeletons
+  - Skeletons use animate-pulse with dark mode support (bg-gray-200 dark:bg-gray-700)
+  - Commits: ffba94d, b250153, 3b1de59
+  - Phase 10.5 complete (4/4 plans)
+
+- 2026-02-08: Completed 10.5-03-PLAN (server-rendered status badges)
+  - Added _render_status_badge() helper to schedule_routes.py
+  - API /api/schedule/status now returns status_html field
+  - Removed updateStatusBadge() from schedule.js (-36 lines)
+  - schedule.js uses server-rendered HTML via outerHTML
+  - Renamed renderStatus → renderStatusBadge in jobs.js with matching colors
+  - Single source of truth for badge colors now server-side
+  - Commits: d5df5b7, 59a8592, d66f71f
+  - Phase 10.5 progress (3/4 plans complete)
+
+- 2026-02-08: Completed 10.5-02-PLAN (wizard.js + config.js timeout handling)
+  - Added API_TIMEOUT_MS (10 seconds) constant to both files
+  - wizard.js: fetchPreview and fetchImportDefaults use AbortSignal.timeout
+  - config.js: All 5 fetch calls use AbortSignal.timeout
+  - TimeoutError detection with user-friendly messages (toasts + dropdown feedback)
+  - Commits: 698b7f7, b1e5bdf
+  - Phase 10.5 progress (2/4 plans complete)
+
+- 2026-02-08: Completed 10.5-01-PLAN (fetchWithTimeout + formatTimestamp consolidation)
+  - Added fetchWithTimeout function with AbortSignal.timeout support
+  - Consolidated 3 overlapping date functions into unified formatTimestamp(iso, mode)
+  - Modes: 'relative' (default), 'absolute', 'utc'
+  - Removed formatDateAbsolute from jobs.js (uses shared formatter)
+  - ~41 lines net reduction from deduplication
+  - Commits: c97dd86, 3716c4c
+  - Phase 10.5 progress (1/4 plans complete)
+
+- 2026-02-08: Completed 10.4-02-PLAN (Bulk Import API Tests)
+  - Added 17 comprehensive tests for bulk import functionality (9 unit + 8 integration)
+  - TestBulkAddMovies (5 tests): success, empty batch, API error, timeout verification, headers
+  - TestBulkAddSeries (4 tests): success, empty batch, API error, timeout verification
+  - TestBatchImportMovies (6 tests): bulk endpoint usage, pre-flight skips, lookup failures, batch flush, bulk failures
+  - TestBatchImportSeries (2 tests): bulk endpoint usage, TMDB-to-TVDB translation
+  - All 493 tests pass (476 existing + 17 new)
+  - Commits: 3ed258b, 31bde18
+  - Phase 10.4 complete (2/2 plans)
+
+- 2026-02-08: Completed 10.4-01-PLAN (Bulk Import API Implementation)
+  - Added bulk_add_movies() to radarr_service (POST to /api/v3/movie/import)
+  - Added bulk_add_series() to sonarr_service (POST to /api/v3/series/import)
+  - Added BULK_TIMEOUT = 300 constant for bulk operations (5 minutes)
+  - Rewrote _import_movies() to use batch accumulation pattern (50 items/batch)
+  - Rewrote _import_series() to use batch accumulation pattern (50 items/batch)
+  - Removed single-item add calls and HTTPError duplicate handling (bulk endpoint handles duplicates)
+  - Performance improvement: ~8x faster for 100 items (240s → 31s expected)
+  - Commits: c037d57, c73c418
+  - Phase 10.4 progress (1/2 plans complete)
+
+- 2026-02-08: Completed 10.3-01-PLAN (Import & Schedule Bug Fixes - Radarr 400 Bad Request Fix)
+  - Fixed Radarr 400 Bad Request errors by replacing unsafe movie_data.copy() with explicit 9-field payload
+  - Fixed Sonarr payload construction by replacing series_data.copy() with explicit 11-field payload
+  - Added error response logging before raise_for_status in Radarr add_movie
+  - Added get_exclusions() functions to both radarr_service and sonarr_service
+  - Integrated exclusion list checks into import flow (skip excluded items before lookup)
+  - Added 7 new tests (3 radarr + 3 sonarr + 1 integration)
+  - All 476 tests pass (469 existing + 7 new)
+  - Commits: e5c9d1d, f5565d2
+  - Phase 10.3 complete (2/2 plans)
+
+- 2026-02-08: Completed 10.3-02-PLAN (Schedule Edit Modal)
+  - Added schedule edit modal with inline editing on schedule page
+  - Fixed weekly cron preset from "0 0 * * 0" to "0 0 * * SUN" in lists_forms.py
+  - Added POST /api/schedule/<list_id>/update endpoint for schedule updates
+  - Modal supports preset dropdown and custom cron input toggle
+  - Edit button (pencil icon) on each schedule table row
+  - Escape key and backdrop click close modal
+  - All existing tests pass
+  - Commits: 0c33fd2, f04bdde
+  - Phase 10.3 complete (2/2 plans)
+
+- 2026-02-08: Completed 10.2-02-PLAN (Activity-Based Idle Timeout)
+  - Replaced JOB_TIMEOUT_SECONDS (600s) with IDLE_TIMEOUT_SECONDS (300s) and IDLE_CHECK_INTERVAL (30s)
+  - Added ActivityTracker class for thread-safe last-activity tracking
+  - Replaced _trigger_timeout with _monitor_idle function that checks activity
+  - Updated submit_job to create ActivityTracker and monitor thread
+  - Pass activity_tracker to _execute_job and import_list
+  - Import loops check stop_event at start and update activity_tracker after each item
+  - Added 16 new tests (TestActivityTracker, TestIdleTimeout, TestImportStopEvent)
+  - All 469 tests pass (453 existing + 16 new)
+  - Commits: 0cec89f, c565c96, 644998f
+  - Phase 10.2 complete (2/2 plans)
+- 2026-02-08: Completed 10.2-01-PLAN (Scheduler Pre-flight Health Check)
+  - Added pre-flight service health check to _run_scheduled_import()
+  - Import validate_api_key from arr_service and decrypt_data from crypto_utils
+  - Health check validates target service reachability before submitting job
+  - Log error and skip if service not configured or API key missing
+  - Log warning and skip if service unreachable (expected/transient)
+  - Catch exceptions from decrypt/validate operations
+  - Created test_scheduler.py with 6 comprehensive tests
+  - All 459 tests pass (453 existing + 6 new)
+  - Commits: 2af7fbe, 19df58f
+  - Phase 10.2 progress (1/2 plans complete)
+- 2026-02-08: Completed 10.1-03-PLAN (Wizard Preset Metadata Extraction)
+  - Added PRESET_METADATA constant dict to lists_routes.py with all 6 presets
+  - Each preset has title, description, filter_title, filter_description
+  - Passed preset_info to wizard template in both create and edit mode
+  - Replaced 4 if/elif chain blocks in list_wizard.html with preset_info variable references
+  - Template reduced from 658 to 616 lines (-42 lines)
+  - All 453 tests pass, no modifications needed
+  - Commits: dac5473, d15b030
+  - Phase 10.1 complete (3/3 plans)
+- 2026-02-08: Completed 10.1-02-PLAN (Error State Macro + Lists Badges)
+  - Added error_state() macro to macros/ui.html (heading, description, optional retry)
+  - Simplified lists.html badges from 9-line if/else to 4-line compact Jinja set pattern
+  - Preserved data-status-badge attribute for lists.js toggleList() JS compatibility
+  - Standardized 2 wizard preview-error blocks to match error_state macro visual pattern
+  - Added error_state import to list_wizard.html, preserved preview-error-message ID
+  - All 453 tests pass, no modifications needed
+  - Commits: 3705b2a, 24777be
+  - Phase 10.1 progress (2/3 plans complete)
+- 2026-02-08: Completed 10.1-01-PLAN (JS Consistency Fixes)
+  - Replaced 4 alert() calls with showToast() in config.js
+  - Added generateServiceBadge() to utils.js (Radarr=amber, Sonarr=blue)
+  - Dashboard upcoming widget now uses generateServiceBadge() (was blue/purple, now amber/blue)
+  - Jobs page filter dropdowns: added py-2 for consistent height
+  - All 453 tests pass, no modifications needed
+  - Commits: 84da90e, e51ec1c
+  - Phase 10.1 progress (1/3 plans complete)
+- 2026-02-08: Completed Phase 10 UAT (9/9 tests passed, 0 issues)
+  - All 6 pages verified: Dashboard, Lists, Jobs, Schedule, Config, Settings
+  - No JavaScript console errors on any page
+  - Pre-existing observations logged (not Phase 10 regressions):
+    - Edit list stalls when service is down (sync API calls)
+    - Config import settings slow to load (10-20s)
+    - Jobs filter dropdown heights inconsistent (cosmetic)
+  - Phase 10 complete (5/5 plans, verified)
+- 2026-02-08: Completed 10-05-PLAN (Config.html Form Macro)
+  - Created macros/forms.html with import_settings_form macro
+  - Config.html: 510 -> 270 lines (47% reduction)
+  - All element IDs match config.js expectations
+  - All 453 tests pass, no modifications needed
+  - Commit: 03cd649
+  - Phase 10 progress (5/5 plans complete)
+- 2026-02-08: Completed 10-04-PLAN (Jobs.js, Schedule.js, Lists.js Cleanup)
+  - Removed duplicate getCsrfToken from jobs.js, schedule.js, lists.js
+  - Removed duplicate escapeHtmlLocal from jobs.js (replaced with global escapeHtml)
+  - Removed duplicate formatDuration from jobs.js, formatRelativeTime from schedule.js
+  - Renamed jobs.js formatDate to formatDateAbsolute (keeps absolute format for history table)
+  - Added visibility check to jobs.js polling (pauses when tab hidden)
+  - Added auto-apply filter on dropdown change in jobs.js
+  - 107 total lines removed across 3 files
+  - All 453 tests pass, no modifications needed
+  - Commits: bfa4e84, ab57cbc
+  - Phase 10 progress (4/5 plans complete)
+- 2026-02-07: Completed 10-03-PLAN (Dashboard.js Parameterization and Cleanup)
+  - Removed duplicate escapeHtml, formatDate, capitalize (now from global utils.js)
+  - Replaced showRadarrLoadingState/showSonarrLoadingState with showServiceLoadingState(service)
+  - Replaced updateRadarrCard/updateSonarrCard with updateServiceCard(data, service)
+  - Extracted OFFLINE_DATA constant and SERVICE_CONFIG for data-driven updates
+  - Added visibility check to jobs polling
+  - Removed redundant outer try/catch in initDashboard()
+  - dashboard.js: 876 -> 539 lines (38% reduction)
+  - All 453 tests pass, no modifications needed
+  - Commits: bd96114, b9080c6
+  - Phase 10 progress (3/5 plans complete)
+- 2026-02-07: Completed 10-02-PLAN (JS Utility Consolidation)
+  - Expanded utils.js from 2 to 9 shared functions (escapeHtml, getCsrfToken, formatDate, formatRelativeTime, formatDuration, capitalize, debounce)
+  - Loaded utils.js globally via base.html (before toast.js)
+  - Removed duplicate escapeHtml from toast.js, redundant script tags from config.html/settings.html
+  - All 453 tests pass, no modifications needed
+  - Commits: 0e0ef92, fbeb565
+  - Phase 10 progress (2/5 plans complete)
+- 2026-02-07: Completed 10-01-PLAN (Jinja2 Macro Library)
+  - Created macros/status.html (status_badge, service_badge) and macros/ui.html (loading_spinner, empty_state)
+  - Replaced inline HTML in lists.html, schedule.html, jobs.html (82 lines removed, 15 added)
+  - Dashboard.html skipped (JS-managed badges), lists.html status badges skipped (JS toggleList)
+  - All 453 tests pass, no modifications needed
+  - Commits: 9e0b5ff, fddc5bb
+  - Phase 10 progress (1/5 plans complete)
 - 2026-02-07: Completed 09.1-03-PLAN (Config.js & Utils.js Consolidation)
   - Consolidated config.js from 746 to 322 lines (57% reduction)
   - Created utils.js with shared formatTimestamp and generateStatusHTML
@@ -262,11 +454,7 @@
 
 ## Next Steps
 
-1. Start Phase 9 (Code Quality & Refactoring)
-   - Review 08-ARCHITECTURE-CONCERNS.md for prioritized technical debt
-   - Address duplicate code consolidation (HIGH priority)
-   - Standardize error handling (HIGH priority)
-2. Remaining phases: UI/UX (10), Security (11), Release (12)
+1. Phase 10.5 complete - proceed to Phase 11 (Security Hardening) or Phase 12 (Release Readiness)
 
 ## Blockers
 
@@ -274,8 +462,8 @@ None
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Phase 9.1 complete (3/3 plans). Next: Phase 10 (UI/UX Simplification)
+Last session: 2026-02-08
+Stopped at: Phase 10.5 complete (4/4 plans). Ready for Phase 11 or 12.
 Resume file: None
 
 ## Notes
@@ -352,6 +540,13 @@ Commits are **rejected** if not complying with:
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Batch size of 50 items for bulk import | Conservative limit vs Kometa's 100; balances throughput with timeout risk (50 items × 3s = 150s within 300s timeout) | 2026-02-08 |
+| BULK_TIMEOUT of 300 seconds (5 minutes) | Bulk operations process entire batch server-side with potential searches per item; ADD_TIMEOUT (120s) insufficient | 2026-02-08 |
+| Remove MovieExistsValidator/SeriesExistsValidator error parsing | Bulk endpoints silently skip duplicates (items not in response = already exists); simpler result processing | 2026-02-08 |
+| SERVICE_CONFIG as top-level data-driven constant for dashboard cards | Eliminates per-service branches in loading/update functions; single parameterized path for both services | 2026-02-07 |
+| Single-line JSDoc comments for internal dashboard functions | Reduces visual noise; full parameter docs unnecessary for well-named internal functions | 2026-02-07 |
+| Jinja2 macros render content only (no wrapper divs) | Templates keep wrapper divs with IDs for JS show/hide; macros provide inner content only | 2026-02-07 |
+| Skip JS-managed badges in macro replacement | Dashboard status badges and lists active/inactive badges are dynamically managed by JavaScript | 2026-02-07 |
 | Service-parameterized Flask routes with <service> URL parameter | Eliminate horizontal duplication between Radarr/Sonarr routes - same logic, different service names | 2026-02-06 |
 | arr_service.py as single source of truth for Radarr/Sonarr operations | Phase 9 created shared functions (validate_api_key, get_quality_profiles, etc.) working for both services | 2026-02-06 |
 | Direct HTTP calls in tmdb_service.py | Replace tmdbv3api dependency with http_session for consistent retry/timeout behavior | 2026-02-05 |
@@ -423,6 +618,7 @@ Commits are **rejected** if not complying with:
 
 ## Roadmap Evolution
 
+- 2026-02-08: Phase 10.1 inserted after Phase 10: UI Review Fixes (flask-ui-state-reviewer audit found alert() dialogs, underutilized macros, inconsistent service badges)
 - 2026-02-05: Phase 9.1 inserted after Phase 9: Config & JS Deduplication (flask-slop-refactor review found ~950 lines of Radarr/Sonarr horizontal duplication in config_routes.py and config.js)
 - 2026-02-05: Roadmap restructured for quality-focused finish:
   - Old Phase 8 (Service Settings Caching) → evaluated during new Phase 8

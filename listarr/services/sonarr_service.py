@@ -26,7 +26,7 @@ from listarr.services.arr_service import (
 from listarr.services.arr_service import (
     get_tags as get_tags,
 )
-from listarr.services.http_client import DEFAULT_TIMEOUT, http_session, normalize_url
+from listarr.services.http_client import ADD_TIMEOUT, BULK_TIMEOUT, DEFAULT_TIMEOUT, http_session, normalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def get_missing_episodes_count(base_url: str, api_key: str) -> int:
     return int(total_records) if total_records is not None else 0
 
 
-def get_existing_series_tvdb_ids(base_url: str, api_key: str) -> set[int]:
+def get_existing_series_tvdb_ids(base_url: str, api_key: str) -> set[int] | None:
     """
     Fetches all TVDB IDs of series currently in Sonarr.
     Used for pre-flight duplicate detection.
@@ -130,12 +130,29 @@ def get_existing_series_tvdb_ids(base_url: str, api_key: str) -> set[int]:
         api_key: Sonarr API key.
 
     Returns:
-        Set of TVDB IDs, empty set on error.
+        Set of TVDB IDs, or None on API error (distinguishes from empty library).
     """
     series = arr_api_get(base_url, api_key, "series")
     if series is None:
-        return set()
+        return None
     return {s.get("tvdbId") for s in series if s.get("tvdbId")}
+
+
+def get_exclusions(base_url: str, api_key: str) -> set[int]:
+    """
+    Fetch excluded TVDB IDs from Sonarr's import list exclusion.
+
+    Args:
+        base_url: Base URL of Sonarr.
+        api_key: Sonarr API key.
+
+    Returns:
+        Set of excluded TVDB IDs, empty set on error.
+    """
+    exclusions = arr_api_get(base_url, api_key, "importlistexclusion")
+    if not exclusions:
+        return set()
+    return {e.get("tvdbId") for e in exclusions if e.get("tvdbId")}
 
 
 def lookup_series(base_url: str, api_key: str, tvdb_id: int) -> dict | None:
@@ -205,18 +222,62 @@ def add_series(
     tvdb_id = series_data.get("tvdbId", "Unknown")
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
 
-    series_payload = series_data.copy()
-    series_payload["rootFolderPath"] = root_folder
-    series_payload["qualityProfileId"] = quality_profile_id
-    series_payload["monitored"] = monitored
-    series_payload["seasonFolder"] = season_folder
-    series_payload["tags"] = tags or []
-    series_payload["addOptions"] = {"searchForMissingEpisodes": search_on_add}
+    series_payload = {
+        "title": series_data.get("title"),
+        "tvdbId": series_data.get("tvdbId"),
+        "year": series_data.get("year"),
+        "qualityProfileId": quality_profile_id,
+        "titleSlug": series_data.get("titleSlug"),
+        "images": series_data.get("images", []),
+        "seasons": series_data.get("seasons", []),
+        "rootFolderPath": root_folder,
+        "monitored": monitored,
+        "seasonFolder": season_folder,
+        "addOptions": {"searchForMissingEpisodes": search_on_add},
+        "tags": tags or [],
+    }
 
-    response = http_session.post(url, json=series_payload, headers=headers, timeout=DEFAULT_TIMEOUT)
+    response = http_session.post(url, json=series_payload, headers=headers, timeout=ADD_TIMEOUT)
 
     if response.status_code == 201:
         return response.json()
     else:
         error_msg = response.text
         raise Exception(f"Sonarr API error ({response.status_code}): {error_msg}")
+
+
+def bulk_add_series(
+    base_url: str,
+    api_key: str,
+    series_payloads: list[dict],
+) -> dict:
+    """
+    Add multiple series to Sonarr using bulk import endpoint.
+
+    Args:
+        base_url: Base URL of Sonarr.
+        api_key: Sonarr API key.
+        series_payloads: List of series payload dicts (pre-built with all required fields).
+
+    Returns:
+        List of added series data from Sonarr.
+
+    Raises:
+        Exception: On API error (caller should handle).
+    """
+    url = f"{normalize_url(base_url)}/api/v3/series/import"
+    headers = {"X-Api-Key": api_key}
+
+    logger.info(f"Bulk adding {len(series_payloads)} series to Sonarr")
+
+    try:
+        response = http_session.post(url, json=series_payloads, headers=headers, timeout=BULK_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        if "response" in locals() and hasattr(response, "status_code"):
+            logger.error(f"Bulk import failed ({response.status_code}): {response.text}", exc_info=True)
+            raise Exception(f"Sonarr API error ({response.status_code}): {response.text}")
+        else:
+            logger.error(f"Bulk import failed: {e}", exc_info=True)
+            raise

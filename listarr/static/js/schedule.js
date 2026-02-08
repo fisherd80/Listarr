@@ -11,107 +11,13 @@ const state = {
 };
 
 /**
- * Gets the CSRF token from the meta tag.
- * @returns {string} CSRF token value
- */
-function getCsrfToken() {
-  const metaTag = document.querySelector('meta[name="csrf-token"]');
-  return metaTag ? metaTag.content : "";
-}
-
-/**
- * Format ISO date string to relative time.
- * @param {string} isoString - ISO date string
- * @returns {string} Relative time string
- */
-function formatRelativeTime(isoString) {
-  if (!isoString) return "-";
-  try {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffSeconds = Math.floor(diffMs / 1000);
-    const diffMinutes = Math.floor(diffSeconds / 60);
-    const diffHours = Math.floor(diffMinutes / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    // Past dates
-    if (diffMs >= 0) {
-      if (diffSeconds < 60) return "Just now";
-      if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
-      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    }
-
-    // Future dates (for next run)
-    const absDiffSeconds = Math.abs(diffSeconds);
-    const absDiffMinutes = Math.abs(diffMinutes);
-    const absDiffHours = Math.abs(diffHours);
-    const absDiffDays = Math.abs(diffDays);
-
-    if (absDiffSeconds < 60) return "In less than a minute";
-    if (absDiffMinutes < 60) return `In ${absDiffMinutes} minute${absDiffMinutes > 1 ? "s" : ""}`;
-    if (absDiffHours < 24) return `In ${absDiffHours} hour${absDiffHours > 1 ? "s" : ""}`;
-    if (absDiffDays === 1) {
-      return `Tomorrow at ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
-    }
-    return date.toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch (e) {
-    return "-";
-  }
-}
-
-/**
- * Update status badge styling.
- * @param {Element} badge - Badge element
- * @param {string} status - Status value
- */
-function updateStatusBadge(badge, status) {
-  // Remove all status classes
-  badge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium status-badge";
-
-  // Add status-specific classes
-  switch (status) {
-    case "Running":
-      badge.classList.add("bg-blue-100", "text-blue-800", "dark:bg-blue-900", "dark:text-blue-200");
-      badge.innerHTML = `
-        <svg class="animate-spin -ml-1 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Running
-      `;
-      break;
-    case "Paused":
-      badge.classList.add("bg-yellow-100", "text-yellow-800", "dark:bg-yellow-900", "dark:text-yellow-200");
-      badge.textContent = "Paused";
-      break;
-    case "Scheduled":
-      badge.classList.add("bg-green-100", "text-green-800", "dark:bg-green-900", "dark:text-green-200");
-      badge.textContent = "Scheduled";
-      break;
-    case "Manual only":
-      badge.classList.add("bg-gray-100", "text-gray-800", "dark:bg-gray-900", "dark:text-gray-200");
-      badge.textContent = "Manual only";
-      break;
-  }
-  badge.setAttribute("data-status", status);
-}
-
-/**
  * Update all relative time displays.
  */
 function updateRelativeTimes() {
   document.querySelectorAll(".relative-time").forEach((element) => {
     const isoString = element.closest("td").getAttribute("data-last-run") || element.closest("td").getAttribute("data-next-run");
     if (isoString) {
-      element.textContent = formatRelativeTime(isoString);
+      element.textContent = formatTimestamp(isoString);
     }
   });
 }
@@ -192,12 +98,13 @@ async function refreshScheduleStatus() {
 
     const data = await response.json();
 
-    // Update status badges
+    // Update status badges using server-rendered HTML
     let hasRunning = false;
     data.lists.forEach((list) => {
       const badge = document.querySelector(`tr[onclick*="${list.id}"] .status-badge`);
-      if (badge) {
-        updateStatusBadge(badge, list.status);
+      if (badge && list.status_html) {
+        // Replace badge with server-rendered HTML
+        badge.outerHTML = list.status_html;
       }
       if (list.status === "Running") {
         hasRunning = true;
@@ -210,7 +117,7 @@ async function refreshScheduleStatus() {
         const timeSpan = nextRunCell.querySelector(".relative-time");
         if (timeSpan) {
           if (list.next_run) {
-            timeSpan.textContent = formatRelativeTime(list.next_run);
+            timeSpan.textContent = formatTimestamp(list.next_run);
           } else if (list.has_schedule && data.paused) {
             timeSpan.className = "text-gray-400 dark:text-gray-500";
             timeSpan.textContent = "Paused";
@@ -254,6 +161,141 @@ function stopPolling() {
 }
 
 /**
+ * State for the edit modal.
+ */
+const modalState = {
+  listId: null,
+  useCustom: false,
+};
+
+/**
+ * Open the schedule edit modal for a list.
+ * @param {number} listId - List ID
+ * @param {string} listName - List name for modal title
+ * @param {string} currentCron - Current cron expression
+ */
+function openEditModal(listId, listName, currentCron) {
+  modalState.listId = listId;
+  modalState.useCustom = false;
+
+  document.getElementById("modal-list-id").value = listId;
+  document.getElementById("modal-title").textContent = `Edit Schedule: ${escapeHtml(listName)}`;
+
+  // Try to match current cron to a preset
+  const select = document.getElementById("modal-schedule-select");
+  const customInput = document.getElementById("modal-cron-input");
+  const customWrapper = document.getElementById("modal-cron-input-wrapper");
+  const toggleBtn = document.getElementById("modal-toggle-custom");
+
+  let matchedPreset = false;
+  for (const option of select.options) {
+    if (option.value === currentCron) {
+      select.value = currentCron;
+      matchedPreset = true;
+      break;
+    }
+  }
+
+  if (!matchedPreset && currentCron) {
+    // Custom cron expression — show custom input
+    modalState.useCustom = true;
+    select.classList.add("hidden");
+    customWrapper.classList.remove("hidden");
+    customInput.value = currentCron;
+    toggleBtn.textContent = "Use preset schedule";
+  } else {
+    select.classList.remove("hidden");
+    customWrapper.classList.add("hidden");
+    customInput.value = "";
+    toggleBtn.textContent = "Use custom cron expression";
+  }
+
+  // Show modal
+  document.getElementById("schedule-edit-modal").classList.remove("hidden");
+}
+
+/**
+ * Close the schedule edit modal.
+ */
+function closeEditModal() {
+  document.getElementById("schedule-edit-modal").classList.add("hidden");
+  modalState.listId = null;
+}
+
+/**
+ * Toggle between preset dropdown and custom cron input.
+ */
+function toggleCustomCron() {
+  modalState.useCustom = !modalState.useCustom;
+  const select = document.getElementById("modal-schedule-select");
+  const customWrapper = document.getElementById("modal-cron-input-wrapper");
+  const toggleBtn = document.getElementById("modal-toggle-custom");
+
+  if (modalState.useCustom) {
+    select.classList.add("hidden");
+    customWrapper.classList.remove("hidden");
+    toggleBtn.textContent = "Use preset schedule";
+  } else {
+    select.classList.remove("hidden");
+    customWrapper.classList.add("hidden");
+    toggleBtn.textContent = "Use custom cron expression";
+  }
+}
+
+/**
+ * Save the schedule from the modal.
+ */
+async function saveSchedule() {
+  const listId = modalState.listId;
+  if (!listId) return;
+
+  let cronValue;
+  if (modalState.useCustom) {
+    cronValue = document.getElementById("modal-cron-input").value.trim();
+  } else {
+    cronValue = document.getElementById("modal-schedule-select").value;
+  }
+
+  const saveBtn = document.getElementById("modal-save-btn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving...";
+
+  try {
+    const response = await fetch(`/api/schedule/${listId}/update`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ schedule_cron: cronValue }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || "Save failed");
+
+    // Close modal and refresh status
+    closeEditModal();
+    await refreshScheduleStatus();
+
+    // Reload page to get updated data (simplest approach for table update)
+    window.location.reload();
+  } catch (error) {
+    console.error("Failed to save schedule:", error);
+    if (window.showToast) {
+      window.showToast(error.message || "Failed to save schedule", "error");
+    }
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save";
+  }
+}
+
+/**
  * Initialize the schedule page.
  */
 document.addEventListener("DOMContentLoaded", () => {
@@ -275,6 +317,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Update relative times every 30 seconds
   setInterval(updateRelativeTimes, 30000);
+
+  // Close modal on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeEditModal();
+  });
 });
 
 // Stop polling when page is hidden

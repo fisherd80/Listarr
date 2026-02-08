@@ -30,6 +30,46 @@ from listarr.services.tmdb_cache import (
 )
 from listarr.utils.time_utils import format_relative_time
 
+# Preset display metadata - single source of truth for wizard UI text
+PRESET_METADATA = {
+    "trending_movies": {
+        "title": "Trending Movies",
+        "description": "Discover movies that are trending this week on TMDB",
+        "filter_title": "Trending Movies This Week",
+        "filter_description": "Fetches movies that are trending on TMDB based on recent activity, views, and ratings.",
+    },
+    "trending_tv": {
+        "title": "Trending TV Shows",
+        "description": "Discover TV shows that are trending this week on TMDB",
+        "filter_title": "Trending TV Shows This Week",
+        "filter_description": "Fetches shows that are trending on TMDB based on recent activity, views, and ratings.",
+    },
+    "popular_movies": {
+        "title": "Popular Movies",
+        "description": "The most popular movies on TMDB right now",
+        "filter_title": "Most Popular Movies",
+        "filter_description": "Fetches the most popular movies on TMDB based on overall popularity scores.",
+    },
+    "popular_tv": {
+        "title": "Popular TV Shows",
+        "description": "The most popular TV shows on TMDB right now",
+        "filter_title": "Most Popular TV Shows",
+        "filter_description": "Fetches the most popular TV shows on TMDB based on overall popularity scores.",
+    },
+    "top_rated_movies": {
+        "title": "Top Rated Movies",
+        "description": "The highest rated movies of all time on TMDB",
+        "filter_title": "Top Rated Movies",
+        "filter_description": "Fetches the highest rated movies on TMDB based on user ratings and votes.",
+    },
+    "top_rated_tv": {
+        "title": "Top Rated TV Shows",
+        "description": "The highest rated TV shows of all time on TMDB",
+        "filter_title": "Top Rated TV Shows",
+        "filter_description": "Fetches the highest rated TV shows on TMDB based on user ratings and votes.",
+    },
+}
+
 # Helper functions for tri-state boolean conversion
 # Database stores: 0 (False), 1 (True), None (inherit/unset)
 # API uses: False, True, None
@@ -406,6 +446,7 @@ def list_wizard():
             list_id=list_id,
             edit_mode=True,
             existing_list=existing_list,
+            preset_info=PRESET_METADATA.get(preset_value, {}),
         )
 
     # Create mode - determine wizard mode based on preset
@@ -432,6 +473,7 @@ def list_wizard():
         list_id=list_id,
         edit_mode=False,
         existing_list=None,
+        preset_info=PRESET_METADATA.get(preset, {}),
     )
 
 
@@ -575,30 +617,16 @@ def wizard_preview():
         return jsonify({"error": "Failed to fetch preview from TMDB", "items": []})
 
     # Return first 5 items for preview
-    # tmdbv3api returns AsObj with 'results' attribute containing the actual items
-    # Both the response and .results are AsObj, so convert to list before slicing
-    if hasattr(items, "results") and items.results:
-        items_list = list(items.results)[:5]
-    else:
-        items_list = []
+    # Native API returns plain list of dicts
+    items_list = items[:5] if items else []
 
     preview_items = []
     for item in items_list:
-        # tmdbv3api returns AsObj - access as dict to get raw values
-        # AsObj supports dict-like access via __getitem__
-        try:
-            # Try dict-style access first (more reliable for AsObj)
-            item_id = item["id"] if "id" in item else None
-            title = item.get("title") or item.get("name") or "Unknown"
-            release_date = item.get("release_date") or item.get("first_air_date") or ""
-            vote_average = item.get("vote_average")
-        except (TypeError, KeyError):
-            # Fallback to attribute access
-            item_id = getattr(item, "id", None)
-            title = getattr(item, "title", None) or getattr(item, "name", None) or "Unknown"
-            release_date = getattr(item, "release_date", None) or getattr(item, "first_air_date", None) or ""
-            vote_average = getattr(item, "vote_average", None)
-
+        # Native API returns plain dicts
+        item_id = item.get("id")
+        title = item.get("title") or item.get("name") or "Unknown"
+        release_date = item.get("release_date") or item.get("first_air_date") or ""
+        vote_average = item.get("vote_average")
         year = release_date[:4] if release_date else None
 
         preview_items.append(

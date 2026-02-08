@@ -5,6 +5,7 @@ Orchestrates background job execution with database persistence, retry logic, an
 
 import logging
 import threading
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 MAX_WORKERS = 3
-JOB_TIMEOUT_SECONDS = 600  # 10 minutes
+IDLE_TIMEOUT_SECONDS = 300  # 5 minutes of no activity triggers timeout
+IDLE_CHECK_INTERVAL = 30  # Check for idle every 30 seconds
 RETRY_ATTEMPTS = 3
 RETRY_DELAYS = [5, 10, 20]  # seconds
 
@@ -26,6 +28,25 @@ RETRY_DELAYS = [5, 10, 20]  # seconds
 _executor = None
 _stop_events = {}
 _stop_events_lock = threading.Lock()
+
+
+class ActivityTracker:
+    """Thread-safe tracker for job activity timestamps."""
+
+    def __init__(self):
+        self._last_activity = time.time()
+        self._lock = threading.Lock()
+
+    def update(self):
+        """Record activity (call after each item processed)."""
+        with self._lock:
+            self._last_activity = time.time()
+
+    @property
+    def idle_seconds(self) -> float:
+        """Seconds since last activity."""
+        with self._lock:
+            return time.time() - self._last_activity
 
 
 def get_executor():
@@ -98,16 +119,23 @@ def submit_job(list_id, list_name, app, triggered_by="manual"):
     with _stop_events_lock:
         _stop_events[job_id] = stop_event
 
-    # Submit job to executor
-    future = get_executor().submit(_execute_job, job_id, list_id, stop_event, app)
+    # Create activity tracker for idle timeout detection
+    activity_tracker = ActivityTracker()
 
-    # Set up timeout timer
-    timer = threading.Timer(JOB_TIMEOUT_SECONDS, lambda: _trigger_timeout(job_id))
-    timer.daemon = True  # Don't block app shutdown
-    timer.start()
+    # Start idle monitor thread
+    monitor_stop = threading.Event()
+    monitor_thread = threading.Thread(
+        target=_monitor_idle,
+        args=(job_id, activity_tracker, monitor_stop),
+        daemon=True,
+    )
+    monitor_thread.start()
+
+    # Submit job to executor
+    future = get_executor().submit(_execute_job, job_id, list_id, stop_event, activity_tracker, app)
 
     def cleanup(f):
-        timer.cancel()
+        monitor_stop.set()
         with _stop_events_lock:
             _stop_events.pop(job_id, None)
 
@@ -116,16 +144,24 @@ def submit_job(list_id, list_name, app, triggered_by="manual"):
     return job_id
 
 
-def _trigger_timeout(job_id):
-    """Signal timeout for a job."""
-    with _stop_events_lock:
-        stop_event = _stop_events.get(job_id)
-        if stop_event:
-            logger.warning(f"Job {job_id} timeout triggered")
-            stop_event.set()
+def _monitor_idle(job_id, activity_tracker, monitor_stop):
+    """Monitor job for idle timeout. Runs in a daemon thread."""
+    while not monitor_stop.is_set():
+        monitor_stop.wait(IDLE_CHECK_INTERVAL)
+        if monitor_stop.is_set():
+            break
+        if activity_tracker.idle_seconds >= IDLE_TIMEOUT_SECONDS:
+            with _stop_events_lock:
+                stop_event = _stop_events.get(job_id)
+                if stop_event:
+                    logger.warning(
+                        f"Job {job_id} idle timeout: no activity for " f"{int(activity_tracker.idle_seconds)}s"
+                    )
+                    stop_event.set()
+            break
 
 
-def _execute_job(job_id, list_id, stop_event, app):
+def _execute_job(job_id, list_id, stop_event, activity_tracker, app):
     """
     Execute the job in a background thread.
 
@@ -144,7 +180,7 @@ def _execute_job(job_id, list_id, stop_event, app):
                 return
 
             # Run the import
-            result = import_list(list_id)
+            result = import_list(list_id, stop_event=stop_event, activity_tracker=activity_tracker)
 
             # Check for timeout after import
             if stop_event.is_set():
@@ -225,7 +261,9 @@ def _mark_job_timeout(job_id, result, start_time):
     job.completed_at = end_time
     job.duration = int((end_time - start_time).total_seconds())
     job.error_message = "Job timed out"
-    job.error_details = f"Job exceeded {JOB_TIMEOUT_SECONDS} second timeout limit. Partial results may have been saved."
+    job.error_details = (
+        f"Job idle timeout: no activity for {IDLE_TIMEOUT_SECONDS} seconds. Partial results may have been saved."
+    )
 
     if result:
         job.items_found = result.total

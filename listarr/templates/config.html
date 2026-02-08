@@ -1,4 +1,4 @@
-{% extends "base.html" %} {% block title %}Config{% endblock %} {% block content
+{% extends "base.html" %} {% from 'macros/forms.html' import import_settings_form %} {% block title %}Config{% endblock %} {% block content
 %}
 <div class="space-y-10">
   <!-- Page Header -->
@@ -130,121 +130,9 @@
         </div>
       </form>
 
-      <!-- Import Settings Dropdowns (Only show if Radarr is configured) -->
+      <!-- Import Settings (Only show if Radarr is configured) -->
       {% if radarr_configured %}
-      <div class="border-t pt-4 mt-4 max-w-lg">
-        <button
-          type="button"
-          class="w-full flex justify-between items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-900 dark:text-gray-100 font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
-          onclick="toggleImportSettings('radarr-import-settings', this)"
-        >
-          <span>Import Settings</span>
-          <!-- Chevron Icon -->
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5 transition-transform duration-200"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
-
-        <!-- Collapsible Content -->
-        <div
-          id="radarr-import-settings"
-          class="hidden mt-2 space-y-4"
-        >
-          <!-- Root Folder Dropdown -->
-          <div>
-            <label for="radarr-root-folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Root Folder
-            </label>
-            <select
-              id="radarr-root-folder"
-              name="radarr_root_folder"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Loading...</option>
-            </select>
-          </div>
-
-          <!-- Quality Profile Dropdown -->
-          <div>
-            <label for="radarr-quality-profile" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Quality Profile
-            </label>
-            <select
-              id="radarr-quality-profile"
-              name="radarr_quality_profile"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Loading...</option>
-            </select>
-          </div>
-
-          <!-- Monitor Dropdown -->
-          <div>
-            <label for="radarr-monitor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Monitor
-            </label>
-            <select
-              id="radarr-monitor"
-              name="radarr_monitor"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Select Monitor</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
-            </select>
-          </div>
-
-          <!-- Search on Add Dropdown -->
-          <div>
-            <label for="radarr-search-on-add" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Search on Add
-            </label>
-            <select
-              id="radarr-search-on-add"
-              name="radarr_search_on_add"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Select Search on Add</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-
-          <!-- Tags Input Field -->
-          <div>
-            <label for="radarr-tags" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tags
-            </label>
-            <input
-              type="text"
-              id="radarr-tags"
-              name="radarr_tags"
-              placeholder="Custom Tag"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Tag will be created if it doesn't exist. Allowed: letters, numbers, hyphens.</p>
-          </div>
-
-          <button
-            id="save-radarr-import-settings"
-            type="button"
-            class="mt-2 px-4 py-2 rounded-md bg-primary text-white hover:bg-indigo-700 text-sm font-medium"
-          >
-            Save Import Settings
-          </button>
-        </div>
-      </div>
+        {{ import_settings_form('radarr') }}
       {% endif %}
     </section>
 
@@ -366,137 +254,9 @@
         </div>
       </form>
 
-      <!-- Import Settings Toggle (Only show if Sonarr is configured) -->
+      <!-- Import Settings (Only show if Sonarr is configured) -->
       {% if sonarr_configured %}
-      <div class="border-t pt-4 mt-4 max-w-lg">
-        <button
-          type="button"
-          class="w-full flex justify-between items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-900 dark:text-gray-100 font-medium hover:bg-gray-200 dark:hover:bg-gray-600"
-          onclick="toggleImportSettings('sonarr-import-settings', this)"
-        >
-          <span>Import Settings</span>
-          <!-- Chevron Icon -->
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5 transition-transform duration-200"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
-
-        <!-- Collapsible Content -->
-        <div
-          id="sonarr-import-settings"
-          class="hidden mt-2 space-y-4"
-        >
-          <!-- Root Folder Dropdown -->
-          <div>
-            <label for="sonarr-root-folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Root Folder
-            </label>
-            <select
-              id="sonarr-root-folder"
-              name="sonarr_root_folder"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Loading...</option>
-            </select>
-          </div>
-
-          <!-- Quality Profile Dropdown -->
-          <div>
-            <label for="sonarr-quality-profile" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Quality Profile
-            </label>
-            <select
-              id="sonarr-quality-profile"
-              name="sonarr_quality_profile"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Loading...</option>
-            </select>
-          </div>
-
-          <!-- Monitor Dropdown -->
-          <div>
-            <label for="sonarr-monitor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Monitor
-            </label>
-            <select
-              id="sonarr-monitor"
-              name="sonarr_monitor"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Select Monitor</option>
-              <option value="true">True</option>
-              <option value="false">False</option>
-            </select>
-          </div>
-
-          <!-- Season Folder Dropdown -->
-          <div>
-            <label for="sonarr-season-folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Season Folder
-            </label>
-            <select
-              id="sonarr-season-folder"
-              name="sonarr_season_folder"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Select Season Folder</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-
-          <!-- Search on Add Dropdown -->
-          <div>
-            <label for="sonarr-search-on-add" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Search on Add
-            </label>
-            <select
-              id="sonarr-search-on-add"
-              name="sonarr_search_on_add"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            >
-              <option value="">Select Search on Add</option>
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-
-          <!-- Tags Input Field -->
-          <div>
-            <label for="sonarr-tags" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tags
-            </label>
-            <input
-              type="text"
-              id="sonarr-tags"
-              name="sonarr_tags"
-              placeholder="Custom Tag"
-              class="block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Tag will be created if it doesn't exist. Allowed: letters, numbers, hyphens.</p>
-          </div>
-
-          <button
-            id="save-sonarr-import-settings"
-            type="button"
-            class="mt-2 px-4 py-2 rounded-md bg-primary text-white hover:bg-indigo-700 text-sm font-medium"
-          >
-            Save Import Settings
-          </button>
-        </div>
-      </div>
+        {{ import_settings_form('sonarr', show_season_folder=true) }}
       {% endif %}
     </section>
   </div>
@@ -504,7 +264,6 @@
 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
   Your API key is stored securely and masked by default.
 </p>
-<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/config.js') }}"></script>
 
 {% endblock %}

@@ -16,6 +16,8 @@ from cronsim import CronSim
 from listarr import db
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
+from listarr.services.arr_service import validate_api_key
+from listarr.services.crypto_utils import decrypt_data
 from listarr.services.job_executor import is_list_running, submit_job
 
 logger = logging.getLogger(__name__)
@@ -196,6 +198,27 @@ def _run_scheduled_import(list_id):
 
             if not list_obj.is_active:
                 logger.info(f"List {list_id} is inactive, skipping")
+                return
+
+            # Pre-flight: validate target service is reachable
+            service_config = ServiceConfig.query.filter_by(service=list_obj.target_service).first()
+            if not service_config or not service_config.api_key_encrypted:
+                logger.error(
+                    f"Service {list_obj.target_service} not configured, "
+                    f"skipping scheduled import for list {list_id} ({list_obj.name})"
+                )
+                return
+
+            try:
+                api_key = decrypt_data(service_config.api_key_encrypted)
+                if not validate_api_key(service_config.base_url, api_key):
+                    logger.warning(
+                        f"Service {list_obj.target_service} is unreachable, "
+                        f"skipping scheduled import for list {list_id} ({list_obj.name})"
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Error validating {list_obj.target_service} for list {list_id}: {e}")
                 return
 
             # Check for overlap (skip if already running)
