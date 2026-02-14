@@ -3,6 +3,28 @@
  * Loaded globally via base.html — available on all pages.
  */
 
+// --- Global 401 Handler ---
+
+/**
+ * Override window.fetch to globally intercept 401 responses and redirect to login.
+ * This ensures all AJAX calls automatically handle session expiry.
+ */
+(function () {
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args) {
+    const response = await originalFetch.apply(this, args);
+
+    // Redirect to login on 401, unless already on login page
+    if (response.status === 401 && window.location.pathname !== '/login') {
+      // Store current URL for post-login redirect
+      sessionStorage.setItem('loginRedirect', window.location.href);
+      window.location.href = '/login';
+    }
+
+    return response;
+  };
+})();
+
 // --- Fetch Utilities ---
 
 /**

@@ -9,6 +9,7 @@ from flask import (
     request,
     url_for,
 )
+from flask_login import login_required
 
 from listarr import db
 from listarr.forms.settings_forms import TmdbApiForm
@@ -53,6 +54,7 @@ def _test_and_update_tmdb_status(api_key):
 # Settings Page Route
 # ----------------------
 @bp.route("/settings", methods=["GET", "POST"])
+@login_required
 def settings_page():
     tmdb_api_form = TmdbApiForm()
 
@@ -133,6 +135,7 @@ def settings_page():
 # Test TMDB API Key Route (AJAX)
 # ----------------------
 @bp.route("/settings/test_tmdb_api", methods=["POST"])
+@login_required
 def test_tmdb_api():
     api_key = request.json.get("api_key", "")
     if not api_key:

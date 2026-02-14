@@ -9,6 +9,7 @@ from flask import (
     request,
     url_for,
 )
+from flask_login import login_required
 
 from listarr import csrf, db
 from listarr.forms.lists_forms import ListForm
@@ -102,6 +103,7 @@ def _db_to_form_str(value):
 
 
 @bp.route("/lists")
+@login_required
 def lists_page():
     lists = db.session.query(List).all()
 
@@ -118,6 +120,7 @@ def lists_page():
 
 
 @bp.route("/api/lists")
+@login_required
 def get_lists_api():
     """
     Get all lists for API consumption (filter dropdowns, etc.).
@@ -142,6 +145,7 @@ def get_lists_api():
 
 
 @bp.route("/lists/create", methods=["POST"])
+@login_required
 def create_list():
     form = ListForm()
 
@@ -169,6 +173,7 @@ def create_list():
 
 
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
+@login_required
 def edit_list(list_id):
     list_obj = List.query.get_or_404(list_id)
     service_type = list_obj.target_service  # RADARR or SONARR
@@ -339,6 +344,7 @@ def edit_list(list_id):
 
 
 @bp.route("/lists/delete/<int:list_id>", methods=["POST"])
+@login_required
 def delete_list(list_id):
     """
     Delete a list via AJAX.
@@ -372,6 +378,7 @@ def delete_list(list_id):
 
 
 @bp.route("/lists/wizard")
+@login_required
 def list_wizard():
     """
     Wizard route for creating lists via presets or custom configuration.
@@ -478,6 +485,7 @@ def list_wizard():
 
 
 @bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
+@login_required
 def toggle_list(list_id):
     list_obj = List.query.get_or_404(list_id)
 
@@ -519,6 +527,7 @@ def toggle_list(list_id):
 
 
 @bp.route("/lists/wizard/preview", methods=["POST"])
+@login_required
 def wizard_preview():
     """
     TMDB preview endpoint for the list creation wizard.
@@ -642,6 +651,7 @@ def wizard_preview():
 
 
 @bp.route("/lists/wizard/submit", methods=["POST"])
+@login_required
 def wizard_submit():
     """
     Handle wizard form submission for creating or updating lists.
@@ -790,6 +800,7 @@ def wizard_submit():
 
 
 @bp.route("/lists/wizard/defaults/<service>")
+@login_required
 def wizard_defaults(service):
     """
     Get import settings defaults and available options for a service.
@@ -898,6 +909,7 @@ def wizard_defaults(service):
 
 
 @bp.route("/lists/debug/cache-stats", methods=["GET"])
+@login_required
 def cache_stats():
     """
     Debug endpoint for TMDB cache statistics.
@@ -912,6 +924,7 @@ def cache_stats():
 
 @bp.route("/lists/<int:list_id>/run", methods=["POST"])
 @csrf.exempt
+@login_required
 def run_list_import(list_id):
     """
     Manually trigger async import for a list.
@@ -958,6 +971,7 @@ def run_list_import(list_id):
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])
+@login_required
 def get_list_status(list_id):
     """
     Get the status of a list import job for polling.

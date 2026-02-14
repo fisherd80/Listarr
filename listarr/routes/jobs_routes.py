@@ -1,6 +1,7 @@
 """Jobs routes - API endpoints for job history and management."""
 
 from flask import current_app, jsonify, render_template, request
+from flask_login import login_required
 
 from listarr import csrf, db
 from listarr.models.jobs_model import Job, JobItem
@@ -9,12 +10,14 @@ from listarr.routes import bp
 
 
 @bp.route("/jobs")
+@login_required
 def jobs_page():
     """Render the Jobs page."""
     return render_template("jobs.html")
 
 
 @bp.route("/api/jobs")
+@login_required
 def get_jobs():
     """
     Get paginated job history with optional filters.
@@ -53,6 +56,7 @@ def get_jobs():
 
 
 @bp.route("/api/jobs/recent")
+@login_required
 def get_recent_jobs():
     """
     Get 5 most recent jobs for dashboard widget.
@@ -75,6 +79,7 @@ def get_recent_jobs():
 
 
 @bp.route("/api/jobs/<int:job_id>")
+@login_required
 def get_job_detail(job_id):
     """
     Get job detail with item breakdown.
@@ -95,6 +100,7 @@ def get_job_detail(job_id):
 
 @bp.route("/api/jobs/<int:job_id>/rerun", methods=["POST"])
 @csrf.exempt
+@login_required
 def rerun_job(job_id):
     """
     Rerun a job (triggers new import for the same list).
@@ -158,6 +164,7 @@ def rerun_job(job_id):
 
 @bp.route("/api/jobs/clear", methods=["POST"])
 @csrf.exempt
+@login_required
 def clear_all_jobs():
     """
     Clear all job history (global).
@@ -185,6 +192,7 @@ def clear_all_jobs():
 
 @bp.route("/api/jobs/clear/<int:list_id>", methods=["POST"])
 @csrf.exempt
+@login_required
 def clear_list_jobs(list_id):
     """
     Clear job history for a specific list.
@@ -211,6 +219,7 @@ def clear_list_jobs(list_id):
 
 
 @bp.route("/api/jobs/running")
+@login_required
 def get_running_jobs():
     """
     Get all currently running jobs for polling.
