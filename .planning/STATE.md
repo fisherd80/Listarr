@@ -7,9 +7,15 @@
 ## Current Status
 
 **Phase:** 11 - User Authentication
-**Plan:** 1 of ?
+**Plan:** 2 of ?
 **Status:** In Progress
-**Last activity:** 2026-02-14 - Completed 11-01-PLAN (Core Authentication System)
+**Last activity:** 2026-02-14 - Completed 11-02-PLAN (Application Auth Integration)
+
+**Next Steps:**
+1. Test all protected routes redirect to login
+2. Verify AJAX 401 handling across all pages
+3. Consider adding user profile display in nav
+4. Plan 03: Additional auth features (if needed)
 
 ## Phase Progress
 
@@ -35,11 +41,22 @@
 | 10.3 Import & Schedule Bug Fixes | Complete | 2/2 | Verified |
 | 10.4 Bulk Import API | Complete | 2/2 | - |
 | 10.5 UI Performance & State | Complete | 4/4 | - |
-| 11. User Authentication | In Progress | 1/? | - |
+| 11. User Authentication | In Progress | 2/? | - |
 | 12. Security Hardening | Not started | 0/? | - |
 | 13. Release Readiness | Not started | 0/? | - |
 
 ## Recent Activity
+
+- 2026-02-14: Completed 11-02-PLAN (Application Auth Integration)
+  - Protected 36 routes with @login_required decorator (all non-dashboard routes)
+  - Dashboard page and APIs remain public (read-only without login)
+  - Updated base.html nav with conditional username dropdown and logout
+  - Nav links conditionally shown based on authentication state
+  - Implemented global fetch() override for 401 handling in utils.js
+  - Added password change on Settings page with current password verification
+  - Created CLI password reset command: python setup.py --reset-password
+  - Commits: 83a4a63, 511d09b
+  - Phase 11 progress (2/? plans complete)
 
 - 2026-02-14: Completed 11-01-PLAN (Core Authentication System)
   - Added Flask-Login 0.6.3 for session and user authentication
@@ -479,7 +496,7 @@ None
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 11-01-PLAN (Core Authentication System). 2 tasks, 2 commits.
+Stopped at: Completed 11-02-PLAN (Application Auth Integration). 2 tasks, 2 commits.
 Resume file: None
 
 ## Notes
