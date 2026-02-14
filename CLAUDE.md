@@ -328,6 +328,7 @@ Defined in `requirements.txt`:
 | SQLAlchemy | ==2.0.44 | Database toolkit |
 | Flask-WTF | ==1.2.1 | Forms + CSRF protection |
 | WTForms | ==3.1.1 | Form validation |
+| Flask-Login | ==0.6.3 | Session and user authentication |
 | cachetools | >=5.3.0 | Caching utilities |
 | cryptography | ==44.0.1 | Fernet encryption for API keys |
 | requests | ==2.32.4 | HTTP client for all external APIs |

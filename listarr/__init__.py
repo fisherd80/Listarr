@@ -1,7 +1,9 @@
 import logging
 import os
+from datetime import timedelta
 
-from flask import Flask
+from flask import Flask, jsonify, redirect, request, session, url_for
+from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import event
@@ -11,6 +13,7 @@ from listarr.services.crypto_utils import load_encryption_key
 
 db = SQLAlchemy()
 csrf = CSRFProtect()
+login_manager = LoginManager()
 
 
 # Track if we've already logged WAL mode status (avoid log spam)
@@ -92,6 +95,16 @@ def create_app(test_config=None):
     db.init_app(app)
     csrf.init_app(app)
 
+    # Initialize Flask-Login
+    login_manager.init_app(app)
+    login_manager.login_view = "main.login_page"
+    login_manager.login_message = None  # Disable flash messages, app uses toast
+
+    # Remember me cookie configuration
+    app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=30)
+    app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+    app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+
     from .routes import bp as main_bp
 
     app.register_blueprint(main_bp)
@@ -122,6 +135,26 @@ def create_app(test_config=None):
             app.logger.debug("Scheduler not initialized in this worker")
 
     return app
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user by ID for Flask-Login."""
+    from listarr.models.user_model import User
+
+    return User.query.get(int(user_id))
+
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    """Handle unauthorized access attempts."""
+    # For AJAX/JSON requests, return JSON error
+    if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # For page requests, store next URL and redirect to login
+    session["next"] = request.url
+    return redirect(url_for("main.login_page"))
 
 
 def recover_interrupted_jobs(app):
