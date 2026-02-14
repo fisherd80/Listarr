@@ -354,9 +354,9 @@ Defined in `requirements.txt`:
 
 **Completed phases** (1-10.5): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (493 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout.
 
-**Next phase**: 11 (Security Hardening)
+**Next phase**: 11 (User Authentication)
 
-**Remaining phases**: 11 (Security Hardening), 12 (Release Readiness)
+**Remaining phases**: 11 (User Authentication), 12 (Security Hardening), 13 (Release Readiness)
 
 See `.planning/ROADMAP.md` for full phase details.
 

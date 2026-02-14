@@ -42,7 +42,6 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
    ```
 
    This creates:
-
    - Encryption key at `instance/.fernet_key`
    - SQLite database at `instance/listarr.db`
 
@@ -183,7 +182,7 @@ listarr/
 - 🔮 **Phase 11: Security Hardening** - Flask/Docker security, input validation
 - 🔮 **Phase 12: Release Readiness** - Final polish and v1.0 release
 
-See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
+See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
 
 ## Technology Stack
 
@@ -241,7 +240,7 @@ The `instance/` folder contains all runtime data:
 
 ## Documentation
 
-- **[CLAUDE.md](docs/CLAUDE.md)** - Comprehensive developer documentation
+- **[CLAUDE.md](CLAUDE.md)** - Comprehensive developer documentation
   - Architecture patterns and design decisions
   - Implementation phases and roadmap
   - IMDB integration strategy
@@ -254,26 +253,26 @@ The `instance/` folder contains all runtime data:
 
 ## Roadmap
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1. List Management | ✅ Complete | CRUD operations for TMDB lists through web interface |
-| 2. List Creation Wizard | ✅ Complete | Multi-step wizard with presets, filters, and live preview |
-| 3. TMDB Caching | ✅ Complete | Smart caching to respect API rate limits |
-| 3.1 Config Tags | ✅ Complete | Tag storage with create-if-missing pattern |
-| 4. Import Engine | ✅ Complete | Import system for Radarr/Sonarr with error handling |
-| 5. Manual Trigger UI | ✅ Complete | Run lists on-demand from UI |
-| 6. Job Framework | ✅ Complete | Background job processing with history tracking |
-| 6.1 Bug Fixes | ✅ Complete | Bugs from manual testing resolved |
-| 6.2 List Enhancements | ✅ Complete | Top Rated presets, region filtering, larger limits |
-| 6.3 Test Coverage | ✅ Complete | Enhanced coverage (493 tests) |
-| 7. Scheduler System | ✅ Complete | Cron-based automated list execution |
-| 8. API Consolidation | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api |
-| 9. Code Quality | ✅ Complete | Refactoring and code cleanup |
-| 9.1 Config Deduplication | ✅ Complete | 55% route reduction, 57% JS reduction |
-| 10. UI/UX Simplification | ✅ Complete | Jinja macros, JS consolidation |
+| Phase                     | Status      | Description                                                 |
+| ------------------------- | ----------- | ----------------------------------------------------------- |
+| 1. List Management        | ✅ Complete | CRUD operations for TMDB lists through web interface        |
+| 2. List Creation Wizard   | ✅ Complete | Multi-step wizard with presets, filters, and live preview   |
+| 3. TMDB Caching           | ✅ Complete | Smart caching to respect API rate limits                    |
+| 3.1 Config Tags           | ✅ Complete | Tag storage with create-if-missing pattern                  |
+| 4. Import Engine          | ✅ Complete | Import system for Radarr/Sonarr with error handling         |
+| 5. Manual Trigger UI      | ✅ Complete | Run lists on-demand from UI                                 |
+| 6. Job Framework          | ✅ Complete | Background job processing with history tracking             |
+| 6.1 Bug Fixes             | ✅ Complete | Bugs from manual testing resolved                           |
+| 6.2 List Enhancements     | ✅ Complete | Top Rated presets, region filtering, larger limits          |
+| 6.3 Test Coverage         | ✅ Complete | Enhanced coverage (493 tests)                               |
+| 7. Scheduler System       | ✅ Complete | Cron-based automated list execution                         |
+| 8. API Consolidation      | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api              |
+| 9. Code Quality           | ✅ Complete | Refactoring and code cleanup                                |
+| 9.1 Config Deduplication  | ✅ Complete | 55% route reduction, 57% JS reduction                       |
+| 10. UI/UX Simplification  | ✅ Complete | Jinja macros, JS consolidation                              |
 | 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
-| 11. Security Hardening | 🔮 Planned | Flask/Docker security, input validation |
-| 12. Release Readiness | 🔮 Planned | Final polish and v1.0 release |
+| 11. Security Hardening    | 🔮 Planned  | Flask/Docker security, input validation                     |
+| 12. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
 
 ## License
 
