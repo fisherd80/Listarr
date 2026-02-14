@@ -343,18 +343,68 @@ class TestChangePassword:
 
     def test_change_password_success(self, authenticated_client, app_with_auth):
         """Test that POST /settings/change-password with correct credentials succeeds."""
-        # This test assumes there's a change password route
-        # Since it's not implemented yet in 11-01, we'll skip for now
-        pytest.skip("Change password route not yet implemented")
+        response = authenticated_client.post(
+            "/settings/change-password",
+            data={
+                "current_password": "testpassword",
+                "new_password": "newpassword123",
+                "new_password_confirm": "newpassword123",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert "Password changed successfully" in data["message"]
+
+        # Verify new password works by logging in again
+        with app_with_auth.app_context():
+            user = User.query.filter_by(username="testuser").first()
+            assert user.check_password("newpassword123")
 
     def test_change_password_wrong_current(self, authenticated_client):
         """Test that POST /settings/change-password with wrong current password fails."""
-        pytest.skip("Change password route not yet implemented")
+        response = authenticated_client.post(
+            "/settings/change-password",
+            data={
+                "current_password": "wrongpassword",
+                "new_password": "newpassword123",
+                "new_password_confirm": "newpassword123",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "Current password is incorrect" in data["message"]
 
     def test_change_password_mismatch(self, authenticated_client):
         """Test that POST /settings/change-password with mismatched new passwords fails."""
-        pytest.skip("Change password route not yet implemented")
+        response = authenticated_client.post(
+            "/settings/change-password",
+            data={
+                "current_password": "testpassword",
+                "new_password": "newpassword123",
+                "new_password_confirm": "differentpassword",
+            },
+        )
 
-    def test_change_password_requires_auth(self, auth_client):
-        """Test that POST /settings/change-password without login returns 401/redirect."""
-        pytest.skip("Change password route not yet implemented")
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "Passwords must match" in data["message"]
+
+    def test_change_password_requires_auth(self, auth_client, test_user):
+        """Test that POST /settings/change-password without login redirects to login."""
+        response = auth_client.post(
+            "/settings/change-password",
+            data={
+                "current_password": "testpassword",
+                "new_password": "newpassword123",
+                "new_password_confirm": "newpassword123",
+            },
+        )
+
+        # Should redirect to login page (302)
+        assert response.status_code == 302
+        assert "/login" in response.location
