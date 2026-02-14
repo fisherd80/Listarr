@@ -56,6 +56,7 @@
               >
                 Dashboard
               </a>
+              {% if current_user.is_authenticated %}
               <a
                 href="{{ url_for('main.lists_page') }}"
                 class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
@@ -80,17 +81,56 @@
               >
                 Config
               </a>
+              {% endif %}
             </div>
           </div>
 
-          <!-- Right side: Settings -->
+          <!-- Right side: User menu or Login -->
           <div class="flex items-center">
-            <a
-              href="{{ url_for('main.settings_page') }}"
-              class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-            >
-              Settings
-            </a>
+            {% if current_user.is_authenticated %}
+              <!-- Settings link -->
+              <a
+                href="{{ url_for('main.settings_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Settings
+              </a>
+              <!-- User dropdown -->
+              <div class="relative ml-3" id="user-dropdown">
+                <button
+                  type="button"
+                  id="user-dropdown-button"
+                  class="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary focus:outline-none"
+                >
+                  <span>{{ current_user.username }}</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <!-- Dropdown menu -->
+                <div
+                  id="user-dropdown-menu"
+                  class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5 rounded-md py-1 z-50"
+                >
+                  <form method="POST" action="{{ url_for('main.logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button
+                      type="submit"
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                    >
+                      Logout
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% else %}
+              <a
+                href="{{ url_for('main.login_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary"
+              >
+                Login
+              </a>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -141,5 +181,28 @@
     >
       © 2025 Listarr
     </footer>
+
+    <!-- User dropdown toggle script -->
+    <script>
+      (function () {
+        const dropdownButton = document.getElementById('user-dropdown-button');
+        const dropdownMenu = document.getElementById('user-dropdown-menu');
+
+        if (dropdownButton && dropdownMenu) {
+          // Toggle dropdown on button click
+          dropdownButton.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('hidden');
+          });
+
+          // Close dropdown when clicking outside
+          document.addEventListener('click', function () {
+            if (!dropdownMenu.classList.contains('hidden')) {
+              dropdownMenu.classList.add('hidden');
+            }
+          });
+        }
+      })();
+    </script>
   </body>
 </html>

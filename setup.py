@@ -1,11 +1,55 @@
 import os
+import sys
+from getpass import getpass
 from pathlib import Path
 
 from listarr import create_app
 from listarr.services.crypto_utils import generate_key
 
 
+def reset_user_password():
+    """Interactive password reset via CLI."""
+    project_root = Path(__file__).parent
+    instance_path = project_root / "instance"
+
+    # Check instance folder exists
+    if not instance_path.exists():
+        print("Error: Instance folder not found. Run setup first.")
+        return
+
+    from listarr import create_app, db
+    from listarr.models.user_model import User
+
+    app = create_app()
+    with app.app_context():
+        user = User.query.first()
+        if not user:
+            print("No user found. Run setup first (visit the app in browser).")
+            return
+
+        print(f"Resetting password for user: {user.username}")
+        new_password = getpass("New password: ")
+        confirm_password = getpass("Confirm password: ")
+
+        if new_password != confirm_password:
+            print("Passwords do not match.")
+            return
+
+        if not new_password:
+            print("Password cannot be empty.")
+            return
+
+        user.set_password(new_password)
+        db.session.commit()
+        print("Password reset successfully.")
+
+
 def main():
+    # Check for --reset-password flag
+    if "--reset-password" in sys.argv:
+        reset_user_password()
+        return
+
     # Determine instance path (Flask default: <project_root>/instance)
     project_root = Path(__file__).parent
     instance_path = project_root / "instance"

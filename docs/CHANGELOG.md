@@ -9,10 +9,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned (Phases 11-12)
+### Planned (Phases 12-13)
 
-- **Phase 11: Security Hardening** - Security enhancements
-- **Phase 12: Release Readiness** - Final polish and release preparation
+- **Phase 12: Security Hardening** - Flask/Docker security, input validation
+- **Phase 13: Release Readiness** - Final polish and v1.0 release
+
+---
+
+## Phase 11 - User Authentication (2026-02-14)
+
+### Added
+
+- **Flask-Login Integration** - Session-based authentication with remember me support
+  - Login page with username/password form
+  - First-run setup wizard for initial account creation
+  - Logout functionality with POST-only route
+  - 30-day persistent sessions with remember me option
+
+- **User Model Enhancement** - Secure password handling
+  - Password hashing using werkzeug.security scrypt
+  - `set_password()` and `check_password()` methods
+  - `is_authenticated`, `is_active`, `is_anonymous` properties for Flask-Login
+
+- **Auth Routes** (`listarr/routes/auth_routes.py`)
+  - `GET/POST /login` - Login page with form validation
+  - `GET/POST /setup` - First-run setup wizard (blocked if user exists)
+  - `POST /logout` - Logout with redirect to login
+  - `@before_app_request` - Auto-redirect to setup if no users exist
+
+- **Route Protection** - Login required on protected pages
+  - Config, Settings, Lists, Jobs, Schedule pages require authentication
+  - Dashboard remains publicly accessible (read-only stats)
+  - AJAX endpoints return 401 for unauthenticated requests
+
+- **Password Management**
+  - Password change form on Settings page
+  - CLI password reset: `python setup.py --reset-password`
+  - Current password verification before allowing change
+
+- **Security Features**
+  - Open redirect prevention via `is_safe_redirect_url()` validation
+  - CSRF protection on all auth forms
+  - Session-based authentication (no JWT tokens)
+
+- **Auth Forms** (`listarr/forms/auth_forms.py`)
+  - `LoginForm` - Username, password, remember me checkbox
+  - `SetupForm` - Username, password, confirm password with validation
+
+- **Templates**
+  - `auth/login.html` - Centered login form with error display
+  - `auth/setup.html` - First-run setup wizard
+
+- **43 New Tests** - Comprehensive auth test coverage
+  - Login success/failure scenarios
+  - Setup wizard flow and blocking
+  - Logout functionality
+  - Route protection verification
+  - Password change validation
+  - Open redirect prevention
+
+### Changed
+
+- **Navigation** - Shows Login/Logout based on authentication state
+- **Settings Page** - Added password change section for authenticated users
+- **Test Fixtures** - Added `authenticated_client` fixture for protected route tests
+- **Test Count** - Increased from 493 to 536 tests (+43)
+
+### Technical
+
+- Flask-Login 0.6.3 for session management
+- User loader registered in application factory
+- Login view configured as `main.login_page`
+- Remember cookie duration: 30 days
 
 ---
 
@@ -693,7 +761,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Development Status
 
-**Current Completion: ~92%** (10 of 12 main phases complete, plus 8 sub-phases)
+**Current Completion: ~95%** (11 of 13 main phases complete, plus 8 sub-phases)
 
 ### Completed Phases
 - ✅ **Phase 1**: List Management System - CRUD operations for TMDB lists
@@ -716,10 +784,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Phase 10.3**: Import & Schedule Bug Fixes - Exclusion lists, schedule edit modal
 - ✅ **Phase 10.4**: Bulk Import API - 8x faster imports
 - ✅ **Phase 10.5**: UI Performance & State - Skeleton loading, timeout handling
+- ✅ **Phase 11**: User Authentication - Login, setup wizard, password management (536 tests)
 
 ### Planned Phases
-- 🔮 **Phase 11**: Security Hardening - Flask/Docker security, input validation
-- 🔮 **Phase 12**: Release Readiness - Final polish and v1.0 release
+- 🔮 **Phase 12**: Security Hardening - Flask/Docker security, input validation
+- 🔮 **Phase 13**: Release Readiness - Final polish and v1.0 release
 
 ---
 
@@ -731,10 +800,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instance folder contains runtime data (database, encryption key)
 - Docker-first deployment with persistent volume support
 - Comprehensive documentation in `CLAUDE.md`
-- Test suite: 493 tests
+- Test suite: 536 tests
 - Direct HTTP API calls (no third-party wrappers)
 - Bulk import API for 8x faster list execution
+- User authentication with Flask-Login
 
 ---
 
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-14

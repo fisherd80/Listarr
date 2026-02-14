@@ -10,6 +10,7 @@ from flask import (
     request,
     url_for,
 )
+from flask_login import login_required
 
 from listarr import db
 from listarr.forms.config_forms import RadarrAPIForm, SonarrAPIForm
@@ -23,6 +24,7 @@ from listarr.services.arr_service import (
     validate_api_key,
 )
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
+from listarr.services.dashboard_cache import refresh_dashboard_cache
 
 
 def _is_valid_url(url):
@@ -93,6 +95,17 @@ def _save_service_config(service, form_url_field, form_api_field):
             service_config.last_test_status = test_status
 
         db.session.commit()
+
+        # Refresh dashboard cache to reflect newly configured service
+        try:
+            refresh_dashboard_cache()
+            current_app.logger.info(f"Dashboard cache refreshed after {service} configuration")
+        except Exception as cache_error:
+            current_app.logger.error(
+                f"Error refreshing dashboard cache after {service} save: {cache_error}", exc_info=True
+            )
+            # Don't fail the save if cache refresh fails, just log it
+
         flash(f"{service} URL and API Key saved successfully.", "success")
     except Exception as e:
         db.session.rollback()
@@ -101,6 +114,7 @@ def _save_service_config(service, form_url_field, form_api_field):
 
 
 @bp.route("/config", methods=["GET", "POST"])
+@login_required
 def config_page():
     radarr_api_form = RadarrAPIForm()
     sonarr_api_form = SonarrAPIForm()
@@ -184,16 +198,19 @@ def _test_service_api(service_upper, base_url, api_key):
 
 
 @bp.route("/config/test_radarr_api", methods=["POST"])
+@login_required
 def test_radarr_api():
     return _test_service_api("RADARR", request.json.get("base_url", ""), request.json.get("api_key", ""))
 
 
 @bp.route("/config/test_sonarr_api", methods=["POST"])
+@login_required
 def test_sonarr_api():
     return _test_service_api("SONARR", request.json.get("base_url", ""), request.json.get("api_key", ""))
 
 
 @bp.route("/config/<service>/quality-profiles", methods=["GET"])
+@login_required
 def fetch_quality_profiles_route(service):
     """Fetch quality profiles from configured service."""
     service_upper = service.upper()
@@ -221,6 +238,7 @@ def fetch_quality_profiles_route(service):
 
 
 @bp.route("/config/<service>/root-folders", methods=["GET"])
+@login_required
 def fetch_root_folders_route(service):
     """Fetch root folders from configured service."""
     service_upper = service.upper()
@@ -248,6 +266,7 @@ def fetch_root_folders_route(service):
 
 
 @bp.route("/config/<service>/import-settings", methods=["GET"])
+@login_required
 def fetch_import_settings(service):
     """Fetch saved import settings for service from database."""
     service_upper = service.upper()
@@ -298,6 +317,7 @@ def fetch_import_settings(service):
 
 
 @bp.route("/config/<service>/import-settings", methods=["POST"])
+@login_required
 def save_import_settings(service):
     """Save import settings for service to database."""
     service_upper = service.upper()

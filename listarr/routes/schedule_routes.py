@@ -1,6 +1,7 @@
 """Schedule routes - API endpoints for schedule management."""
 
 from flask import jsonify, render_template
+from flask_login import login_required
 
 from listarr import csrf, db
 from listarr.models.jobs_model import Job
@@ -42,6 +43,7 @@ def _render_status_badge(status):
 
 
 @bp.route("/schedule")
+@login_required
 def schedule_page():
     """
     Render the Schedule management page.
@@ -131,6 +133,7 @@ def _get_list_status(list_obj, scheduler_paused):
 
 @bp.route("/api/schedule/pause", methods=["POST"])
 @csrf.exempt
+@login_required
 def pause_schedule():
     """
     Pause all scheduled jobs globally.
@@ -147,6 +150,7 @@ def pause_schedule():
 
 @bp.route("/api/schedule/resume", methods=["POST"])
 @csrf.exempt
+@login_required
 def resume_schedule():
     """
     Resume all scheduled jobs globally.
@@ -162,6 +166,7 @@ def resume_schedule():
 
 
 @bp.route("/api/schedule/status")
+@login_required
 def get_schedule_status():
     """
     Get current scheduler status and list schedule information.
@@ -225,6 +230,7 @@ def get_schedule_status():
 
 @bp.route("/api/schedule/<int:list_id>/update", methods=["POST"])
 @csrf.exempt
+@login_required
 def update_schedule(list_id):
     """
     Update the schedule for a specific list.

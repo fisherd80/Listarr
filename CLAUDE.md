@@ -69,6 +69,8 @@ The app runs on `http://localhost:5000` by default.
 - **CSRF protection** (Flask-WTF) on all forms and AJAX requests
 - **Logs sanitized** (no secrets, API keys, or tokens)
 - **URL validation** before saving or testing connections
+- **User authentication** (Flask-Login with scrypt password hashing)
+- **Open redirect prevention** (URL validation on login redirects)
 
 ## Architecture
 
@@ -114,7 +116,7 @@ Located in `listarr/models/`:
 - **List** (`lists_model.py`): TMDB list definitions with target_service, tmdb_list_type, filters_json, cache settings, schedule_cron, and per-list import overrides
 - **Job** & **JobItem** (`jobs_model.py`): Execution tracking with status (pending/running/failed/completed), metrics (items_found/added/skipped), error details, and per-item results. Job has relationship to List.
 - **CustomTypes** (`custom_types.py`): `TZDateTime` TypeDecorator — ensures timezone-aware UTC datetimes in SQLite
-- **User** (`user_model.py`): User model (authentication not yet implemented)
+- **User** (`user_model.py`): User model with password hashing (werkzeug.security scrypt), Flask-Login integration
 
 ### Routing Structure
 
@@ -133,6 +135,7 @@ All routes registered under a single blueprint `bp` in `listarr/routes/__init__.
   - `POST /config/<service>/import-settings` - Save import settings
   - Helper functions: `_is_valid_url()`, `_save_service_config()`, `_test_service_api()`, `_test_and_update_service_status()`
 - **`settings_routes.py`**: `GET/POST /settings`, `POST /settings/test_tmdb_api`
+- **`auth_routes.py`**: `GET/POST /login`, `GET/POST /setup`, `POST /logout`, `@before_app_request` setup check
 
 ### Services Layer
 
@@ -302,7 +305,7 @@ fetch("/endpoint", {
 
 ### Testing
 
-- **493 tests** across unit, route, and integration test files
+- **536 tests** across unit, route, and integration test files
 - Proper isolation with fixtures (`temp_instance_path`, `app`, `client`)
 - External API calls mocked; in-memory SQLite for speed
 - Comprehensive coverage: error handling, validation, edge cases, security, caching, bulk imports
@@ -323,13 +326,14 @@ Defined in `requirements.txt`:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| Flask | ==3.0.0 | Web framework |
+| Flask | ==3.1.2 | Web framework |
 | Flask-SQLAlchemy | ==3.1.1 | ORM |
 | SQLAlchemy | ==2.0.44 | Database toolkit |
 | Flask-WTF | ==1.2.1 | Forms + CSRF protection |
 | WTForms | ==3.1.1 | Form validation |
+| Flask-Login | ==0.6.3 | Session and user authentication |
 | cachetools | >=5.3.0 | Caching utilities |
-| cryptography | ==44.0.1 | Fernet encryption for API keys |
+| cryptography | ==46.0.5 | Fernet encryption for API keys |
 | requests | ==2.32.4 | HTTP client for all external APIs |
 | gunicorn | ==22.0.0 | Production WSGI server |
 | APScheduler | ==3.11.2 | Cron-based job scheduling |
@@ -352,11 +356,11 @@ Defined in `requirements.txt`:
 
 ## Current Development Status
 
-**Completed phases** (1-10.5): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (493 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout.
+**Completed phases** (1-11): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (536 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset).
 
-**Next phase**: 11 (Security Hardening)
+**Next phase**: 12 (Security Hardening)
 
-**Remaining phases**: 11 (Security Hardening), 12 (Release Readiness)
+**Remaining phases**: 12 (Security Hardening), 13 (Release Readiness)
 
 See `.planning/ROADMAP.md` for full phase details.
 

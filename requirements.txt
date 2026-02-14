@@ -1,5 +1,5 @@
 # Core Flask Framework
-Flask==3.0.0
+Flask==3.1.2
 
 # Database ORM
 Flask-SQLAlchemy==3.1.1
@@ -9,11 +9,14 @@ SQLAlchemy==2.0.44
 Flask-WTF==1.2.1
 WTForms==3.1.1
 
+# Authentication
+Flask-Login==0.6.3
+
 # Caching
 cachetools>=5.3.0
 
 # Encryption
-cryptography==44.0.1
+cryptography==46.0.5
 
 # HTTP Requests (for external APIs)
 requests==2.32.4

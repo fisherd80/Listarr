@@ -9,6 +9,12 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
 - 🎯 **Radarr/Sonarr Import**: Fully configured import settings with quality profiles and root folders
 - 🚀 **Bulk Import API**: 8x faster imports using batch operations (50 items per batch)
 - 📊 **Dashboard Stats**: Read-only summary from Radarr/Sonarr with cached stats, "Added by Listarr" counter, and recent jobs
+- 🔐 **User Authentication**: Single-user login with secure password hashing
+  - First-run setup wizard for account creation
+  - Remember me option (30-day sessions)
+  - Password change on Settings page
+  - CLI password reset command
+  - Dashboard remains publicly accessible (read-only)
 - 🔒 **Encrypted Storage**: API keys encrypted at rest with Fernet encryption
 - ⏰ **Automated Scheduling**: Cron-based scheduling for automatic list execution
   - Presets for common intervals (hourly, daily, weekly)
@@ -42,7 +48,6 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
    ```
 
    This creates:
-
    - Encryption key at `instance/.fernet_key`
    - SQLite database at `instance/listarr.db`
 
@@ -54,6 +59,9 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
 
 5. **Access the application**
    Open your browser to: http://localhost:5000
+
+6. **Create your account**
+   On first run, you'll be redirected to the setup wizard to create your admin account.
 
 ### Docker Deployment
 
@@ -157,7 +165,7 @@ listarr/
 
 ## Development Status
 
-**~92% Complete** - 10 of 12 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, 493 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: security hardening and release readiness.
+**~95% Complete** - 11 of 13 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, 536 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: security hardening and release readiness.
 
 ### Completed Phases
 
@@ -170,26 +178,28 @@ listarr/
 - ✅ **Phase 6: Job Framework** - Background processing, Jobs page, dashboard widget
 - ✅ **Phase 6.1: Bug Fixes** - Tag override logic, logging, UI feedback
 - ✅ **Phase 6.2: List Enhancements** - Top Rated presets, region filtering, larger limits
-- ✅ **Phase 6.3: Test Coverage** - 493 tests
+- ✅ **Phase 6.3: Test Coverage** - Comprehensive test suite
 - ✅ **Phase 7: Scheduler System** - Cron-based automated list execution
 - ✅ **Phase 8: API Consolidation** - Direct API calls replacing pyarr and tmdbv3api
 - ✅ **Phase 9: Code Quality** - Refactoring and code cleanup
 - ✅ **Phase 9.1: Config Deduplication** - 55% route reduction, 57% JS reduction
 - ✅ **Phase 10: UI/UX Simplification** - Jinja macros, JS consolidation
 - ✅ **Phase 10.1-10.5: UI Enhancements** - Bulk import API (8x faster), skeleton loading, activity-based timeout
+- ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 536 tests
 
 ### Planned Phases
 
-- 🔮 **Phase 11: Security Hardening** - Flask/Docker security, input validation
-- 🔮 **Phase 12: Release Readiness** - Final polish and v1.0 release
+- 🔮 **Phase 12: Security Hardening** - Flask/Docker security, input validation
+- 🔮 **Phase 13: Release Readiness** - Final polish and v1.0 release
 
-See [CLAUDE.md](docs/CLAUDE.md) for comprehensive development documentation.
+See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
 
 ## Technology Stack
 
 ### Backend
 
 - **Flask 3.0.0**: Web framework
+- **Flask-Login 0.6.3**: Session and user authentication
 - **SQLAlchemy 2.0.44**: ORM and database management
 - **Flask-WTF**: CSRF protection and forms
 - **cryptography 44.0.1**: Fernet encryption for API keys
@@ -221,14 +231,16 @@ This approach ensures legal compliance while providing IMDB references for users
 
 ## Security
 
-- 🔐 **API keys encrypted at rest** (Fernet symmetric encryption)
+- 🔐 **User authentication** with secure password hashing (werkzeug scrypt)
+- 🔑 **API keys encrypted at rest** (Fernet symmetric encryption)
 - 🛡️ **CSRF protection** on all forms and AJAX requests
 - 🔒 **Secrets excluded** from version control (.gitignore)
 - 👤 **Single-user design** (no multi-tenancy)
 - 🏠 **Self-hosted** for homelab environments
 - 🔑 **Instance path isolation** for encryption key storage
+- 🔄 **Password reset** via CLI command (`python setup.py --reset-password`)
 
-**Important**: This application is designed for single-user, self-hosted deployments. Do not expose directly to the public internet without additional security measures (reverse proxy, authentication, firewall).
+**Important**: This application is designed for single-user, self-hosted deployments. Do not expose directly to the public internet without additional security measures (reverse proxy, firewall).
 
 ## Data Persistence
 
@@ -241,7 +253,7 @@ The `instance/` folder contains all runtime data:
 
 ## Documentation
 
-- **[CLAUDE.md](docs/CLAUDE.md)** - Comprehensive developer documentation
+- **[CLAUDE.md](CLAUDE.md)** - Comprehensive developer documentation
   - Architecture patterns and design decisions
   - Implementation phases and roadmap
   - IMDB integration strategy
@@ -254,26 +266,27 @@ The `instance/` folder contains all runtime data:
 
 ## Roadmap
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1. List Management | ✅ Complete | CRUD operations for TMDB lists through web interface |
-| 2. List Creation Wizard | ✅ Complete | Multi-step wizard with presets, filters, and live preview |
-| 3. TMDB Caching | ✅ Complete | Smart caching to respect API rate limits |
-| 3.1 Config Tags | ✅ Complete | Tag storage with create-if-missing pattern |
-| 4. Import Engine | ✅ Complete | Import system for Radarr/Sonarr with error handling |
-| 5. Manual Trigger UI | ✅ Complete | Run lists on-demand from UI |
-| 6. Job Framework | ✅ Complete | Background job processing with history tracking |
-| 6.1 Bug Fixes | ✅ Complete | Bugs from manual testing resolved |
-| 6.2 List Enhancements | ✅ Complete | Top Rated presets, region filtering, larger limits |
-| 6.3 Test Coverage | ✅ Complete | Enhanced coverage (493 tests) |
-| 7. Scheduler System | ✅ Complete | Cron-based automated list execution |
-| 8. API Consolidation | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api |
-| 9. Code Quality | ✅ Complete | Refactoring and code cleanup |
-| 9.1 Config Deduplication | ✅ Complete | 55% route reduction, 57% JS reduction |
-| 10. UI/UX Simplification | ✅ Complete | Jinja macros, JS consolidation |
+| Phase                     | Status      | Description                                                 |
+| ------------------------- | ----------- | ----------------------------------------------------------- |
+| 1. List Management        | ✅ Complete | CRUD operations for TMDB lists through web interface        |
+| 2. List Creation Wizard   | ✅ Complete | Multi-step wizard with presets, filters, and live preview   |
+| 3. TMDB Caching           | ✅ Complete | Smart caching to respect API rate limits                    |
+| 3.1 Config Tags           | ✅ Complete | Tag storage with create-if-missing pattern                  |
+| 4. Import Engine          | ✅ Complete | Import system for Radarr/Sonarr with error handling         |
+| 5. Manual Trigger UI      | ✅ Complete | Run lists on-demand from UI                                 |
+| 6. Job Framework          | ✅ Complete | Background job processing with history tracking             |
+| 6.1 Bug Fixes             | ✅ Complete | Bugs from manual testing resolved                           |
+| 6.2 List Enhancements     | ✅ Complete | Top Rated presets, region filtering, larger limits          |
+| 6.3 Test Coverage         | ✅ Complete | Comprehensive test suite                                    |
+| 7. Scheduler System       | ✅ Complete | Cron-based automated list execution                         |
+| 8. API Consolidation      | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api              |
+| 9. Code Quality           | ✅ Complete | Refactoring and code cleanup                                |
+| 9.1 Config Deduplication  | ✅ Complete | 55% route reduction, 57% JS reduction                       |
+| 10. UI/UX Simplification  | ✅ Complete | Jinja macros, JS consolidation                              |
 | 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
-| 11. Security Hardening | 🔮 Planned | Flask/Docker security, input validation |
-| 12. Release Readiness | 🔮 Planned | Final polish and v1.0 release |
+| 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (536 tests)        |
+| 12. Security Hardening    | 🔮 Planned  | Flask/Docker security, input validation                     |
+| 13. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
 
 ## License
 

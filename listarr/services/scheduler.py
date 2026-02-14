@@ -308,20 +308,39 @@ def get_next_run_time(list_id):
     """
     Get the next scheduled run time for a list.
 
+    This function works in both scheduler and non-scheduler workers:
+    - In scheduler worker: Returns next_run_time from APScheduler job (fast, accurate)
+    - In non-scheduler worker: Calculates next run time from cron expression (fallback)
+
     Args:
         list_id: ID of the list
 
     Returns:
         datetime: Next run time (timezone-aware) or None if not scheduled
     """
-    if _scheduler is None:
+    if _scheduler is not None:
+        # Scheduler worker: get next run time from APScheduler (preferred path)
+        job_id = f"list_{list_id}"
+        job = _scheduler.get_job(job_id)
+        if job:
+            return job.next_run_time
         return None
 
-    job_id = f"list_{list_id}"
-    job = _scheduler.get_job(job_id)
-    if job:
-        return job.next_run_time
-    return None
+    # Non-scheduler worker fallback: calculate from cron expression
+    # This ensures dashboard works on all Gunicorn workers
+    try:
+        # Query list from database to get cron expression
+        list_obj = List.query.get(list_id)
+        if not list_obj or not list_obj.schedule_cron or not list_obj.is_active:
+            return None
+
+        # Calculate next run time using CronSim
+        cron = CronSim(list_obj.schedule_cron, datetime.now(timezone.utc))
+        cron.advance()
+        return cron.dt
+    except Exception as e:
+        logger.debug(f"Failed to calculate next run time for list {list_id}: {e}")
+        return None
 
 
 def validate_cron_expression(cron_expr):
