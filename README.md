@@ -165,7 +165,7 @@ listarr/
 
 ## Development Status
 
-**~95% Complete** - 11 of 13 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, 530 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: security hardening and release readiness.
+**~95% Complete** - 11 of 13 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, 536 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: security hardening and release readiness.
 
 ### Completed Phases
 
@@ -185,7 +185,7 @@ listarr/
 - ✅ **Phase 9.1: Config Deduplication** - 55% route reduction, 57% JS reduction
 - ✅ **Phase 10: UI/UX Simplification** - Jinja macros, JS consolidation
 - ✅ **Phase 10.1-10.5: UI Enhancements** - Bulk import API (8x faster), skeleton loading, activity-based timeout
-- ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 530 tests
+- ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 536 tests
 
 ### Planned Phases
 
@@ -284,7 +284,7 @@ The `instance/` folder contains all runtime data:
 | 9.1 Config Deduplication  | ✅ Complete | 55% route reduction, 57% JS reduction                       |
 | 10. UI/UX Simplification  | ✅ Complete | Jinja macros, JS consolidation                              |
 | 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
-| 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (530 tests)        |
+| 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (536 tests)        |
 | 12. Security Hardening    | 🔮 Planned  | Flask/Docker security, input validation                     |
 | 13. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
 
