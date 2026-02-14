@@ -6,14 +6,16 @@ Tests cover:
 - Service configuration validation
 - API key validation and reachability checks
 - Error handling for decrypt and validate operations
+- get_next_run_time() fallback for non-scheduler workers
 """
 
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from listarr.services.scheduler import _run_scheduled_import
+from listarr.services.scheduler import _run_scheduled_import, get_next_run_time
 
 
 class TestRunScheduledImportHealthCheck:
@@ -58,6 +60,99 @@ class TestRunScheduledImportHealthCheck:
 
         # Assert submit_job was NOT called
         mock_submit_job.assert_not_called()
+
+
+class TestGetNextRunTimeFallback:
+    """Tests for get_next_run_time() fallback in non-scheduler workers."""
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.List")
+    def test_returns_none_when_list_not_found(self, mock_list_class):
+        """Returns None when list doesn't exist in database."""
+        # Setup List.query.get to return None
+        mock_list_class.query.get.return_value = None
+
+        result = get_next_run_time(999)
+
+        assert result is None
+        mock_list_class.query.get.assert_called_once_with(999)
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.List")
+    def test_returns_none_when_no_schedule(self, mock_list_class):
+        """Returns None when list has no cron schedule."""
+        # Setup list without schedule
+        mock_list_obj = MagicMock()
+        mock_list_obj.schedule_cron = None
+        mock_list_obj.is_active = True
+        mock_list_class.query.get.return_value = mock_list_obj
+
+        result = get_next_run_time(1)
+
+        assert result is None
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.List")
+    def test_returns_none_when_list_inactive(self, mock_list_class):
+        """Returns None when list is inactive."""
+        # Setup inactive list with schedule
+        mock_list_obj = MagicMock()
+        mock_list_obj.schedule_cron = "0 0 * * *"
+        mock_list_obj.is_active = False
+        mock_list_class.query.get.return_value = mock_list_obj
+
+        result = get_next_run_time(1)
+
+        assert result is None
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.List")
+    def test_calculates_next_run_from_cron(self, mock_list_class):
+        """Calculates next run time from cron expression when scheduler is None."""
+        # Setup list with valid cron expression
+        mock_list_obj = MagicMock()
+        mock_list_obj.schedule_cron = "0 0 * * *"  # Daily at midnight
+        mock_list_obj.is_active = True
+        mock_list_class.query.get.return_value = mock_list_obj
+
+        result = get_next_run_time(1)
+
+        # Should return a datetime (not None)
+        assert result is not None
+        assert isinstance(result, datetime)
+        # Should be timezone-aware
+        assert result.tzinfo is not None
+        # Should be in the future
+        assert result > datetime.now(timezone.utc)
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.List")
+    def test_returns_none_on_invalid_cron(self, mock_list_class):
+        """Returns None when cron expression is invalid."""
+        # Setup list with invalid cron
+        mock_list_obj = MagicMock()
+        mock_list_obj.schedule_cron = "invalid cron"
+        mock_list_obj.is_active = True
+        mock_list_class.query.get.return_value = mock_list_obj
+
+        result = get_next_run_time(1)
+
+        assert result is None
+
+    @patch("listarr.services.scheduler._scheduler")
+    def test_uses_apscheduler_when_available(self, mock_scheduler):
+        """Uses APScheduler job when scheduler is initialized."""
+        # Setup mock scheduler with job
+        mock_job = MagicMock()
+        mock_next_run = datetime(2026, 2, 15, 12, 0, 0, tzinfo=timezone.utc)
+        mock_job.next_run_time = mock_next_run
+        mock_scheduler.get_job.return_value = mock_job
+
+        result = get_next_run_time(1)
+
+        # Should use APScheduler path (not database fallback)
+        assert result == mock_next_run
+        mock_scheduler.get_job.assert_called_once_with("list_1")
 
     @patch("listarr.services.scheduler.is_scheduler_paused")
     @patch("listarr.services.scheduler.submit_job")
