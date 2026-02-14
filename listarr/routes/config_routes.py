@@ -24,6 +24,7 @@ from listarr.services.arr_service import (
     validate_api_key,
 )
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
+from listarr.services.dashboard_cache import refresh_dashboard_cache
 
 
 def _is_valid_url(url):
@@ -94,6 +95,17 @@ def _save_service_config(service, form_url_field, form_api_field):
             service_config.last_test_status = test_status
 
         db.session.commit()
+
+        # Refresh dashboard cache to reflect newly configured service
+        try:
+            refresh_dashboard_cache()
+            current_app.logger.info(f"Dashboard cache refreshed after {service} configuration")
+        except Exception as cache_error:
+            current_app.logger.error(
+                f"Error refreshing dashboard cache after {service} save: {cache_error}", exc_info=True
+            )
+            # Don't fail the save if cache refresh fails, just log it
+
         flash(f"{service} URL and API Key saved successfully.", "success")
     except Exception as e:
         db.session.rollback()

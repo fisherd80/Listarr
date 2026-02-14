@@ -200,9 +200,10 @@ class TestConfigPageGET:
 class TestRadarrConfigPOST:
     """Tests for POST /config endpoint (Save Radarr API)."""
 
+    @patch("listarr.routes.config_routes.refresh_dashboard_cache")
     @patch("listarr.routes.config_routes.validate_api_key")
     def test_save_radarr_api_with_valid_credentials_creates_new_config(
-        self, mock_test, app, client, temp_instance_path
+        self, mock_test, mock_refresh, app, client, temp_instance_path
     ):
         """Test saving valid Radarr credentials creates new ServiceConfig entry."""
         mock_test.return_value = True
@@ -231,9 +232,13 @@ class TestRadarrConfigPOST:
             decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "new_valid_radarr_key"
 
+        # Verify dashboard cache was refreshed
+        mock_refresh.assert_called_once()
+
+    @patch("listarr.routes.config_routes.refresh_dashboard_cache")
     @patch("listarr.routes.config_routes.validate_api_key")
     def test_save_radarr_api_with_valid_credentials_updates_existing_config(
-        self, mock_test, app, client, temp_instance_path
+        self, mock_test, mock_refresh, app, client, temp_instance_path
     ):
         """Test saving valid Radarr credentials updates existing ServiceConfig."""
         mock_test.return_value = True
@@ -275,6 +280,9 @@ class TestRadarrConfigPOST:
             # Verify key was updated
             decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_radarr_key"
+
+        # Verify dashboard cache was refreshed
+        mock_refresh.assert_called_once()
 
     @patch("listarr.routes.config_routes.validate_api_key")
     def test_save_radarr_api_with_invalid_credentials_shows_error(self, mock_test, app, client):
@@ -483,9 +491,10 @@ class TestConcurrentOperations:
 class TestSonarrConfigPOST:
     """Tests for POST /config endpoint (Save Sonarr API)."""
 
+    @patch("listarr.routes.config_routes.refresh_dashboard_cache")
     @patch("listarr.routes.config_routes.validate_api_key")
     def test_save_sonarr_api_with_valid_credentials_creates_new_config(
-        self, mock_test, app, client, temp_instance_path
+        self, mock_test, mock_refresh, app, client, temp_instance_path
     ):
         """Test saving valid Sonarr credentials creates new ServiceConfig entry."""
         mock_test.return_value = True
@@ -514,9 +523,13 @@ class TestSonarrConfigPOST:
             decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "new_valid_sonarr_key"
 
+        # Verify dashboard cache was refreshed
+        mock_refresh.assert_called_once()
+
+    @patch("listarr.routes.config_routes.refresh_dashboard_cache")
     @patch("listarr.routes.config_routes.validate_api_key")
     def test_save_sonarr_api_with_valid_credentials_updates_existing_config(
-        self, mock_test, app, client, temp_instance_path
+        self, mock_test, mock_refresh, app, client, temp_instance_path
     ):
         """Test saving valid Sonarr credentials updates existing ServiceConfig."""
         mock_test.return_value = True
@@ -558,6 +571,9 @@ class TestSonarrConfigPOST:
             # Verify key was updated
             decrypted = decrypt_data(configs[0].api_key_encrypted, instance_path=temp_instance_path)
             assert decrypted == "updated_sonarr_key"
+
+        # Verify dashboard cache was refreshed
+        mock_refresh.assert_called_once()
 
     @patch("listarr.routes.config_routes.validate_api_key")
     def test_save_sonarr_api_with_invalid_credentials_shows_error(self, mock_test, app, client):
