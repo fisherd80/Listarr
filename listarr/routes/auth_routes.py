@@ -22,7 +22,7 @@ def is_safe_redirect_url(target):
 def login_page():
     """Login page."""
     if current_user.is_authenticated:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.dashboard_page"))
 
     form = LoginForm()
     error = None
@@ -41,7 +41,7 @@ def login_page():
 
         # Validate redirect URL to prevent open redirect attacks
         if not is_safe_redirect_url(next_page):
-            next_page = url_for("main.index")
+            next_page = url_for("main.dashboard_page")
 
         return redirect(next_page)
 
@@ -53,7 +53,7 @@ def setup_page():
     """First-run setup wizard."""
     # Block if user already exists
     if User.query.first() is not None:
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.dashboard_page"))
 
     form = SetupForm()
 
@@ -67,7 +67,7 @@ def setup_page():
         login_user(user)
         current_app.logger.info(f"Initial user created: {user.username}")
 
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.dashboard_page"))
 
     return render_template("auth/setup.html", form=form)
 
