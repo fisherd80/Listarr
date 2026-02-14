@@ -7,15 +7,9 @@
 ## Current Status
 
 **Phase:** 11 - User Authentication
-**Plan:** 2 of ?
+**Plan:** 3 of ?
 **Status:** In Progress
-**Last activity:** 2026-02-14 - Completed 11-02-PLAN (Application Auth Integration)
-
-**Next Steps:**
-1. Test all protected routes redirect to login
-2. Verify AJAX 401 handling across all pages
-3. Consider adding user profile display in nav
-4. Plan 03: Additional auth features (if needed)
+**Last activity:** 2026-02-14 - Completed 11-03-PLAN (Auth Test Coverage)
 
 ## Phase Progress
 
@@ -41,11 +35,23 @@
 | 10.3 Import & Schedule Bug Fixes | Complete | 2/2 | Verified |
 | 10.4 Bulk Import API | Complete | 2/2 | - |
 | 10.5 UI Performance & State | Complete | 4/4 | - |
-| 11. User Authentication | In Progress | 2/? | - |
+| 11. User Authentication | In Progress | 3/? | - |
 | 12. Security Hardening | Not started | 0/? | - |
 | 13. Release Readiness | Not started | 0/? | - |
 
 ## Recent Activity
+
+- 2026-02-14: Completed 11-03-PLAN (Auth Test Coverage)
+  - Added LOGIN_DISABLED=True to app fixture to bypass @login_required for existing tests
+  - Created test user in app and app_with_csrf fixtures to bypass setup check
+  - Added app_with_auth fixture for testing with auth enabled
+  - Added auth_client, test_user, authenticated_client fixtures for auth testing
+  - Created 6 user model tests (password hashing, UserMixin properties, unique constraint)
+  - Created 31 auth route tests (setup, login, logout, route protection, security)
+  - Fixed url_for("main.index") to url_for("main.dashboard_page") in auth_routes.py
+  - 530 total tests (493 existing + 37 new), 526 passed, 4 skipped
+  - Commits: fbf988e, d131318
+  - Phase 11 progress (3/? plans complete)
 
 - 2026-02-14: Completed 11-02-PLAN (Application Auth Integration)
   - Protected 36 routes with @login_required decorator (all non-dashboard routes)
@@ -496,7 +502,7 @@ None
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 11-02-PLAN (Application Auth Integration). 2 tasks, 2 commits.
+Stopped at: Completed 11-03-PLAN (Auth Test Coverage). 2 tasks, 2 commits.
 Resume file: None
 
 ## Notes
