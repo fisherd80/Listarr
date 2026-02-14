@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from listarr import db
 from listarr.models.jobs_model import Job, JobItem
 from listarr.models.lists_model import List
+from listarr.services.dashboard_cache import refresh_dashboard_cache
 from listarr.services.import_service import import_list
 
 logger = logging.getLogger(__name__)
@@ -227,6 +228,12 @@ def _mark_job_completed(job_id, result, start_time):
     logger.info(
         f"Job {job_id} completed: {job.items_added} added, {job.items_skipped} skipped, {job.items_failed} failed"
     )
+
+    # Refresh dashboard cache to reflect new imports
+    try:
+        refresh_dashboard_cache()
+    except Exception as e:
+        logger.warning(f"Failed to refresh dashboard cache after job completion: {e}")
 
 
 def _mark_job_failed(job_id, error_message, error_details, start_time=None):
