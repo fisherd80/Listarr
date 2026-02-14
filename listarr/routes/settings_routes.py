@@ -9,9 +9,10 @@ from flask import (
     request,
     url_for,
 )
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from listarr import db
+from listarr.forms.auth_forms import ChangePasswordForm
 from listarr.forms.settings_forms import TmdbApiForm
 from listarr.models.service_config_model import ServiceConfig
 from listarr.routes import bp
@@ -57,6 +58,7 @@ def _test_and_update_tmdb_status(api_key):
 @login_required
 def settings_page():
     tmdb_api_form = TmdbApiForm()
+    password_form = ChangePasswordForm()
 
     if request.method == "POST":
         api_key = tmdb_api_form.tmdb_api.data.strip()
@@ -126,6 +128,7 @@ def settings_page():
     return render_template(
         "settings.html",
         tmdb_api_form=tmdb_api_form,
+        password_form=password_form,
         last_test_at=last_test_at,
         last_test_status=last_test_status,
     )
@@ -151,3 +154,27 @@ def test_tmdb_api():
             "timestamp": test_timestamp.isoformat(),
         }
     )
+
+
+# ----------------------
+# Change Password Route (AJAX)
+# ----------------------
+@bp.route("/settings/change-password", methods=["POST"])
+@login_required
+def change_password():
+    """AJAX endpoint for password change."""
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        if not current_user.check_password(form.current_password.data):
+            return jsonify({"success": False, "message": "Current password is incorrect"}), 400
+
+        current_user.set_password(form.new_password.data)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Password changed successfully"})
+
+    # Collect validation errors
+    errors = []
+    for field, field_errors in form.errors.items():
+        for error in field_errors:
+            errors.append(error)
+    return jsonify({"success": False, "message": errors[0] if errors else "Validation failed"}), 400

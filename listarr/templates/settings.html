@@ -12,55 +12,108 @@ content %}
   </div>
 
   <!-- ===================== -->
-  <!-- User Settings Section -->
+  <!-- Change Password Section -->
   <!-- ===================== -->
+  {% if current_user.is_authenticated %}
   <section class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
     <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-      User Account
+      Change Password
     </h2>
 
-    <div class="grid grid-cols-1 gap-6 max-w-lg">
-      <!-- Username (Read-only) -->
-      <div>
-        <label
-          class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Username
+    <form id="change-password-form" class="grid grid-cols-1 gap-6 max-w-lg">
+      {{ password_form.hidden_tag() }}
+
+      <!-- Current Password -->
+      <div class="relative">
+        <label for="current_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {{ password_form.current_password.label }}
         </label>
-        <input
-          type="text"
-          value="admin"
-          readonly
-          class="mt-1 block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed"
-        />
+        <div class="flex items-center">
+          <input
+            id="current_password"
+            type="password"
+            name="{{ password_form.current_password.name }}"
+            class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
+            required
+          />
+          <button
+            type="button"
+            onclick="togglePasswordVisibility('current_password')"
+            class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <!-- Password (Hidden Placeholder) -->
-      <div>
-        <label
-          class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Password
+      <!-- New Password -->
+      <div class="relative">
+        <label for="new_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {{ password_form.new_password.label }}
         </label>
-        <input
-          type="password"
-          value="********"
-          readonly
-          class="mt-1 block w-full px-3 py-2 rounded-md border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed"
-        />
+        <div class="flex items-center">
+          <input
+            id="new_password"
+            type="password"
+            name="{{ password_form.new_password.name }}"
+            class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
+            required
+          />
+          <button
+            type="button"
+            onclick="togglePasswordVisibility('new_password')"
+            class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <!-- Reset Password Button -->
+      <!-- Confirm New Password -->
+      <div class="relative">
+        <label for="new_password_confirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {{ password_form.new_password_confirm.label }}
+        </label>
+        <div class="flex items-center">
+          <input
+            id="new_password_confirm"
+            type="password"
+            name="{{ password_form.new_password_confirm.name }}"
+            class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
+            required
+          />
+          <button
+            type="button"
+            onclick="togglePasswordVisibility('new_password_confirm')"
+            class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
       <div>
         <button
-          type="button"
+          type="submit"
+          id="change-password-button"
           class="inline-flex items-center px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-indigo-700 focus:outline-none"
         >
-          Reset Password
+          Change Password
         </button>
       </div>
-    </div>
+    </form>
   </section>
+  {% endif %}
 
   <!-- ===================== -->
   <!-- TMDB API Section -->
@@ -192,6 +245,54 @@ content %}
 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
   Your API key is stored securely and masked by default.
 </p>
+
+<script>
+  // Password visibility toggle
+  function togglePasswordVisibility(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field.type === "password") {
+      field.type = "text";
+    } else {
+      field.type = "password";
+    }
+  }
+
+  // Change password form handler
+  {% if current_user.is_authenticated %}
+  document.getElementById('change-password-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const csrfToken = getCsrfToken();
+
+    try {
+      const response = await fetch('/settings/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrfToken,
+        },
+        body: new URLSearchParams(formData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast(data.message, 'success');
+        // Clear form fields
+        document.getElementById('current_password').value = '';
+        document.getElementById('new_password').value = '';
+        document.getElementById('new_password_confirm').value = '';
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to change password. Please try again.', 'error');
+    }
+  });
+  {% endif %}
+</script>
+
 <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
 
 {% endblock %}
