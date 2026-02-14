@@ -193,9 +193,10 @@ def upcoming_jobs():
         config = ServiceConfig.query.first()
         scheduler_paused = config.scheduler_paused if config else False
 
-        # Query all lists with schedules that are active
+        # Query all lists with schedules that are active (exclude manual-only lists)
         scheduled_lists = List.query.filter(
             List.schedule_cron.isnot(None),
+            List.schedule_cron != "",
             List.is_active == True,  # noqa: E712
         ).all()
 

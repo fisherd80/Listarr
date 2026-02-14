@@ -752,7 +752,7 @@ def wizard_submit():
             list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
             list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
             list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
-            list_obj.schedule_cron = schedule.get("cron")
+            list_obj.schedule_cron = schedule.get("cron") or None
             list_obj.is_active = schedule.get("is_active", True)
         else:
             # Create mode
@@ -768,7 +768,7 @@ def wizard_submit():
                 override_monitored=_bool_to_db(import_settings.get("monitored")),
                 override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
                 override_season_folder=_bool_to_db(import_settings.get("season_folder")),
-                schedule_cron=schedule.get("cron"),
+                schedule_cron=schedule.get("cron") or None,
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
             )
