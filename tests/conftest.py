@@ -7,6 +7,7 @@ This module provides reusable fixtures for:
 - Database initialization and cleanup
 - Encryption key management
 - Mock data generation
+- Authentication fixtures for testing auth routes
 """
 
 import os
@@ -45,6 +46,8 @@ def app(temp_instance_path):
     Create and configure a Flask application instance for testing.
 
     Uses in-memory SQLite database and temporary instance path for isolation.
+    LOGIN_DISABLED is set to True to bypass @login_required for existing tests.
+    A test user is created to bypass the setup check.
 
     Args:
         temp_instance_path: Temporary instance directory fixture
@@ -66,6 +69,65 @@ def app(temp_instance_path):
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": False,  # Disable CSRF for easier testing
         "SECRET_KEY": "test-secret-key",
+        "LOGIN_DISABLED": True,  # Bypass @login_required for existing tests
+    }
+
+    try:
+        app = create_app(test_config=test_config)
+        app.instance_path = temp_instance_path
+
+        with app.app_context():
+            db.create_all()
+
+            # Create a default test user to bypass setup check
+            # This ensures existing tests don't get redirected to /setup
+            from listarr.models.user_model import User
+
+            user = User(username="testuser")
+            user.set_password("testpassword")
+            db.session.add(user)
+            db.session.commit()
+
+            yield app
+            db.session.remove()
+            db.drop_all()
+    finally:
+        # Restore original FERNET_KEY env var
+        if old_fernet_key is None:
+            os.environ.pop("FERNET_KEY", None)
+        else:
+            os.environ["FERNET_KEY"] = old_fernet_key
+
+
+@pytest.fixture(scope="function")
+def app_with_auth(temp_instance_path):
+    """
+    Create Flask application with authentication ENABLED.
+
+    Use this fixture for auth-specific tests where login protection
+    needs to be tested. Unlike the standard app fixture, this does
+    NOT set LOGIN_DISABLED=True.
+
+    Args:
+        temp_instance_path: Temporary instance directory fixture
+
+    Yields:
+        Flask: Configured Flask application with auth enabled
+    """
+    # Read the encryption key from the temp directory and set as env var
+    key_path = os.path.join(temp_instance_path, ".fernet_key")
+    with open(key_path, "rb") as f:
+        key = f.read().decode()
+
+    old_fernet_key = os.environ.get("FERNET_KEY")
+    os.environ["FERNET_KEY"] = key
+
+    test_config = {
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "WTF_CSRF_ENABLED": False,
+        "SECRET_KEY": "test-secret-key",
+        # Note: LOGIN_DISABLED is NOT set — auth is active
     }
 
     try:
@@ -91,6 +153,8 @@ def app_with_csrf(temp_instance_path):
     Create Flask application with CSRF protection enabled.
 
     Use this fixture when testing CSRF token validation.
+    LOGIN_DISABLED is set to True to bypass @login_required for existing tests.
+    A test user is created to bypass the setup check.
 
     Args:
         temp_instance_path: Temporary instance directory fixture
@@ -112,6 +176,7 @@ def app_with_csrf(temp_instance_path):
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "WTF_CSRF_ENABLED": True,
         "SECRET_KEY": "test-secret-key",
+        "LOGIN_DISABLED": True,  # Bypass @login_required for existing tests
     }
 
     try:
@@ -120,6 +185,15 @@ def app_with_csrf(temp_instance_path):
 
         with app.app_context():
             db.create_all()
+
+            # Create a default test user to bypass setup check
+            from listarr.models.user_model import User
+
+            user = User(username="testuser")
+            user.set_password("testpassword")
+            db.session.add(user)
+            db.session.commit()
+
             yield app
             db.session.remove()
             db.drop_all()
@@ -143,6 +217,22 @@ def client(app):
         FlaskClient: Test client instance
     """
     return app.test_client()
+
+
+@pytest.fixture(scope="function")
+def auth_client(app_with_auth):
+    """
+    Create a test client with authentication enabled.
+
+    Use this for testing auth routes and protected endpoints.
+
+    Args:
+        app_with_auth: Flask application with auth enabled
+
+    Returns:
+        FlaskClient: Test client with auth protection active
+    """
+    return app_with_auth.test_client()
 
 
 @pytest.fixture(scope="function")
@@ -171,6 +261,57 @@ def runner(app):
         FlaskCliRunner: CLI test runner instance
     """
     return app.test_cli_runner()
+
+
+@pytest.fixture(scope="function")
+def test_user(app_with_auth):
+    """
+    Create a test user in the database.
+
+    Creates a user with username="testuser" and password="testpassword".
+    Use this fixture when you need a user to exist but don't need to be
+    logged in yet.
+
+    Args:
+        app_with_auth: Flask application with auth enabled
+
+    Yields:
+        User: The created test user object
+    """
+    from listarr.models.user_model import User
+
+    with app_with_auth.app_context():
+        user = User(username="testuser")
+        user.set_password("testpassword")
+        db.session.add(user)
+        db.session.commit()
+        yield user
+
+
+@pytest.fixture(scope="function")
+def authenticated_client(auth_client, test_user):
+    """
+    Create a test client that is already logged in.
+
+    This fixture creates a test user and logs them in via POST to /login.
+    Use this when testing routes that require authentication.
+
+    Args:
+        auth_client: Test client with auth enabled
+        test_user: Test user fixture
+
+    Returns:
+        FlaskClient: Test client with active login session
+    """
+    auth_client.post(
+        "/login",
+        data={
+            "username": "testuser",
+            "password": "testpassword",
+        },
+        follow_redirects=True,
+    )
+    return auth_client
 
 
 @pytest.fixture(scope="function")
