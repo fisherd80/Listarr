@@ -7,7 +7,7 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/psf/black
-    rev: 24.1.1 # <-- stable version
+    rev: 24.3.0 # <-- security fix for PYSEC-2024-48
     hooks:
       - id: black
         args: [] # don't override line length, pyproject.toml will be used

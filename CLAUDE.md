@@ -326,14 +326,14 @@ Defined in `requirements.txt`:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| Flask | ==3.0.0 | Web framework |
+| Flask | ==3.1.2 | Web framework |
 | Flask-SQLAlchemy | ==3.1.1 | ORM |
 | SQLAlchemy | ==2.0.44 | Database toolkit |
 | Flask-WTF | ==1.2.1 | Forms + CSRF protection |
 | WTForms | ==3.1.1 | Form validation |
 | Flask-Login | ==0.6.3 | Session and user authentication |
 | cachetools | >=5.3.0 | Caching utilities |
-| cryptography | ==44.0.1 | Fernet encryption for API keys |
+| cryptography | ==46.0.5 | Fernet encryption for API keys |
 | requests | ==2.32.4 | HTTP client for all external APIs |
 | gunicorn | ==22.0.0 | Production WSGI server |
 | APScheduler | ==3.11.2 | Cron-based job scheduling |
