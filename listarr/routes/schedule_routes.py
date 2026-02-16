@@ -1,7 +1,9 @@
 """Schedule routes - API endpoints for schedule management."""
 
+from apscheduler.jobstores.base import JobLookupError
 from flask import jsonify, render_template
 from flask_login import login_required
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import csrf, db
 from listarr.models.jobs_model import Job
@@ -144,7 +146,7 @@ def pause_schedule():
     try:
         pause_scheduler()
         return jsonify({"success": True})
-    except Exception as e:
+    except (OperationalError, RuntimeError) as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -161,7 +163,7 @@ def resume_schedule():
     try:
         resume_scheduler()
         return jsonify({"success": True})
-    except Exception as e:
+    except (OperationalError, RuntimeError) as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -271,7 +273,7 @@ def update_schedule(list_id):
                 schedule_list(list_obj.id, new_cron)
             else:
                 unschedule_list(list_obj.id)
-        except Exception as e:
+        except (ValueError, JobLookupError) as e:
             current_app.logger.warning(f"Scheduler update failed for list {list_id}: {e}")
 
         # Get updated status
@@ -296,7 +298,7 @@ def update_schedule(list_id):
             }
         )
 
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating schedule for list {list_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to update schedule"}), 500

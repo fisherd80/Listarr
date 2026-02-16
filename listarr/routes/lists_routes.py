@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from apscheduler.jobstores.base import JobLookupError
+from cryptography.fernet import InvalidToken
 from flask import (
     current_app,
     flash,
@@ -10,6 +12,8 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
+from requests.exceptions import RequestException
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import csrf, db
 from listarr.forms.lists_forms import ListForm
@@ -162,7 +166,7 @@ def create_list():
             db.session.add(new_list)
             db.session.commit()
             flash(f"List '{new_list.name}' created successfully!", "success")
-        except Exception as e:
+        except (IntegrityError, OperationalError) as e:
             db.session.rollback()
             current_app.logger.error(f"Error creating list: {e}", exc_info=True)
             flash("Error creating list. Please try again.", "error")
@@ -215,7 +219,7 @@ def edit_list(list_id):
             # Build choices
             quality_profile_choices.extend([(str(p["id"]), p["name"]) for p in quality_profiles])
             root_folder_choices.extend([(f["path"], f["path"]) for f in root_folders])
-        except Exception as e:
+        except (RequestException, ValueError, InvalidToken) as e:
             current_app.logger.error(f"Error fetching {service_type} options: {e}", exc_info=True)
             flash(
                 f"Could not load {service_type} options. Some dropdowns may be empty.",
@@ -276,18 +280,18 @@ def edit_list(list_id):
                 try:
                     schedule_list(list_obj.id, list_obj.schedule_cron)
                     current_app.logger.info(f"Updated schedule for list {list_obj.id}")
-                except Exception as e:
+                except (ValueError, JobLookupError) as e:
                     current_app.logger.warning(f"Failed to update schedule: {e}")
             else:
                 try:
                     unschedule_list(list_obj.id)
                     current_app.logger.info(f"Removed schedule for list {list_obj.id}")
-                except Exception:
+                except JobLookupError:
                     pass  # Job may not exist, that's fine
 
             flash(f"List '{list_obj.name}' updated successfully!", "success")
             return redirect(url_for("main.lists_page"))
-        except Exception as e:
+        except (IntegrityError, OperationalError) as e:
             db.session.rollback()
             current_app.logger.error(f"Error updating list: {e}", exc_info=True)
             flash("Error updating list. Please try again.", "error")
@@ -329,7 +333,7 @@ def edit_list(list_id):
                 tags = get_tags(base_url, api_key)
                 tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
                 form.override_tag.data = tag["label"] if tag else ""
-            except Exception as e:
+            except RequestException as e:
                 current_app.logger.error(f"Error fetching tag name: {e}", exc_info=True)
                 form.override_tag.data = ""
         else:
@@ -362,13 +366,13 @@ def delete_list(list_id):
         try:
             unschedule_list(list_id)
             current_app.logger.info(f"Unscheduled list {list_id} before deletion")
-        except Exception as e:
+        except JobLookupError as e:
             current_app.logger.warning(f"Failed to unschedule list before deletion: {e}")
 
         db.session.delete(list_obj)
         db.session.commit()
         return jsonify({"success": True, "message": f"List '{list_name}' deleted successfully!"})
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting list: {e}", exc_info=True)
         return (
@@ -418,7 +422,7 @@ def list_wizard():
                     tags = get_tags(base_url, api_key)
                     tag = next((t for t in tags if t["id"] == list_obj.override_tag_id), None)
                     tag_name = tag["label"] if tag else None
-                except Exception as e:
+                except RequestException as e:
                     current_app.logger.error(f"Error fetching tag name for list wizard: {e}", exc_info=True)
 
         # Build existing list data for JavaScript
@@ -499,13 +503,13 @@ def toggle_list(list_id):
             try:
                 schedule_list(list_obj.id, list_obj.schedule_cron)
                 current_app.logger.info(f"Scheduled list {list_obj.id} after enabling")
-            except Exception as e:
+            except (ValueError, JobLookupError) as e:
                 current_app.logger.warning(f"Failed to schedule list after enabling: {e}")
         elif not list_obj.is_active:
             try:
                 unschedule_list(list_obj.id)
                 current_app.logger.info(f"Unscheduled list {list_obj.id} after disabling")
-            except Exception:
+            except JobLookupError:
                 pass  # Job may not exist
 
         status_text = "enabled" if list_obj.is_active else "disabled"
@@ -517,7 +521,7 @@ def toggle_list(list_id):
                 "message": f"List {status_text}",
             }
         )
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error toggling list: {e}", exc_info=True)
         return (
@@ -560,7 +564,7 @@ def wizard_preview():
 
     try:
         api_key = decrypt_data(tmdb_config.api_key_encrypted)
-    except Exception as e:
+    except (ValueError, InvalidToken) as e:
         current_app.logger.error(f"Error decrypting TMDB API key: {e}", exc_info=True)
         return jsonify({"error": "Failed to decrypt TMDB API key", "items": []})
 
@@ -621,7 +625,7 @@ def wizard_preview():
             else:
                 items = discover_tv_cached(api_key, tmdb_filters)
 
-    except Exception as e:
+    except RequestException as e:
         current_app.logger.error(f"Error fetching TMDB preview: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch preview from TMDB", "items": []})
 
@@ -725,7 +729,7 @@ def wizard_submit():
                     from listarr.services.sonarr_service import create_or_get_tag_id
 
                 tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
-            except Exception as e:
+            except RequestException as e:
                 current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
                 return (
                     jsonify(
@@ -782,18 +786,18 @@ def wizard_submit():
                 schedule_list(list_obj.id, list_obj.schedule_cron)
                 mode = "updated" if list_id else "registered"
                 current_app.logger.info(f"{mode.capitalize()} schedule for list {list_obj.id}")
-            except Exception as e:
+            except (ValueError, JobLookupError) as e:
                 current_app.logger.warning(f"Failed to update schedule: {e}")
         else:
             try:
                 unschedule_list(list_obj.id)
                 current_app.logger.info(f"Removed schedule for list {list_obj.id}")
-            except Exception:
+            except JobLookupError:
                 pass  # Job may not exist
 
         return jsonify({"success": True, "list_id": list_obj.id})
 
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving list: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
@@ -832,7 +836,7 @@ def wizard_defaults(service):
     # Decrypt API key and get base URL
     try:
         api_key = decrypt_data(config.api_key_encrypted)
-    except Exception as e:
+    except (ValueError, InvalidToken) as e:
         current_app.logger.error(f"Error decrypting {service} API key: {e}", exc_info=True)
         return jsonify(
             {
@@ -861,7 +865,7 @@ def wizard_defaults(service):
         quality_profiles = get_quality_profiles(base_url, api_key)
         root_folders = get_root_folders(base_url, api_key)
         tags = get_tags(base_url, api_key)
-    except Exception as e:
+    except RequestException as e:
         current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
         # Return partial data - service is configured but options fetch failed
         return jsonify(
@@ -965,7 +969,7 @@ def run_list_import(list_id):
         return jsonify({"success": True, "job_id": job_id, "status": "started"}), 202
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
-    except Exception as e:
+    except (OperationalError, RuntimeError) as e:
         current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to start job"}), 500
 

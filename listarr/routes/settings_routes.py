@@ -95,7 +95,7 @@ def settings_page():
                         tmdb_service.tmdb_region = tmdb_api_form.tmdb_region.data or None
                         db.session.commit()
                         flash("TMDB API Key saved successfully.", "success")
-                    except (IntegrityError, OperationalError) as e:
+                    except (IntegrityError, OperationalError, ValueError, RuntimeError, OSError) as e:
                         db.session.rollback()
                         current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
                         flash(

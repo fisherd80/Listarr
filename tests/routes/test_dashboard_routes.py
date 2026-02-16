@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from requests.exceptions import RequestException
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.jobs_model import Job
@@ -423,7 +425,7 @@ class TestDashboardStatsGET:
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
     def test_dashboard_stats_with_radarr_configured_but_offline(self, mock_status, app, client, temp_instance_path):
         """Test stats endpoint when Radarr is configured but unreachable."""
-        mock_status.side_effect = Exception("Connection refused")
+        mock_status.side_effect = RequestException("Connection refused")
 
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -595,7 +597,7 @@ class TestDashboardStatsGET:
     ):
         """Test stats endpoint with mixed service statuses."""
         mock_radarr_status.return_value = {"version": "4.5.2.7388"}
-        mock_sonarr_status.side_effect = Exception("Connection refused")
+        mock_sonarr_status.side_effect = RequestException("Connection refused")
 
         with app.app_context():
             radarr_encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -1033,7 +1035,7 @@ class TestDashboardErrorHandling:
         """Test that recent jobs endpoint handles database errors gracefully."""
         with app.app_context():
             with patch("listarr.routes.dashboard_routes.Job.query") as mock_query:
-                mock_query.outerjoin.side_effect = Exception("Database connection lost")
+                mock_query.outerjoin.side_effect = OperationalError("Database connection lost", None, None)
 
                 response = client.get("/api/dashboard/recent-jobs")
 
@@ -1049,7 +1051,7 @@ class TestDashboardErrorHandling:
     ):
         """Test stats endpoint handles partial API failures."""
         mock_status.return_value = {"version": "4.5.2.7388"}
-        mock_count.side_effect = Exception("Count endpoint failed")
+        mock_count.side_effect = RequestException("Count endpoint failed")
 
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -1080,7 +1082,9 @@ class TestDashboardErrorHandling:
     @patch("listarr.services.dashboard_cache.get_radarr_system_status")
     def test_dashboard_stats_handles_timeout(self, mock_status, app, client, temp_instance_path):
         """Test stats endpoint handles timeout errors."""
-        mock_status.side_effect = TimeoutError("Request timed out")
+        from requests.exceptions import Timeout
+
+        mock_status.side_effect = Timeout("Request timed out")
 
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)

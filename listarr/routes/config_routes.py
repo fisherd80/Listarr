@@ -110,7 +110,7 @@ def _save_service_config(service, form_url_field, form_api_field):
             # Don't fail the save if cache refresh fails, just log it
 
         flash(f"{service} URL and API Key saved successfully.", "success")
-    except (IntegrityError, OperationalError) as e:
+    except (IntegrityError, OperationalError, ValueError, RuntimeError, OSError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving {service} configuration: {e}", exc_info=True)
         flash(f"Failed to save {service} configuration. Please try again.", "error")
