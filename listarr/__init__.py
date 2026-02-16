@@ -9,7 +9,7 @@ from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
-from listarr.services.crypto_utils import load_encryption_key
+from listarr.services.crypto_utils import load_encryption_key, load_or_generate_secret_key
 
 db = SQLAlchemy()
 csrf = CSRFProtect()
@@ -37,12 +37,14 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
                 # WAL mode was requested but filesystem returned different mode
                 journal_mode = result[0].upper()
                 raise ValueError(f"Filesystem returned {journal_mode} instead of WAL")
+        # Intentionally broad: WAL mode must gracefully degrade on any filesystem/driver issue
         except Exception as e:
             # WAL mode can fail on certain filesystems (NFS, FUSE, network shares)
             # Fall back to DELETE mode which is universally supported
             journal_mode = "DELETE"
             try:
                 cursor.execute("PRAGMA journal_mode=DELETE")
+            # Intentionally broad: WAL mode must gracefully degrade on any filesystem/driver issue
             except Exception:
                 journal_mode = "default"
             if not _wal_mode_logged:
@@ -62,9 +64,17 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
     app.config.from_mapping(
-        SECRET_KEY=os.environ.get("LISTARR_SECRET_KEY", "dev_key_change_me"),
+        SECRET_KEY=load_or_generate_secret_key(app.instance_path),
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(app.instance_path, 'listarr.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SESSION_COOKIE_SECURE=not app.debug,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
+        REMEMBER_COOKIE_SECURE=not app.debug,
+        REMEMBER_COOKIE_DURATION=timedelta(days=30),
+        REMEMBER_COOKIE_HTTPONLY=True,
+        REMEMBER_COOKIE_SAMESITE="Lax",
     )
 
     if test_config:
@@ -100,14 +110,37 @@ def create_app(test_config=None):
     login_manager.login_view = "main.login_page"
     login_manager.login_message = None  # Disable flash messages, app uses toast
 
-    # Remember me cookie configuration
-    app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=30)
-    app.config["REMEMBER_COOKIE_HTTPONLY"] = True
-    app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
-
     from .routes import bp as main_bp
 
     app.register_blueprint(main_bp)
+
+    @app.after_request
+    def add_security_headers(response):
+        """Add security headers to all responses."""
+        # Prevent clickjacking
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+
+        # Prevent MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # Content Security Policy
+        # style-src 'unsafe-inline' required for Tailwind CSS utility classes
+        # img-src includes TMDB for poster images and data: for inline SVGs
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
+            "img-src 'self' data: https://image.tmdb.org; "
+            "font-src 'self'; "
+            "frame-ancestors 'self'"
+        )
+
+        # HSTS only when actually served over HTTPS
+        # Per user decision: don't enable by default (too risky for self-hosted HTTP)
+        if not app.debug and request.is_secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        return response
 
     # Initialize dashboard cache and recover interrupted jobs at startup
     with app.app_context():

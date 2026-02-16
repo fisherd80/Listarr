@@ -11,6 +11,7 @@ import logging
 import threading
 
 from cachetools import TTLCache
+from sqlalchemy.exc import OperationalError
 
 from listarr.services import tmdb_service
 
@@ -44,7 +45,7 @@ def _get_tmdb_region() -> str | None:
 
         tmdb_config = ServiceConfig.query.filter_by(service="TMDB").first()
         return tmdb_config.tmdb_region if tmdb_config else None
-    except Exception:
+    except (RuntimeError, OperationalError):
         # Outside app context or error - return None (no region filter)
         return None
 
