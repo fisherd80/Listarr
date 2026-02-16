@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.service_config_model import ServiceConfig
@@ -177,7 +178,7 @@ class TestDatabaseIntegration:
             db.session.commit()
 
             # Force commit to fail
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 client.post("/settings", data={"tmdb_api": "new_key", "save_api_key": "true"})
 
             # Verify original key is still intact (rollback worked)
@@ -204,7 +205,7 @@ class TestDatabaseIntegration:
             original_time = config.last_tested_at
 
             # Force commit to fail during test update
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 client.post(
                     "/settings/test_tmdb_api",
                     json={"api_key": "test_key"},
