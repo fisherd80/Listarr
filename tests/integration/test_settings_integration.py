@@ -415,7 +415,7 @@ class TestErrorRecovery:
         mock_test.return_value = True
 
         # Step 1: Cause encryption to fail
-        mock_encrypt.side_effect = Exception("Encryption error")
+        mock_encrypt.side_effect = RuntimeError("Encryption error")
         response = client.post(
             "/settings",
             data={"tmdb_api": "test_key", "save_api_key": "true"},

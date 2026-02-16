@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from requests.exceptions import RequestException
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.jobs_model import Job
@@ -233,9 +235,9 @@ class TestDashboardEndToEndWorkflow:
     ):
         """Test that offline Radarr service shows 'offline' status."""
         # Mock service as unreachable
-        mock_status.side_effect = Exception("Connection refused")
-        mock_count.side_effect = Exception("Connection refused")
-        mock_missing.side_effect = Exception("Connection refused")
+        mock_status.side_effect = RequestException("Connection refused")
+        mock_count.side_effect = RequestException("Connection refused")
+        mock_missing.side_effect = RequestException("Connection refused")
 
         # Configure Radarr
         with app.app_context():
@@ -491,7 +493,7 @@ class TestDashboardErrorRecovery:
     def test_dashboard_handles_partial_api_failure(self, mock_count, mock_status, app, client, temp_instance_path):
         """Test dashboard handles partial API failures (status succeeds, count fails)."""
         mock_status.return_value = {"version": "4.5.2.7388"}
-        mock_count.side_effect = Exception("Count API failed")
+        mock_count.side_effect = RequestException("Count API failed")
 
         with app.app_context():
             encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
@@ -522,7 +524,7 @@ class TestDashboardErrorRecovery:
         """Test that recent jobs endpoint handles database errors gracefully."""
         with app.app_context():
             with patch("listarr.routes.dashboard_routes.Job.query") as mock_query:
-                mock_query.outerjoin.side_effect = Exception("Database error")
+                mock_query.outerjoin.side_effect = OperationalError("Database error", None, None)
 
                 response = client.get("/api/dashboard/recent-jobs")
                 # Should return 200 with empty jobs array (graceful error handling)
