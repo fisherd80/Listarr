@@ -1,4 +1,5 @@
 import os
+import stat
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -37,6 +38,11 @@ def generate_key(instance_path=None) -> bytes:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(key)
+    # Set restrictive permissions (owner read/write only)
+    try:
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+    except OSError:
+        pass  # Windows or permission denied - best effort
     return key
 
 
@@ -138,6 +144,11 @@ def load_or_generate_secret_key(instance_path) -> str:
     os.makedirs(os.path.dirname(secret_key_path), exist_ok=True)
     with open(secret_key_path, "w") as f:
         f.write(new_key)
+    # Set restrictive permissions (owner read/write only)
+    try:
+        os.chmod(secret_key_path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+    except OSError:
+        pass  # Windows or permission denied - best effort
     print(f"[INFO] Generated new SECRET_KEY and saved to {secret_key_path}")
 
     return new_key
