@@ -1,7 +1,7 @@
 """Schedule routes - API endpoints for schedule management."""
 
 from apscheduler.jobstores.base import JobLookupError
-from flask import jsonify, render_template
+from flask import current_app, jsonify, render_template
 from flask_login import login_required
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -146,7 +146,8 @@ def pause_schedule():
         pause_scheduler()
         return jsonify({"success": True})
     except (OperationalError, RuntimeError) as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        current_app.logger.error(f"Error pausing scheduler: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "Failed to pause scheduler. Please try again."}), 500
 
 
 @bp.route("/api/schedule/resume", methods=["POST"])
@@ -162,7 +163,8 @@ def resume_schedule():
         resume_scheduler()
         return jsonify({"success": True})
     except (OperationalError, RuntimeError) as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        current_app.logger.error(f"Error resuming scheduler: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "Failed to resume scheduler. Please try again."}), 500
 
 
 @bp.route("/api/schedule/status")

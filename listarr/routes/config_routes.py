@@ -424,4 +424,5 @@ def save_import_settings(service):
         return jsonify({"success": True, "message": f"{service.capitalize()} import settings saved successfully."})
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
-        return jsonify({"success": False, "message": f"Failed to save settings: {str(e)}"}), 500
+        current_app.logger.error(f"Error saving import settings: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to save settings. Please try again."}), 500

@@ -735,7 +735,7 @@ def wizard_submit():
                     jsonify(
                         {
                             "success": False,
-                            "error": f"Failed to create/get tag: {str(e)}",
+                            "error": "Failed to create/get tag. Please try again.",
                         }
                     ),
                     500,
@@ -800,7 +800,7 @@ def wizard_submit():
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving list: {e}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Operation failed. Please try again."}), 500
 
 
 @bp.route("/lists/wizard/defaults/<service>")
@@ -967,7 +967,8 @@ def run_list_import(list_id):
 
         return jsonify({"success": True, "job_id": job_id, "status": "started"}), 202
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "Invalid request. Please try again."}), 400
     except (OperationalError, RuntimeError) as e:
         current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to start job"}), 500
