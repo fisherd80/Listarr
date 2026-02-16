@@ -43,7 +43,7 @@ class Job(db.Model):
             "items_skipped": self.items_skipped,
             "items_failed": self.items_failed,
             "error_message": self.error_message,
-            "error_details": self.error_details,
+            # "error_details" removed - don't expose stack traces to API consumers
         }
 
 
