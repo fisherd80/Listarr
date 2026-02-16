@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+from cryptography.fernet import InvalidToken
 from flask import (
     current_app,
     flash,
@@ -11,6 +12,8 @@ from flask import (
     url_for,
 )
 from flask_login import login_required
+from requests.exceptions import RequestException
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import db
 from listarr.forms.config_forms import RadarrAPIForm, SonarrAPIForm
@@ -32,7 +35,7 @@ def _is_valid_url(url):
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
-    except Exception:
+    except (ValueError, TypeError):
         return False
 
 
@@ -48,7 +51,7 @@ def _test_and_update_service_status(service, base_url, api_key):
             service_config.last_tested_at = test_timestamp
             service_config.last_test_status = test_status
             db.session.commit()
-    except Exception as e:
+    except OperationalError as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating {service} test status: {e}", exc_info=True)
 
@@ -100,14 +103,14 @@ def _save_service_config(service, form_url_field, form_api_field):
         try:
             refresh_dashboard_cache()
             current_app.logger.info(f"Dashboard cache refreshed after {service} configuration")
-        except Exception as cache_error:
+        except (OperationalError, RequestException) as cache_error:
             current_app.logger.error(
                 f"Error refreshing dashboard cache after {service} save: {cache_error}", exc_info=True
             )
             # Don't fail the save if cache refresh fails, just log it
 
         flash(f"{service} URL and API Key saved successfully.", "success")
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving {service} configuration: {e}", exc_info=True)
         flash(f"Failed to save {service} configuration. Please try again.", "error")
@@ -137,7 +140,7 @@ def config_page():
                 radarr_existing.api_key_encrypted,
                 instance_path=current_app.instance_path,
             )
-        except (ValueError, Exception) as e:
+        except (ValueError, InvalidToken) as e:
             current_app.logger.error(f"Error decrypting Radarr API key: {e}", exc_info=True)
             radarr_api_form.radarr_api.data = ""
             flash("Unable to decrypt stored Radarr API key. Please re-enter your Radarr API key.", "warning")
@@ -155,7 +158,7 @@ def config_page():
                 sonarr_existing.api_key_encrypted,
                 instance_path=current_app.instance_path,
             )
-        except (ValueError, Exception) as e:
+        except (ValueError, InvalidToken) as e:
             current_app.logger.error(f"Error decrypting Sonarr API key: {e}", exc_info=True)
             sonarr_api_form.sonarr_api.data = ""
             flash("Unable to decrypt stored Sonarr API key. Please re-enter your Sonarr API key.", "warning")
@@ -232,7 +235,7 @@ def fetch_quality_profiles_route(service):
     except ValueError as e:
         current_app.logger.error(f"Decryption error fetching {service} quality profiles: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to decrypt API key."}), 500
-    except Exception as e:
+    except RequestException as e:
         current_app.logger.error(f"Error fetching {service} quality profiles: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to fetch quality profiles."}), 500
 
@@ -260,7 +263,7 @@ def fetch_root_folders_route(service):
     except ValueError as e:
         current_app.logger.error(f"Decryption error fetching {service} root folders: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to decrypt API key."}), 500
-    except Exception as e:
+    except RequestException as e:
         current_app.logger.error(f"Error fetching {service} root folders: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to fetch root folders."}), 500
 
@@ -299,7 +302,7 @@ def fetch_import_settings(service):
                     if tag.get("id") == import_settings.default_tag_id:
                         tag_label = tag.get("label")
                         break
-        except Exception as e:
+        except RequestException as e:
             current_app.logger.error(f"Error fetching {service} data: {e}", exc_info=True)
 
     settings_dict = {
@@ -353,7 +356,7 @@ def save_import_settings(service):
     try:
         api_key = decrypt_data(service_config.api_key_encrypted, instance_path=current_app.instance_path)
         base_url = service_config.base_url
-    except Exception as e:
+    except (ValueError, InvalidToken) as e:
         current_app.logger.error(f"Error decrypting {service} API key: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to decrypt API key"}), 500
 
@@ -375,7 +378,7 @@ def save_import_settings(service):
                 ),
                 400,
             )
-    except Exception as e:
+    except RequestException as e:
         current_app.logger.error(f"Error fetching root folders from {service}: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to fetch root folders"}), 500
 
@@ -388,7 +391,7 @@ def save_import_settings(service):
                     jsonify({"success": False, "message": f"Failed to create/find tag in {service.capitalize()}"}),
                     500,
                 )
-        except Exception as e:
+        except RequestException as e:
             current_app.logger.error(f"Error handling tag for {service}: {e}", exc_info=True)
             return jsonify({"success": False, "message": "Failed to process tag"}), 500
 
@@ -419,6 +422,6 @@ def save_import_settings(service):
         db.session.commit()
 
         return jsonify({"success": True, "message": f"{service.capitalize()} import settings saved successfully."})
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"Failed to save settings: {str(e)}"}), 500

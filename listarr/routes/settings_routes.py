@@ -10,6 +10,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import db
 from listarr.forms.auth_forms import ChangePasswordForm
@@ -44,7 +45,7 @@ def _test_and_update_tmdb_status(api_key):
             tmdb_service.last_tested_at = test_timestamp
             tmdb_service.last_test_status = test_status
             db.session.commit()
-    except Exception as e:
+    except OperationalError as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating TMDB test status: {e}", exc_info=True)
 
@@ -94,7 +95,7 @@ def settings_page():
                         tmdb_service.tmdb_region = tmdb_api_form.tmdb_region.data or None
                         db.session.commit()
                         flash("TMDB API Key saved successfully.", "success")
-                    except Exception as e:
+                    except (IntegrityError, OperationalError) as e:
                         db.session.rollback()
                         current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
                         flash(

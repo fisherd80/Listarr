@@ -1,4 +1,5 @@
 from flask import current_app, jsonify, render_template, request
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import joinedload
 
 from listarr.models.jobs_model import Job
@@ -162,7 +163,7 @@ def recent_jobs():
 
         return jsonify({"jobs": jobs_data})
 
-    except Exception as e:
+    except OperationalError as e:
         current_app.logger.error(f"Error fetching recent jobs: {e}", exc_info=True)
         # Return empty jobs array on error
         return jsonify({"jobs": []})
@@ -226,7 +227,7 @@ def upcoming_jobs():
 
         return jsonify({"upcoming": upcoming, "scheduler_paused": scheduler_paused})
 
-    except Exception as e:
+    except OperationalError as e:
         current_app.logger.error(f"Error fetching upcoming jobs: {e}", exc_info=True)
         # Return empty array on error
         return jsonify({"upcoming": [], "scheduler_paused": False})

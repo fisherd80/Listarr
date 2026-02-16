@@ -2,6 +2,7 @@
 
 from flask import current_app, jsonify, render_template, request
 from flask_login import login_required
+from sqlalchemy.exc import OperationalError
 
 from listarr import csrf, db
 from listarr.models.jobs_model import Job, JobItem
@@ -157,7 +158,7 @@ def rerun_job(job_id):
         )
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
-    except Exception as e:
+    except OperationalError as e:
         current_app.logger.error(f"Error rerunning job {job_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to start job"}), 500
 
