@@ -67,6 +67,7 @@ def create_app(test_config=None):
         SECRET_KEY=load_or_generate_secret_key(app.instance_path),
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(app.instance_path, 'listarr.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16 MB max request size
         SESSION_COOKIE_SECURE=not app.debug,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
