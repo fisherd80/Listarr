@@ -15,7 +15,7 @@ from flask_login import login_required
 from requests.exceptions import RequestException
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from listarr import csrf, db
+from listarr import db
 from listarr.forms.lists_forms import ListForm
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
@@ -927,7 +927,6 @@ def cache_stats():
 
 
 @bp.route("/lists/<int:list_id>/run", methods=["POST"])
-@csrf.exempt
 @login_required
 def run_list_import(list_id):
     """

@@ -5,7 +5,7 @@ from flask import jsonify, render_template
 from flask_login import login_required
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from listarr import csrf, db
+from listarr import db
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
@@ -134,7 +134,6 @@ def _get_list_status(list_obj, scheduler_paused):
 
 
 @bp.route("/api/schedule/pause", methods=["POST"])
-@csrf.exempt
 @login_required
 def pause_schedule():
     """
@@ -151,7 +150,6 @@ def pause_schedule():
 
 
 @bp.route("/api/schedule/resume", methods=["POST"])
-@csrf.exempt
 @login_required
 def resume_schedule():
     """
@@ -231,7 +229,6 @@ def get_schedule_status():
 
 
 @bp.route("/api/schedule/<int:list_id>/update", methods=["POST"])
-@csrf.exempt
 @login_required
 def update_schedule(list_id):
     """
