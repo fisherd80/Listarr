@@ -4,7 +4,7 @@ from getpass import getpass
 from pathlib import Path
 
 from listarr import create_app
-from listarr.services.crypto_utils import generate_key
+from listarr.services.crypto_utils import generate_key, load_or_generate_secret_key
 
 
 def reset_user_password():
@@ -67,6 +67,15 @@ def main():
         print(f">>> Encryption Key created at {key_path}")
     else:
         print(f">>> Encryption Key already exists at {key_path}.")
+
+    # STEP 1.5: Generate SECRET_KEY BEFORE creating app
+    secret_key_path = instance_path / ".secret_key"
+    if not secret_key_path.exists():
+        print(">>> Generating SECRET_KEY...")
+        load_or_generate_secret_key(str(instance_path))
+        print(f">>> SECRET_KEY created at {secret_key_path}")
+    else:
+        print(f">>> SECRET_KEY already exists at {secret_key_path}.")
 
     # STEP 2: Now create app
     # This will automatically initialize the database tables via create_app() -> db.create_all()

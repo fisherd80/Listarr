@@ -4,6 +4,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 # Default key filename (path will be constructed from Flask's instance folder)
 KEY_FILENAME = ".fernet_key"
+SECRET_KEY_FILENAME = ".secret_key"
 
 
 def _get_key_path(instance_path=None):
@@ -105,3 +106,38 @@ def decrypt_data(token: str, instance_path=None) -> str:
         return data.decode()
     except InvalidToken:
         raise ValueError("Invalid token: cannot decrypt")
+
+
+def load_or_generate_secret_key(instance_path) -> str:
+    """
+    Load or generate Flask SECRET_KEY.
+    1. Check LISTARR_SECRET_KEY environment variable (reject weak default).
+    2. Check instance_path/.secret_key file (reject weak default).
+    3. Generate new key using secrets.token_hex(32) and save to file.
+    Returns the secret key as a string.
+    """
+    import secrets
+
+    secret_key_path = os.path.join(instance_path, SECRET_KEY_FILENAME)
+    weak_default = "dev_key_change_me"
+
+    # 1️⃣ Check environment variable
+    env_key = os.environ.get("LISTARR_SECRET_KEY")
+    if env_key and env_key != weak_default:
+        return env_key
+
+    # 2️⃣ Check file
+    if os.path.exists(secret_key_path):
+        with open(secret_key_path, "r") as f:
+            file_key = f.read().strip()
+            if file_key and file_key != weak_default:
+                return file_key
+
+    # 3️⃣ Generate new key
+    new_key = secrets.token_hex(32)  # 64 hex chars, 256 bits
+    os.makedirs(os.path.dirname(secret_key_path), exist_ok=True)
+    with open(secret_key_path, "w") as f:
+        f.write(new_key)
+    print(f"[INFO] Generated new SECRET_KEY and saved to {secret_key_path}")
+
+    return new_key
