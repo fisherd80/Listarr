@@ -12,21 +12,8 @@
 
     <title>Sign In - Listarr</title>
 
-    <!-- Tailwind CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: "media",
-        theme: {
-          extend: {
-            colors: {
-              primary: "#4F46E5",
-              secondary: "#10B981",
-            },
-          },
-        },
-      };
-    </script>
+    <!-- Compiled Tailwind CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
   </head>
 
   <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
