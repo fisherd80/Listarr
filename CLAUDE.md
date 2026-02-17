@@ -71,6 +71,9 @@ The app runs on `http://localhost:5000` by default.
 - **URL validation** before saving or testing connections
 - **User authentication** (Flask-Login with scrypt password hashing)
 - **Open redirect prevention** (URL validation on login redirects)
+- **Security headers** (CSP, X-Frame-Options, X-Content-Type-Options, conditional HSTS)
+- **Session security** (HttpOnly, SameSite=Lax, Secure over HTTPS)
+- **All routes require `@login_required`** except `/login`, `/setup`, `/health`
 
 ## Architecture
 
@@ -135,7 +138,7 @@ All routes registered under a single blueprint `bp` in `listarr/routes/__init__.
   - `POST /config/<service>/import-settings` - Save import settings
   - Helper functions: `_is_valid_url()`, `_save_service_config()`, `_test_service_api()`, `_test_and_update_service_status()`
 - **`settings_routes.py`**: `GET/POST /settings`, `POST /settings/test_tmdb_api`
-- **`auth_routes.py`**: `GET/POST /login`, `GET/POST /setup`, `POST /logout`, `@before_app_request` setup check
+- **`auth_routes.py`**: `GET/POST /login`, `GET/POST /setup`, `POST /logout`, `GET /health`, `@before_app_request` setup check
 
 ### Services Layer
 
@@ -315,7 +318,8 @@ fetch("/endpoint", {
 `instance/` at project root stores runtime data:
 
 - `listarr.db`: SQLite database
-- `.fernet_key`: Encryption key (NEVER commit)
+- `.fernet_key`: Encryption key for API keys (NEVER commit)
+- `.secret_key`: Flask session secret key (NEVER commit)
 
 Created automatically by `create_app()` and `setup.py`. Flask's `app.instance_path` resolves to this location.
 
@@ -347,7 +351,7 @@ Defined in `requirements.txt`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LISTARR_SECRET_KEY` | `dev_key_change_me` | Flask secret key |
+| `LISTARR_SECRET_KEY` | (auto-generated) | Flask secret key (auto-generates to `instance/.secret_key` if not set) |
 | `FERNET_KEY` | (from file) | Override encryption key (otherwise loaded from `instance/.fernet_key`) |
 | `FLASK_DEBUG` | `False` | Enable Flask debug mode |
 | `LOG_LEVEL` | `INFO` | Python logging level (DEBUG, INFO, WARNING, ERROR) |
@@ -356,11 +360,11 @@ Defined in `requirements.txt`:
 
 ## Current Development Status
 
-**Completed phases** (1-11): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (536 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset).
+**Completed phases** (1-12): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (536 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation).
 
-**Next phase**: 12 (Security Hardening)
+**Next phase**: 13 (Release Readiness)
 
-**Remaining phases**: 12 (Security Hardening), 13 (Release Readiness)
+**Remaining phases**: 13 (Release Readiness)
 
 See `.planning/ROADMAP.md` for full phase details.
 
