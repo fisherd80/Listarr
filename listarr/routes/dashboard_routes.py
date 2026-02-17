@@ -1,4 +1,6 @@
 from flask import current_app, jsonify, render_template, request
+from flask_login import login_required
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import joinedload
 
 from listarr.models.jobs_model import Job
@@ -14,11 +16,13 @@ from listarr.utils.time_utils import format_relative_time
 
 
 @bp.route("/")
+@login_required
 def dashboard_page():
     return render_template("dashboard.html")
 
 
 @bp.route("/api/dashboard/stats", methods=["GET"])
+@login_required
 def dashboard_stats():
     """
     Returns cached dashboard statistics for display.
@@ -62,6 +66,7 @@ def dashboard_stats():
 
 
 @bp.route("/api/dashboard/recent-jobs", methods=["GET"])
+@login_required
 def recent_jobs():
     """
     Returns the last 5 executed jobs for dashboard display.
@@ -162,13 +167,14 @@ def recent_jobs():
 
         return jsonify({"jobs": jobs_data})
 
-    except Exception as e:
+    except OperationalError as e:
         current_app.logger.error(f"Error fetching recent jobs: {e}", exc_info=True)
         # Return empty jobs array on error
         return jsonify({"jobs": []})
 
 
 @bp.route("/api/dashboard/upcoming", methods=["GET"])
+@login_required
 def upcoming_jobs():
     """
     Returns the next 5 scheduled jobs for dashboard display.
@@ -226,7 +232,7 @@ def upcoming_jobs():
 
         return jsonify({"upcoming": upcoming, "scheduler_paused": scheduler_paused})
 
-    except Exception as e:
+    except OperationalError as e:
         current_app.logger.error(f"Error fetching upcoming jobs: {e}", exc_info=True)
         # Return empty array on error
         return jsonify({"upcoming": [], "scheduler_paused": False})

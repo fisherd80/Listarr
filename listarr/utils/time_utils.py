@@ -41,5 +41,5 @@ def format_relative_time(dt):
             days = int(total_seconds / 86400)
             return f"in {days} day{'s' if days != 1 else ''}"
 
-    except Exception:
+    except (ValueError, TypeError, OverflowError):
         return "unknown"

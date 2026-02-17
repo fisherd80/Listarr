@@ -1,6 +1,6 @@
 from urllib.parse import urljoin, urlparse
 
-from flask import current_app, redirect, render_template, request, session, url_for
+from flask import current_app, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from listarr import db
@@ -80,15 +80,20 @@ def logout():
     return redirect(url_for("main.login_page"))
 
 
+@bp.route("/health")
+def health_check():
+    """Health check endpoint for Docker HEALTHCHECK."""
+    return jsonify({"status": "ok"}), 200
+
+
 @bp.before_app_request
 def check_setup():
     """Redirect to setup page if no users exist."""
-    # Skip for static files
-    if request.endpoint and request.endpoint.startswith("static"):
-        return
-
-    # Skip for auth pages
-    if request.endpoint in ("main.login_page", "main.setup_page"):
+    # Allow static files, auth routes, and health check
+    if request.endpoint and (
+        request.endpoint.startswith("static")
+        or request.endpoint in ("main.login_page", "main.setup_page", "main.health_check")
+    ):
         return
 
     # Skip if endpoint is None (Flask internals)

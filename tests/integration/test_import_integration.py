@@ -12,6 +12,7 @@ Tests cover:
 from unittest.mock import MagicMock, patch
 
 import pytest
+from requests.exceptions import RequestException
 
 from listarr.models.lists_model import List
 from listarr.services.import_service import BATCH_SIZE, _fetch_tmdb_items, _import_movies
@@ -492,7 +493,7 @@ class TestBatchImportMovies:
         mock_radarr.lookup_movie.side_effect = mock_lookup
 
         # Mock bulk_add_movies to raise exception
-        mock_radarr.bulk_add_movies.side_effect = Exception("Bulk import failed: API error")
+        mock_radarr.bulk_add_movies.side_effect = RequestException("Bulk import failed: API error")
 
         with app.app_context():
             items = [

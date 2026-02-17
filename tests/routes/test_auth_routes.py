@@ -96,6 +96,12 @@ class TestSetupPage:
         assert response.status_code == 200
         assert b"Create Account" in response.data
 
+    def test_setup_rejects_short_password(self, auth_client):
+        """Setup form rejects passwords under 8 characters."""
+        response = auth_client.post("/setup", data={"password": "short", "password_confirm": "short"})
+        assert response.status_code == 200
+        assert b"at least 8 characters" in response.data
+
 
 class TestLoginPage:
     """Tests for the login page (/login)."""
@@ -316,19 +322,9 @@ class TestRouteProtection:
         assert response.status_code == 302
         assert "/login" in response.location
 
-    def test_dashboard_page_public(self, auth_client, test_user):
-        """Test that GET / without login returns 200 (dashboard is public)."""
-        response = auth_client.get("/")
-
-        # Dashboard should be accessible
-        assert response.status_code == 200
-
-    def test_dashboard_stats_api_public(self, auth_client, test_user):
-        """Test that GET /api/dashboard/stats without login returns 200."""
-        response = auth_client.get("/api/dashboard/stats")
-
-        # API should be accessible
-        assert response.status_code == 200
+    # Note: test_dashboard_page_public and test_dashboard_stats_api_public removed
+    # Dashboard now requires authentication (Plan 12.1-01)
+    # See test_dashboard_auth.py for authentication requirement tests
 
     def test_api_returns_401_json(self, auth_client, test_user):
         """Test that protected API endpoint returns JSON 401 for AJAX."""
@@ -336,6 +332,16 @@ class TestRouteProtection:
 
         # Should return 401 (not redirect) for API endpoint
         assert response.status_code == 401 or response.status_code == 302
+
+
+class TestHealthEndpoint:
+    """Tests for the health check endpoint."""
+
+    def test_health_endpoint(self, auth_client):
+        """Health endpoint returns ok without authentication."""
+        response = auth_client.get("/health")
+        assert response.status_code == 200
+        assert response.json == {"status": "ok"}
 
 
 class TestChangePassword:
@@ -408,3 +414,19 @@ class TestChangePassword:
         # Should redirect to login page (302)
         assert response.status_code == 302
         assert "/login" in response.location
+
+    def test_change_password_rejects_short_password(self, authenticated_client):
+        """Test that POST /settings/change-password rejects passwords under 8 characters."""
+        response = authenticated_client.post(
+            "/settings/change-password",
+            data={
+                "current_password": "testpassword",
+                "new_password": "short",
+                "new_password_confirm": "short",
+            },
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "at least 8 characters" in data["message"]

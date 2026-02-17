@@ -7,6 +7,8 @@ to arr_service.py. This module contains Radarr-specific functions.
 
 import logging
 
+from requests.exceptions import RequestException
+
 from listarr.services.arr_service import (
     arr_api_get,
     validate_api_key,
@@ -150,7 +152,7 @@ def lookup_movie(base_url: str, api_key: str, tmdb_id: int) -> dict | None:
         if results:
             return results[0]
         return None
-    except Exception as e:
+    except RequestException as e:
         logger.error(f"Error looking up movie by TMDB ID {tmdb_id}: {e}", exc_info=True)
         return None
 
@@ -239,7 +241,7 @@ def bulk_add_movies(
         response = http_session.post(url, headers=headers, json=movie_payloads, timeout=BULK_TIMEOUT)
         response.raise_for_status()
         return response.json()
-    except Exception as e:
+    except RequestException as e:
         status = response.status_code if "response" in locals() else "N/A"
         error_text = response.text if "response" in locals() else str(e)
         logger.error(f"Bulk import failed ({status}): {error_text}", exc_info=True)

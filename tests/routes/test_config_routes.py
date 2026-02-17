@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
@@ -381,7 +382,7 @@ class TestRadarrConfigPOST:
     def test_save_radarr_api_handles_encryption_error(self, mock_encrypt, mock_test, client):
         """Test that Radarr encryption errors are handled gracefully."""
         mock_test.return_value = True
-        mock_encrypt.side_effect = Exception("Encryption failed")
+        mock_encrypt.side_effect = RuntimeError("Encryption failed")
 
         response = client.post(
             "/config",
@@ -403,7 +404,7 @@ class TestRadarrConfigPOST:
 
         with app.app_context():
             # Create invalid state to trigger database error
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 response = client.post(
                     "/config",
                     data={
@@ -728,7 +729,7 @@ class TestTestRadarrAPIAjax:
         mock_test.return_value = True
 
         with app.app_context():
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 response = client.post(
                     "/config/test_radarr_api",
                     json={"base_url": "http://localhost:7878", "api_key": "valid_key"},
@@ -1212,7 +1213,7 @@ class TestRadarrImportSettingsEndpoints:
 
         mock_root_folders.return_value = [{"id": 5, "path": "/movies"}]
 
-        with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+        with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
             response = client.post(
                 "/config/radarr/import-settings",
                 json={
@@ -1598,7 +1599,7 @@ class TestSonarrImportSettingsEndpoints:
 
         mock_root_folders.return_value = [{"id": 3, "path": "/tv"}]
 
-        with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+        with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
             response = client.post(
                 "/config/sonarr/import-settings",
                 json={
@@ -1728,7 +1729,7 @@ class TestHelperFunctions:
             db.session.commit()
 
             # Force DB error
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 result, timestamp, status = _test_and_update_service_status("RADARR", "http://localhost:7878", "key")
 
         # Should still return test result even if DB update fails
@@ -1755,7 +1756,7 @@ class TestHelperFunctions:
             db.session.commit()
 
             # Force DB error
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 result, timestamp, status = _test_and_update_service_status("SONARR", "http://localhost:8989", "key")
 
         # Should still return test result even if DB update fails

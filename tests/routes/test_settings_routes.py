@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.service_config_model import ServiceConfig
@@ -256,7 +257,7 @@ class TestSettingsPagePOST:
     def test_save_api_key_handles_encryption_error(self, mock_encrypt, mock_test, client):
         """Test that encryption errors are handled gracefully."""
         mock_test.return_value = True
-        mock_encrypt.side_effect = Exception("Encryption failed")
+        mock_encrypt.side_effect = RuntimeError("Encryption failed")
 
         response = client.post(
             "/settings",
@@ -274,7 +275,7 @@ class TestSettingsPagePOST:
 
         with app.app_context():
             # Create invalid state to trigger database error
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 response = client.post(
                     "/settings",
                     data={"tmdb_api": "valid_key", "save_api_key": "true"},
@@ -423,7 +424,7 @@ class TestTestTMDBAPIAjax:
         mock_test.return_value = True
 
         with app.app_context():
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 response = client.post(
                     "/settings/test_tmdb_api",
                     json={"api_key": "valid_key"},
@@ -534,7 +535,7 @@ class TestHelperTestAndUpdateTMDBStatus:
         mock_test.return_value = True
 
         with app.app_context():
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 # Should not raise exception
                 result, timestamp, status = _test_and_update_tmdb_status("test_key")
 

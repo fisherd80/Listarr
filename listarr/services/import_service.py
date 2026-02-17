@@ -8,6 +8,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from cryptography.fernet import InvalidToken
+from requests.exceptions import RequestException
+
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services import radarr_service, sonarr_service, tmdb_service
@@ -253,7 +256,7 @@ def _flush_movie_batch(base_url, api_key, batch, batch_meta, result, activity_tr
             else:
                 result.skipped.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"], "reason": "already_exists"})
         logger.info(f"Batch complete: {len(added_tmdb_ids)} added, {len(batch_meta) - len(added_tmdb_ids)} skipped")
-    except Exception as e:
+    except RequestException as e:
         logger.error(f"Bulk import batch failed: {e}", exc_info=True)
         for meta in batch_meta:
             result.failed.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"], "reason": str(e)})
@@ -422,7 +425,7 @@ def _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_t
                     }
                 )
         logger.info(f"Batch complete: {len(added_tvdb_ids)} added, {len(batch_meta) - len(added_tvdb_ids)} skipped")
-    except Exception as e:
+    except RequestException as e:
         logger.error(f"Bulk import batch failed: {e}", exc_info=True)
         for meta in batch_meta:
             result.failed.append(
@@ -633,7 +636,7 @@ def import_list(list_id: int, stop_event=None, activity_tracker=None) -> ImportR
     try:
         service_api_key = decrypt_data(service_config.api_key_encrypted)
         tmdb_api_key = decrypt_data(tmdb_config.api_key_encrypted)
-    except Exception as e:
+    except (ValueError, InvalidToken) as e:
         logger.error(f"Error decrypting API keys: {e}", exc_info=True)
         result = ImportResult()
         result.failed.append({"reason": "decryption_error", "error": str(e)})

@@ -10,6 +10,9 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+from requests.exceptions import RequestException
+from sqlalchemy.exc import OperationalError
+
 from listarr import db
 from listarr.models.jobs_model import Job, JobItem
 from listarr.models.lists_model import List
@@ -197,6 +200,7 @@ def _execute_job(job_id, list_id, stop_event, activity_tracker, app):
                 list_obj.last_run_at = datetime.now(timezone.utc)
                 db.session.commit()
 
+        # Intentionally broad: top-level job handler must catch all failures to update job status
         except Exception as e:
             logger.error(f"Job {job_id} failed with exception: {e}", exc_info=True)
             error_details = traceback.format_exc()
@@ -232,7 +236,7 @@ def _mark_job_completed(job_id, result, start_time):
     # Refresh dashboard cache to reflect new imports
     try:
         refresh_dashboard_cache()
-    except Exception as e:
+    except (OperationalError, RequestException) as e:
         logger.warning(f"Failed to refresh dashboard cache after job completion: {e}")
 
 

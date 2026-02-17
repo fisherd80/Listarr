@@ -7,6 +7,8 @@ to arr_service.py. This module contains Sonarr-specific functions.
 
 import logging
 
+from requests.exceptions import RequestException
+
 from listarr.services.arr_service import (
     arr_api_get,
     validate_api_key,
@@ -179,7 +181,7 @@ def lookup_series(base_url: str, api_key: str, tvdb_id: int) -> dict | None:
         if results:
             return results[0]
         return None
-    except Exception as e:
+    except RequestException as e:
         logger.error(f"Error looking up series by TVDB ID {tvdb_id}: {e}", exc_info=True)
         return None
 
@@ -274,7 +276,7 @@ def bulk_add_series(
         response = http_session.post(url, json=series_payloads, headers=headers, timeout=BULK_TIMEOUT)
         response.raise_for_status()
         return response.json()
-    except Exception as e:
+    except RequestException as e:
         if "response" in locals() and hasattr(response, "status_code"):
             logger.error(f"Bulk import failed ({response.status_code}): {response.text}", exc_info=True)
             raise Exception(f"Sonarr API error ({response.status_code}): {response.text}")

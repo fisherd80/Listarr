@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Page Not Found{% endblock %}
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[60vh]">
+    <h1 class="text-6xl font-bold text-gray-300 dark:text-gray-600">404</h1>
+    <p class="mt-4 text-xl text-gray-600 dark:text-gray-400">Page not found</p>
+    <a href="{{ url_for('main.dashboard_page') }}" class="mt-6 text-blue-600 hover:text-blue-800 dark:text-blue-400">
+        Return to Dashboard
+    </a>
+</div>
+{% endblock %}

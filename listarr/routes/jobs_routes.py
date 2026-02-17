@@ -2,8 +2,9 @@
 
 from flask import current_app, jsonify, render_template, request
 from flask_login import login_required
+from sqlalchemy.exc import OperationalError
 
-from listarr import csrf, db
+from listarr import db
 from listarr.models.jobs_model import Job, JobItem
 from listarr.models.lists_model import List
 from listarr.routes import bp
@@ -99,7 +100,6 @@ def get_job_detail(job_id):
 
 
 @bp.route("/api/jobs/<int:job_id>/rerun", methods=["POST"])
-@csrf.exempt
 @login_required
 def rerun_job(job_id):
     """
@@ -157,13 +157,12 @@ def rerun_job(job_id):
         )
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
-    except Exception as e:
+    except OperationalError as e:
         current_app.logger.error(f"Error rerunning job {job_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to start job"}), 500
 
 
 @bp.route("/api/jobs/clear", methods=["POST"])
-@csrf.exempt
 @login_required
 def clear_all_jobs():
     """
@@ -191,7 +190,6 @@ def clear_all_jobs():
 
 
 @bp.route("/api/jobs/clear/<int:list_id>", methods=["POST"])
-@csrf.exempt
 @login_required
 def clear_list_jobs(list_id):
     """

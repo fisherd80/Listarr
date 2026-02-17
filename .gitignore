@@ -10,6 +10,7 @@
 # ===========================
 # NEVER commit these files!
 instance/.fernet_key
+instance/.secret_key
 instance/*.db
 instance/*.db-*
 .env
@@ -77,22 +78,12 @@ instance/*
 *.log
 local_settings.py
 
-# Scrapy stuff:
-.scrapy
-
 # Sphinx documentation
 docs/_build/
 
 # PyBuilder
 .pybuilder/
 target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
 
 # pyenv
 .python-version
@@ -109,13 +100,6 @@ poetry.lock
 # PEP 582
 __pypackages__/
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
 # Environments
 .venv
 env/
@@ -123,16 +107,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
 
 # mypy
 .mypy_cache/
@@ -169,7 +143,6 @@ cython_debug/
 *~
 
 # Emacs
-*~
 \#*\#
 .\#*
 
@@ -200,7 +173,6 @@ $RECYCLE.BIN/
 # Docker
 # ===========================
 docker-compose.override.yml
-.dockerignore
 
 # ===========================
 # Logs & Databases
@@ -209,7 +181,6 @@ docker-compose.override.yml
 *.sql
 *.sqlite
 *.sqlite3
-*.db
 
 # ===========================
 # Temporary files
@@ -217,25 +188,13 @@ docker-compose.override.yml
 *.tmp
 *.temp
 *.bak
-*.swp
-*.swo
 
 # Test result files
 *_result.txt
 test_*.txt
 
 # ===========================
-# Node (if adding frontend build tools)
-# ===========================
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-yarn.lock
-
-# ===========================
-# AI & Local Development (Safe Zones)
+# AI & Local Development
 # ===========================
 _ai/
 sandbox/
@@ -244,4 +203,3 @@ sandbox/
 .planning/
 
 .ruff_cache
-

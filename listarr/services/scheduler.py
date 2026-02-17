@@ -12,6 +12,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from cron_descriptor import get_description
 from cronsim import CronSim
+from cronsim.cronsim import CronSimError
+from cryptography.fernet import InvalidToken
+from requests.exceptions import RequestException
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.lists_model import List
@@ -101,11 +105,11 @@ def _load_schedules_from_db():
                 try:
                     schedule_list(list_obj.id, list_obj.schedule_cron)
                     logger.info(f"Loaded schedule for list {list_obj.id}: {list_obj.schedule_cron}")
-                except Exception as e:
+                except (ValueError, KeyError) as e:
                     logger.error(f"Failed to load schedule for list {list_obj.id}: {e}")
 
             logger.info(f"Loaded {len(lists)} scheduled lists")
-        except Exception as e:
+        except OperationalError as e:
             logger.error(f"Failed to load schedules from database: {e}")
 
 
@@ -147,7 +151,7 @@ def schedule_list(list_id, cron_expression):
             name=f"List {list_id} import",
         )
         logger.info(f"Scheduled list {list_id} with cron: {cron_expression}")
-    except Exception as e:
+    except (ValueError, KeyError) as e:
         logger.error(f"Failed to schedule list {list_id}: {e}")
         raise
 
@@ -217,7 +221,7 @@ def _run_scheduled_import(list_id):
                         f"skipping scheduled import for list {list_id} ({list_obj.name})"
                     )
                     return
-            except Exception as e:
+            except (RequestException, ValueError, InvalidToken) as e:
                 logger.error(f"Error validating {list_obj.target_service} for list {list_id}: {e}")
                 return
 
@@ -230,7 +234,7 @@ def _run_scheduled_import(list_id):
             logger.info(f"Starting scheduled import for list {list_id} ({list_obj.name})")
             submit_job(list_id, list_obj.name, _app, triggered_by="scheduled")
 
-        except Exception as e:
+        except (OperationalError, RequestException) as e:
             logger.error(f"Error running scheduled import for list {list_id}: {e}", exc_info=True)
 
 
@@ -255,7 +259,7 @@ def pause_scheduler():
             # Pause scheduler
             _scheduler.pause()
             logger.info("Scheduler paused")
-        except Exception as e:
+        except (OperationalError, RuntimeError) as e:
             logger.error(f"Failed to pause scheduler: {e}")
             raise
 
@@ -281,7 +285,7 @@ def resume_scheduler():
             # Resume scheduler
             _scheduler.resume()
             logger.info("Scheduler resumed")
-        except Exception as e:
+        except (OperationalError, RuntimeError) as e:
             logger.error(f"Failed to resume scheduler: {e}")
             raise
 
@@ -299,7 +303,7 @@ def is_scheduler_paused():
     try:
         config = ServiceConfig.query.first()
         return config.scheduler_paused if config else False
-    except Exception as e:
+    except OperationalError as e:
         logger.error(f"Failed to check scheduler pause state: {e}")
         return True  # Default to paused on error
 
@@ -338,7 +342,7 @@ def get_next_run_time(list_id):
         cron = CronSim(list_obj.schedule_cron, datetime.now(timezone.utc))
         cron.advance()
         return cron.dt
-    except Exception as e:
+    except (ValueError, StopIteration, CronSimError) as e:
         logger.debug(f"Failed to calculate next run time for list {list_id}: {e}")
         return None
 
@@ -367,7 +371,7 @@ def validate_cron_expression(cron_expr):
         try:
             description = get_description(cron_expr)
             result["description"] = description
-        except Exception:
+        except (ValueError, KeyError):
             result["description"] = cron_expr
 
         # Get next 3 run times using advance()
@@ -381,7 +385,7 @@ def validate_cron_expression(cron_expr):
         result["next_runs"] = next_runs
         result["valid"] = True
 
-    except Exception as e:
+    except (ValueError, KeyError) as e:
         result["error"] = str(e)
         result["description"] = "Invalid cron expression"
 

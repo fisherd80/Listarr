@@ -4,8 +4,9 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./instance:/app/instance
+      - ./instance:/app/instance  # Bind mount - entrypoint fixes permissions
     environment:
       - FLASK_DEBUG=false
-      - LISTARR_SECRET_KEY=dev_key_change_me
+      # SECRET_KEY auto-generated to instance/.secret_key on first run
+      # LISTARR_SECRET_KEY=your_override_here  # Optional override
     restart: unless-stopped

@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
@@ -607,7 +608,7 @@ class TestDatabaseIntegration:
             db.session.commit()
 
             # Force commit to fail
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 client.post(
                     "/config",
                     data={
@@ -642,7 +643,7 @@ class TestDatabaseIntegration:
             original_time = config.last_tested_at
 
             # Force commit to fail during test update
-            with patch.object(db.session, "commit", side_effect=Exception("DB error")):
+            with patch.object(db.session, "commit", side_effect=OperationalError("DB error", None, None)):
                 client.post(
                     "/config/test_sonarr_api",
                     json={"base_url": "http://localhost:8989", "api_key": "test_key"},
@@ -861,7 +862,7 @@ class TestErrorRecovery:
         mock_test.return_value = True
 
         # Step 1: Cause encryption to fail
-        mock_encrypt.side_effect = Exception("Encryption error")
+        mock_encrypt.side_effect = RuntimeError("Encryption error")
         response = client.post(
             "/config",
             data={

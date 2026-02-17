@@ -1,9 +1,11 @@
 """Schedule routes - API endpoints for schedule management."""
 
-from flask import jsonify, render_template
+from apscheduler.jobstores.base import JobLookupError
+from flask import current_app, jsonify, render_template
 from flask_login import login_required
+from sqlalchemy.exc import IntegrityError, OperationalError
 
-from listarr import csrf, db
+from listarr import db
 from listarr.models.jobs_model import Job
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
@@ -132,7 +134,6 @@ def _get_list_status(list_obj, scheduler_paused):
 
 
 @bp.route("/api/schedule/pause", methods=["POST"])
-@csrf.exempt
 @login_required
 def pause_schedule():
     """
@@ -144,12 +145,12 @@ def pause_schedule():
     try:
         pause_scheduler()
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except (OperationalError, RuntimeError) as e:
+        current_app.logger.error(f"Error pausing scheduler: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "Failed to pause scheduler. Please try again."}), 500
 
 
 @bp.route("/api/schedule/resume", methods=["POST"])
-@csrf.exempt
 @login_required
 def resume_schedule():
     """
@@ -161,8 +162,9 @@ def resume_schedule():
     try:
         resume_scheduler()
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except (OperationalError, RuntimeError) as e:
+        current_app.logger.error(f"Error resuming scheduler: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "Failed to resume scheduler. Please try again."}), 500
 
 
 @bp.route("/api/schedule/status")
@@ -229,7 +231,6 @@ def get_schedule_status():
 
 
 @bp.route("/api/schedule/<int:list_id>/update", methods=["POST"])
-@csrf.exempt
 @login_required
 def update_schedule(list_id):
     """
@@ -271,7 +272,7 @@ def update_schedule(list_id):
                 schedule_list(list_obj.id, new_cron)
             else:
                 unschedule_list(list_obj.id)
-        except Exception as e:
+        except (ValueError, JobLookupError) as e:
             current_app.logger.warning(f"Scheduler update failed for list {list_id}: {e}")
 
         # Get updated status
@@ -296,7 +297,7 @@ def update_schedule(list_id):
             }
         )
 
-    except Exception as e:
+    except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating schedule for list {list_id}: {e}", exc_info=True)
         return jsonify({"success": False, "error": "Failed to update schedule"}), 500

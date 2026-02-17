@@ -9,7 +9,10 @@ import logging
 import threading
 from typing import Dict
 
+from cryptography.fernet import InvalidToken
 from flask import current_app
+from requests.exceptions import RequestException
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.jobs_model import Job
@@ -97,7 +100,7 @@ def _calculate_service_stats(service: str) -> Dict:
         try:
             # Use case-insensitive query to handle any case variations in stored data
             service_lists = List.query.filter(db.func.upper(List.target_service) == service).all()
-        except Exception as db_error:
+        except OperationalError as db_error:
             if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
                 logger.debug("Database tables not yet initialized for lists query")
                 service_lists = []
@@ -114,7 +117,7 @@ def _calculate_service_stats(service: str) -> Dict:
             )
             result["added_by_listarr"] = int(total_added)
             logger.debug(f"{service} added_by_listarr: {total_added} from {len(service_lists)} lists")
-    except Exception as e:
+    except OperationalError as e:
         logger.error(f"Error calculating {service} items added by Listarr: {e}", exc_info=True)
         result["added_by_listarr"] = 0
 
@@ -122,7 +125,7 @@ def _calculate_service_stats(service: str) -> Dict:
         # Check if service is configured
         try:
             service_config = ServiceConfig.query.filter_by(service=service).first()
-        except Exception as db_error:
+        except OperationalError as db_error:
             if "no such table" in str(db_error).lower() or "operationalerror" in str(type(db_error).__name__).lower():
                 logger.debug("Database tables not yet initialized, returning not_configured status")
                 return result
@@ -149,7 +152,7 @@ def _calculate_service_stats(service: str) -> Dict:
                     result["version"] = system_status.get("version")
                 else:
                     result["status"] = "offline"
-            except Exception as e:
+            except (RequestException, ValueError, InvalidToken, TimeoutError) as e:
                 logger.error(f"Error fetching {service} system status: {e}", exc_info=True)
                 result["status"] = "offline"
 
@@ -158,22 +161,22 @@ def _calculate_service_stats(service: str) -> Dict:
                 try:
                     count = get_count(base_url, api_key)
                     result[result_keys["total_key"]] = count
-                except Exception as e:
+                except (RequestException, TimeoutError) as e:
                     logger.error(f"Error fetching {service} count: {e}", exc_info=True)
                     result[result_keys["total_key"]] = 0
 
                 try:
                     missing = get_missing(base_url, api_key)
                     result[result_keys["missing_key"]] = missing
-                except Exception as e:
+                except (RequestException, TimeoutError) as e:
                     logger.error(f"Error fetching {service} missing count: {e}", exc_info=True)
                     result[result_keys["missing_key"]] = 0
 
-        except Exception as e:
+        except (ValueError, InvalidToken) as e:
             logger.error(f"Error setting up {service} dashboard stats: {e}", exc_info=True)
             result["status"] = "offline"
 
-    except Exception as e:
+    except OperationalError as e:
         if "no such table" in str(e).lower() or "operationalerror" in str(type(e).__name__).lower():
             logger.debug(f"Database tables not yet initialized during {service} stats calculation")
             return result
@@ -215,7 +218,7 @@ def refresh_dashboard_cache() -> Dict:
             logger.info("Dashboard cache refreshed successfully")
             return _dashboard_cache.copy()
 
-        except Exception as e:
+        except (OperationalError, RequestException) as e:
             logger.error(f"Error refreshing dashboard cache: {e}", exc_info=True)
             return _dashboard_cache.copy()
 
@@ -246,6 +249,6 @@ def initialize_dashboard_cache(app):
             logger.info("Initializing dashboard cache at startup...")
             refresh_dashboard_cache()
             logger.info("Dashboard cache initialized successfully")
-        except Exception as e:
+        except (OperationalError, RequestException) as e:
             logger.error(f"Error initializing dashboard cache: {e}", exc_info=True)
             # Continue with default cache values on error
