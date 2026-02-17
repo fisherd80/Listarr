@@ -356,6 +356,7 @@ Defined in `requirements.txt`:
 | `FLASK_DEBUG` | `False` | Enable Flask debug mode |
 | `LOG_LEVEL` | `INFO` | Python logging level (DEBUG, INFO, WARNING, ERROR) |
 | `TZ` | UTC | Server timezone for cron schedule interpretation |
+| `SECURE_COOKIES` | `False` | Enable Secure flag on cookies (set to `true` when serving over HTTPS) |
 | `SCHEDULER_WORKER` | `true` | Internal Gunicorn flag (auto-managed, do not set manually) |
 
 ## Current Development Status
