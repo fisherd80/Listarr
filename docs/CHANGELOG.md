@@ -9,10 +9,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned (Phases 12-13)
+### Planned (Phase 13)
 
-- **Phase 12: Security Hardening** - Flask/Docker security, input validation
 - **Phase 13: Release Readiness** - Final polish and v1.0 release
+
+---
+
+## Phase 12 - Security Hardening (2026-02-17)
+
+### Added
+
+- **Security Headers** - Production-ready HTTP security headers
+  - `Content-Security-Policy` with `default-src 'self'`, Tailwind CDN, TMDB images
+  - `X-Frame-Options: SAMEORIGIN` - Clickjacking protection
+  - `X-Content-Type-Options: nosniff` - MIME sniffing prevention
+  - HSTS conditionally enabled only over HTTPS
+
+- **Session Security** - Hardened session cookie configuration
+  - `SESSION_COOKIE_SECURE` enabled over HTTPS
+  - `SESSION_COOKIE_HTTPONLY=True` - Prevents JS access to session cookie
+  - `SESSION_COOKIE_SAMESITE=Lax` - CSRF protection at browser level
+  - `REMEMBER_COOKIE_SECURE`, `REMEMBER_COOKIE_HTTPONLY`, `REMEMBER_COOKIE_SAMESITE`
+  - `MAX_CONTENT_LENGTH=16MB` - DoS prevention
+
+- **SECRET_KEY Management** - Automatic secure key generation
+  - Auto-generates 64-character hex key via `secrets.token_hex(32)`
+  - Persists to `instance/.secret_key` with 0600 permissions
+  - Rejects weak default `dev_key_change_me` value
+  - Environment variable override available (`LISTARR_SECRET_KEY`)
+
+- **Health Endpoint** - Dedicated `/health` for Docker HEALTHCHECK
+  - Returns `{"status": "ok"}` without authentication
+  - No sensitive information exposed
+
+- **Password Validation** - Minimum 8 character requirement
+  - Enforced via `Length(min=8)` validator in auth forms
+
+### Changed
+
+- **Route Protection Audit** - All routes now require authentication
+  - Added missing `@login_required` to dashboard routes (`/`, `/api/dashboard/stats`, `/api/dashboard/recent-jobs`)
+  - Only exceptions: `/login`, `/setup`, `/health`, static files
+
+- **CSRF Audit** - Removed all `@csrf.exempt` decorators
+  - All POST endpoints now require valid CSRF tokens
+
+- **Ignore Files Cleanup** - Cleaner repository structure
+  - `.dockerignore` now tracked in git for consistent Docker builds
+  - Added `instance/.secret_key` to explicit secrets in `.gitignore`
+  - Added missing exclusions to `.dockerignore` (dev files, test configs)
+  - Removed unused framework sections from `.gitignore` (Scrapy, Jupyter, Celery, Node.js)
+  - Untracked `.planning/` files from git (local development only)
+
+### Security
+
+- **Open Redirect Prevention** - `is_safe_redirect_url()` validates login redirects
+- **Generic Login Errors** - "Invalid credentials" prevents username enumeration
+- **POST-only Logout** - Prevents CSRF via GET requests
+- **Docker Security** - Non-root user with gosu privilege drop
+- **No Secrets in Logs** - API keys and passwords never logged
+
+### Technical
+
+- Security review verified all Flask-WTF CSRF, Flask-Login, Fernet encryption implementations
+- Error handlers return generic messages without stack traces or internal details
+- JavaScript global 401 handler redirects to login on session expiry
 
 ---
 
@@ -761,7 +822,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Development Status
 
-**Current Completion: ~95%** (11 of 13 main phases complete, plus 8 sub-phases)
+**Current Completion: ~98%** (12 of 13 main phases complete, plus 8 sub-phases)
 
 ### Completed Phases
 - ✅ **Phase 1**: List Management System - CRUD operations for TMDB lists
@@ -785,9 +846,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Phase 10.4**: Bulk Import API - 8x faster imports
 - ✅ **Phase 10.5**: UI Performance & State - Skeleton loading, timeout handling
 - ✅ **Phase 11**: User Authentication - Login, setup wizard, password management (536 tests)
+- ✅ **Phase 12**: Security Hardening - Security headers, session security, route protection audit
 
 ### Planned Phases
-- 🔮 **Phase 12**: Security Hardening - Flask/Docker security, input validation
 - 🔮 **Phase 13**: Release Readiness - Final polish and v1.0 release
 
 ---
@@ -807,4 +868,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-02-17

@@ -14,7 +14,11 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
   - Remember me option (30-day sessions)
   - Password change on Settings page
   - CLI password reset command
-  - Dashboard remains publicly accessible (read-only)
+- 🛡️ **Security Hardened**: Production-ready security configuration
+  - All routes require authentication (except health check)
+  - CSRF protection on all forms and AJAX requests
+  - Security headers (CSP, X-Frame-Options, X-Content-Type-Options)
+  - Secure session cookies (HttpOnly, SameSite, Secure over HTTPS)
 - 🔒 **Encrypted Storage**: API keys encrypted at rest with Fernet encryption
 - ⏰ **Automated Scheduling**: Cron-based scheduling for automatic list execution
   - Presets for common intervals (hourly, daily, weekly)
@@ -165,7 +169,7 @@ listarr/
 
 ## Development Status
 
-**~95% Complete** - 11 of 13 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, 536 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: security hardening and release readiness.
+**~98% Complete** - 12 of 13 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, security hardening, 536 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: release readiness.
 
 ### Completed Phases
 
@@ -186,10 +190,10 @@ listarr/
 - ✅ **Phase 10: UI/UX Simplification** - Jinja macros, JS consolidation
 - ✅ **Phase 10.1-10.5: UI Enhancements** - Bulk import API (8x faster), skeleton loading, activity-based timeout
 - ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 536 tests
+- ✅ **Phase 12: Security Hardening** - Security headers, session security, route protection audit
 
 ### Planned Phases
 
-- 🔮 **Phase 12: Security Hardening** - Flask/Docker security, input validation
 - 🔮 **Phase 13: Release Readiness** - Final polish and v1.0 release
 
 See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
@@ -239,6 +243,11 @@ This approach ensures legal compliance while providing IMDB references for users
 - 🏠 **Self-hosted** for homelab environments
 - 🔑 **Instance path isolation** for encryption key storage
 - 🔄 **Password reset** via CLI command (`python setup.py --reset-password`)
+- 🛡️ **Security headers** (Content-Security-Policy, X-Frame-Options, X-Content-Type-Options)
+- 🍪 **Secure sessions** (HttpOnly, SameSite=Lax, Secure over HTTPS)
+- 🚫 **Open redirect prevention** on login redirects
+- 🐳 **Docker security** (non-root user, gosu privilege drop)
+- 💓 **Health endpoint** (`/health`) for Docker HEALTHCHECK (unauthenticated)
 
 **Important**: This application is designed for single-user, self-hosted deployments. Do not expose directly to the public internet without additional security measures (reverse proxy, firewall).
 
@@ -285,7 +294,7 @@ The `instance/` folder contains all runtime data:
 | 10. UI/UX Simplification  | ✅ Complete | Jinja macros, JS consolidation                              |
 | 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
 | 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (536 tests)        |
-| 12. Security Hardening    | 🔮 Planned  | Flask/Docker security, input validation                     |
+| 12. Security Hardening    | ✅ Complete | Security headers, session security, route protection audit  |
 | 13. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
 
 ## License
