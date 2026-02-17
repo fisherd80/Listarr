@@ -63,16 +63,20 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
+    # SECURE_COOKIES env var: set to "true" when serving over HTTPS (e.g., behind reverse proxy)
+    # Default False for self-hosted homelab HTTP deployments
+    secure_cookies = os.environ.get("SECURE_COOKIES", "false").lower() == "true"
+
     app.config.from_mapping(
         SECRET_KEY=load_or_generate_secret_key(app.instance_path),
         SQLALCHEMY_DATABASE_URI=f"sqlite:///{os.path.join(app.instance_path, 'listarr.db')}",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16 MB max request size
-        SESSION_COOKIE_SECURE=not app.debug,
+        SESSION_COOKIE_SECURE=secure_cookies,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
-        REMEMBER_COOKIE_SECURE=not app.debug,
+        REMEMBER_COOKIE_SECURE=secure_cookies,
         REMEMBER_COOKIE_DURATION=timedelta(days=30),
         REMEMBER_COOKIE_HTTPONLY=True,
         REMEMBER_COOKIE_SAMESITE="Lax",

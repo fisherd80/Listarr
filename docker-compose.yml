@@ -9,4 +9,5 @@ services:
       - FLASK_DEBUG=false
       # SECRET_KEY auto-generated to instance/.secret_key on first run
       # LISTARR_SECRET_KEY=your_override_here  # Optional override
+      # SECURE_COOKIES=true  # Enable when serving over HTTPS (reverse proxy)
     restart: unless-stopped
