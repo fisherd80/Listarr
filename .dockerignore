@@ -1,0 +1,95 @@
+# ===========================
+# Listarr .dockerignore
+# ===========================
+# Exclude files from Docker build context
+
+# ===========================
+# CRITICAL: Secrets & Data
+# ===========================
+instance/.fernet_key
+instance/.secret_key
+instance/*.db
+instance/*.db-*
+.env
+.env.local
+.env.*.local
+
+# ===========================
+# Git
+# ===========================
+.git/
+.gitignore
+.gitattributes
+
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
+ENV/
+
+# ===========================
+# Development & Testing
+# ===========================
+tests/
+pytest.ini
+pyproject.toml
+requirements-dev.txt
+run.py
+.pre-commit-config.yaml
+.env.example
+
+# ===========================
+# IDEs
+# ===========================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# ===========================
+# Documentation
+# ===========================
+README.md
+CLAUDE.md
+*.md
+docs/
+.github/
+
+# ===========================
+# Docker (self-reference)
+# ===========================
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# ===========================
+# OS files
+# ===========================
+.DS_Store
+Thumbs.db
+*.log
+
+# ===========================
+# AI & Local Development
+# ===========================
+_ai/
+sandbox/
+*.local
+.claude/
+.planning/
