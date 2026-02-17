@@ -11,20 +11,3 @@ repos:
     hooks:
       - id: black
         args: [] # don't override line length, pyproject.toml will be used
-
-  - repo: local
-    hooks:
-      - id: sync-claude-md
-        name: Sync CLAUDE.md generated sections
-        entry: python _ai/scripts/sync_claude_md.py --check
-        language: python
-        pass_filenames: false
-        files: ^requirements\.txt$
-        always_run: false
-
-      - id: guard-claude-md
-        name: CLAUDE.md freshness guard
-        entry: python _ai/scripts/guard_claude_md.py
-        language: python
-        pass_filenames: false
-        always_run: true

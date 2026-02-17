@@ -370,17 +370,9 @@ See `.planning/ROADMAP.md` for full phase details.
 
 ## Developer Tooling
 
-Scripts in `_ai/scripts/` (gitignored, local only):
-
-- **`squash_ai.py`**: Squash-merge workflow — auto-detects feature branch, runs pre-commit, squash merges to develop, pushes, updates CLAUDE.md via Claude CLI as milestone checkpoint
-- **`sync_claude_md.py`**: Auto-syncs generated sections (dependencies table) between `<!-- GENERATED -->` markers from `requirements.txt`
-- **`guard_claude_md.py`**: Pre-commit hook — non-blocking warning when structural files change without CLAUDE.md update (updated at squash-merge milestones)
-
 ### Pre-commit Hooks
 
 Configured in `.pre-commit-config.yaml`:
 
 - **ruff** + **ruff-format**: Python linting and formatting
 - **black**: Python code formatting
-- **sync-claude-md**: Syncs generated sections on `requirements.txt` changes
-- **guard-claude-md**: Warning when structural files change (non-blocking)
