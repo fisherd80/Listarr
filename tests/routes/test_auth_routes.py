@@ -322,19 +322,9 @@ class TestRouteProtection:
         assert response.status_code == 302
         assert "/login" in response.location
 
-    def test_dashboard_page_public(self, auth_client, test_user):
-        """Test that GET / without login returns 200 (dashboard is public)."""
-        response = auth_client.get("/")
-
-        # Dashboard should be accessible
-        assert response.status_code == 200
-
-    def test_dashboard_stats_api_public(self, auth_client, test_user):
-        """Test that GET /api/dashboard/stats without login returns 200."""
-        response = auth_client.get("/api/dashboard/stats")
-
-        # API should be accessible
-        assert response.status_code == 200
+    # Note: test_dashboard_page_public and test_dashboard_stats_api_public removed
+    # Dashboard now requires authentication (Plan 12.1-01)
+    # See test_dashboard_auth.py for authentication requirement tests
 
     def test_api_returns_401_json(self, auth_client, test_user):
         """Test that protected API endpoint returns JSON 401 for AJAX."""
