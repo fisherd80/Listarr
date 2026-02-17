@@ -12,6 +12,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from cron_descriptor import get_description
 from cronsim import CronSim
+from cronsim.cronsim import CronSimError
 from cryptography.fernet import InvalidToken
 from requests.exceptions import RequestException
 from sqlalchemy.exc import OperationalError
@@ -341,7 +342,7 @@ def get_next_run_time(list_id):
         cron = CronSim(list_obj.schedule_cron, datetime.now(timezone.utc))
         cron.advance()
         return cron.dt
-    except (ValueError, StopIteration) as e:
+    except (ValueError, StopIteration, CronSimError) as e:
         logger.debug(f"Failed to calculate next run time for list {list_id}: {e}")
         return None
 

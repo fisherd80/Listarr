@@ -152,7 +152,7 @@ def _calculate_service_stats(service: str) -> Dict:
                     result["version"] = system_status.get("version")
                 else:
                     result["status"] = "offline"
-            except (RequestException, ValueError, InvalidToken) as e:
+            except (RequestException, ValueError, InvalidToken, TimeoutError) as e:
                 logger.error(f"Error fetching {service} system status: {e}", exc_info=True)
                 result["status"] = "offline"
 
@@ -161,14 +161,14 @@ def _calculate_service_stats(service: str) -> Dict:
                 try:
                     count = get_count(base_url, api_key)
                     result[result_keys["total_key"]] = count
-                except RequestException as e:
+                except (RequestException, TimeoutError) as e:
                     logger.error(f"Error fetching {service} count: {e}", exc_info=True)
                     result[result_keys["total_key"]] = 0
 
                 try:
                     missing = get_missing(base_url, api_key)
                     result[result_keys["missing_key"]] = missing
-                except RequestException as e:
+                except (RequestException, TimeoutError) as e:
                     logger.error(f"Error fetching {service} missing count: {e}", exc_info=True)
                     result[result_keys["missing_key"]] = 0
 

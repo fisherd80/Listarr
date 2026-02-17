@@ -110,7 +110,8 @@ class TestRunListImport:
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
-        assert "already running" in data["error"]
+        # Generic error message (specific errors not exposed per security policy)
+        assert "Invalid request" in data["error"]
 
     @patch("listarr.routes.lists_routes.submit_job")
     def test_handles_unexpected_exception(self, mock_submit, client, app):

@@ -1,4 +1,5 @@
 from flask import current_app, jsonify, render_template, request
+from flask_login import login_required
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import joinedload
 
@@ -15,11 +16,13 @@ from listarr.utils.time_utils import format_relative_time
 
 
 @bp.route("/")
+@login_required
 def dashboard_page():
     return render_template("dashboard.html")
 
 
 @bp.route("/api/dashboard/stats", methods=["GET"])
+@login_required
 def dashboard_stats():
     """
     Returns cached dashboard statistics for display.
@@ -63,6 +66,7 @@ def dashboard_stats():
 
 
 @bp.route("/api/dashboard/recent-jobs", methods=["GET"])
+@login_required
 def recent_jobs():
     """
     Returns the last 5 executed jobs for dashboard display.
@@ -170,6 +174,7 @@ def recent_jobs():
 
 
 @bp.route("/api/dashboard/upcoming", methods=["GET"])
+@login_required
 def upcoming_jobs():
     """
     Returns the next 5 scheduled jobs for dashboard display.

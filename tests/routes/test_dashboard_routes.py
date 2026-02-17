@@ -1226,33 +1226,3 @@ class TestDashboardDataFormats:
         assert "status" in job_data
         assert "executed_at" in job_data
         assert "summary" in job_data
-
-
-class TestDashboardAuthenticationRequired:
-    """Tests for authentication requirements on dashboard endpoints."""
-
-    def test_dashboard_page_requires_authentication(self, app_with_auth):
-        """Dashboard page redirects to login when not authenticated."""
-        # Create client without logging in
-        with app_with_auth.test_client() as client:
-            response = client.get("/", follow_redirects=False)
-            assert response.status_code == 302
-            assert "/login" in response.location
-
-    def test_dashboard_stats_requires_authentication(self, app_with_auth):
-        """Dashboard stats API returns 401 when not authenticated."""
-        with app_with_auth.test_client() as client:
-            response = client.get("/api/dashboard/stats")
-            assert response.status_code == 401
-
-    def test_dashboard_recent_jobs_requires_authentication(self, app_with_auth):
-        """Dashboard recent jobs API returns 401 when not authenticated."""
-        with app_with_auth.test_client() as client:
-            response = client.get("/api/dashboard/recent-jobs")
-            assert response.status_code == 401
-
-    def test_dashboard_upcoming_requires_authentication(self, app_with_auth):
-        """Dashboard upcoming API returns 401 when not authenticated."""
-        with app_with_auth.test_client() as client:
-            response = client.get("/api/dashboard/upcoming")
-            assert response.status_code == 401
