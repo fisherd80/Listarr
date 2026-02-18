@@ -9,9 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned (Phase 13)
+### Planned (Phase 14)
 
-- **Phase 13: Release Readiness** - Final polish and v1.0 release
+- **Phase 14: Release Readiness** - Final polish and v1.0 release
+
+---
+
+## Phase 13 - Tailwind CSS & UI Polish (2026-02-18)
+
+### Added
+
+- **Local Tailwind CSS Compilation** - Replaced CDN with locally compiled CSS
+  - Installed `pytailwindcss` dev dependency (pins Tailwind v3.4.19)
+  - Created `tailwind.config.js` with content paths for Jinja templates
+  - Generated minified production CSS bundle (~30KB)
+  - Created `build-css.sh` script for developer rebuilds
+
+- **Dark Mode Toggle** - Manual theme switching with persistence
+  - Class-based dark mode (`darkMode: "class"` in Tailwind config)
+  - Toggle button in footer with sun/moon icons
+  - localStorage persistence for user preference
+  - System preference fallback when no stored preference
+  - FOUC prevention script in all standalone templates (base, login, setup)
+
+- **Footer Redesign** - Cleaner footer with project info
+  - Replaced copyright with version number (v1.0.0)
+  - Added GitHub logo with link to repository
+  - Centered layout with dark mode toggle on right
+
+### Changed
+
+- **CSP Headers** - Removed CDN allowlist
+  - `script-src` reduced to `'self' 'unsafe-inline'` only
+  - No external CDN dependencies
+
+### Fixed
+
+- **NULL list_id Warning** - Guard against NULL primary key in jobs routes
+  - Added NULL check before `List.query.get(job.list_id)`
+  - Prevents SQLAlchemy warning when job's list was deleted
 
 ---
 

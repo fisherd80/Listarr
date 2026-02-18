@@ -130,12 +130,13 @@ def create_app(test_config=None):
 
         # Content Security Policy
         # style-src 'unsafe-inline' required for Tailwind CSS utility classes
-        # script-src 'unsafe-inline' + CDN required for setup page (uses Tailwind CDN)
+        # script-src 'unsafe-inline' required for inline event handlers
+        # Tailwind is now compiled locally - no CDN allowlist needed
         # img-src includes TMDB for poster images and data: for inline SVGs
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+            "script-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https://image.tmdb.org; "
             "font-src 'self'; "
             "frame-ancestors 'self'"
