@@ -4,7 +4,7 @@ module.exports = {
     "./listarr/templates/**/*.html",
     "./listarr/static/js/**/*.js",
   ],
-  darkMode: "media",
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

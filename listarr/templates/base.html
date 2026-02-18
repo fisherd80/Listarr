@@ -7,6 +7,16 @@
       href="{{ url_for('static', filename='favicon.jpg') }}"
     />
     <meta charset="UTF-8" />
+    <!-- FOUC prevention: apply dark class before first paint -->
+    <script>
+      (function () {
+        var theme = localStorage.getItem('theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (theme === 'dark' || (!theme && systemDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
 
@@ -163,10 +173,26 @@
     </main>
 
     <!-- Footer -->
-    <footer
-      class="bg-white dark:bg-gray-800 text-center text-sm py-4 text-gray-500 dark:text-gray-400"
-    >
-      © 2025 Listarr
+    <footer class="bg-white dark:bg-gray-800 text-sm py-4 text-gray-500 dark:text-gray-400">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <span>&copy; 2025 Listarr</span>
+        <button
+          id="dark-mode-toggle"
+          type="button"
+          aria-label="Toggle dark mode"
+          aria-pressed="false"
+          class="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+        >
+          <svg id="dark-mode-sun" class="hidden dark:block w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+          </svg>
+          <svg id="dark-mode-moon" class="block dark:hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
+      </div>
     </footer>
 
     <!-- User dropdown toggle script -->
@@ -189,6 +215,20 @@
             }
           });
         }
+      })();
+    </script>
+
+    <!-- Dark mode toggle script -->
+    <script>
+      (function () {
+        var btn = document.getElementById('dark-mode-toggle');
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', document.documentElement.classList.contains('dark') ? 'true' : 'false');
+        btn.addEventListener('click', function () {
+          var isDark = document.documentElement.classList.toggle('dark');
+          localStorage.setItem('theme', isDark ? 'dark' : 'light');
+          btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+        });
       })();
     </script>
   </body>
