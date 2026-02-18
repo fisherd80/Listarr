@@ -340,7 +340,7 @@ function pollJobStatus(listId) {
         stopPolling(listId);
         removeRunningJob(listId);
         restoreButton(getRunButton(listId));
-        showToast(data.error || "Import failed", "error");
+        showToast(data.message || "Import failed", "error");
       } else if (data.status === "running") {
         // Still running, continue polling
         setTimeout(poll, POLL_INTERVAL_MS);
@@ -441,7 +441,7 @@ function runList(listId, button) {
       // Handle both 202 (async) and potential errors
       return response.json().then((data) => {
         if (!response.ok) {
-          throw new Error(data.error || `HTTP error! status: ${response.status}`);
+          throw new Error(data.message || `HTTP error! status: ${response.status}`);
         }
         return { data, status: response.status };
       });
@@ -465,7 +465,7 @@ function runList(listId, button) {
           restoreButton(button);
         }
       } else {
-        throw new Error(data.error || "Import failed");
+        throw new Error(data.message || "Import failed");
       }
     })
     .catch((error) => {

@@ -1777,7 +1777,7 @@ async function submitWizard() {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+            throw new Error(errorData.message || `HTTP ${response.status}`);
         }
         const data = await response.json();
 
@@ -1787,7 +1787,7 @@ async function submitWizard() {
             window.location.href = `/lists?success=${action}`;
         } else {
             // Show error message
-            showSubmitError(data.error || "Failed to save list");
+            showSubmitError(data.message || "Failed to save list");
             // Re-enable button
             if (btnNext) {
                 btnNext.disabled = false;

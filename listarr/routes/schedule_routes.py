@@ -1,7 +1,7 @@
 """Schedule routes - API endpoints for schedule management."""
 
 from apscheduler.jobstores.base import JobLookupError
-from flask import current_app, jsonify, render_template
+from flask import current_app, jsonify, render_template, request
 from flask_login import login_required
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -147,7 +147,7 @@ def pause_schedule():
         return jsonify({"success": True})
     except (OperationalError, RuntimeError) as e:
         current_app.logger.error(f"Error pausing scheduler: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Failed to pause scheduler. Please try again."}), 500
+        return jsonify({"success": False, "message": "Failed to pause scheduler. Please try again."}), 500
 
 
 @bp.route("/api/schedule/resume", methods=["POST"])
@@ -164,7 +164,7 @@ def resume_schedule():
         return jsonify({"success": True})
     except (OperationalError, RuntimeError) as e:
         current_app.logger.error(f"Error resuming scheduler: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Failed to resume scheduler. Please try again."}), 500
+        return jsonify({"success": False, "message": "Failed to resume scheduler. Please try again."}), 500
 
 
 @bp.route("/api/schedule/status")
@@ -241,17 +241,15 @@ def update_schedule(list_id):
     Returns:
         JSON: {success: true, schedule_cron: "...", status: "...", next_run: "..."}
     """
-    from flask import current_app, request
-
     from listarr.services.scheduler import schedule_list, unschedule_list, validate_cron_expression
 
     list_obj = List.query.get(list_id)
     if not list_obj:
-        return jsonify({"success": False, "error": "List not found"}), 404
+        return jsonify({"success": False, "message": "List not found"}), 404
 
     data = request.get_json()
     if data is None:
-        return jsonify({"success": False, "error": "Invalid JSON"}), 400
+        return jsonify({"success": False, "message": "Invalid JSON"}), 400
 
     new_cron = data.get("schedule_cron", "").strip()
 
@@ -260,7 +258,7 @@ def update_schedule(list_id):
         if new_cron:
             validation = validate_cron_expression(new_cron)
             if not validation["valid"]:
-                return jsonify({"success": False, "error": f"Invalid cron: {validation['error']}"}), 400
+                return jsonify({"success": False, "message": f"Invalid cron: {validation['error']}"}), 400
 
         # Update database
         list_obj.schedule_cron = new_cron if new_cron else None
@@ -282,8 +280,6 @@ def update_schedule(list_id):
 
         next_run = None
         if new_cron and not scheduler_paused:
-            from listarr.services.scheduler import get_next_run_time
-
             next_run_dt = get_next_run_time(list_obj.id)
             if next_run_dt:
                 next_run = next_run_dt.isoformat()
@@ -300,4 +296,4 @@ def update_schedule(list_id):
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating schedule for list {list_id}: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Failed to update schedule"}), 500
+        return jsonify({"success": False, "message": "Failed to update schedule"}), 500

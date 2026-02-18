@@ -516,7 +516,7 @@ async function rerunJob(jobId, button) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+      throw new Error(errorData.message || `HTTP ${response.status}`);
     }
     const data = await response.json();
 
@@ -525,7 +525,7 @@ async function rerunJob(jobId, button) {
       // Reload jobs to show the new running job
       loadJobs();
     } else {
-      throw new Error(data.error || "Failed to rerun job");
+      throw new Error(data.message || "Failed to rerun job");
     }
   } catch (error) {
     console.error("Error rerunning job:", error);
@@ -574,7 +574,7 @@ async function clearAllJobs() {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+      throw new Error(errorData.message || `HTTP ${response.status}`);
     }
     const data = await response.json();
 
@@ -582,7 +582,7 @@ async function clearAllJobs() {
       showToast(`Cleared ${data.deleted_count} jobs`, "success");
       loadJobs();
     } else {
-      throw new Error(data.error || "Failed to clear jobs");
+      throw new Error(data.message || "Failed to clear jobs");
     }
   } catch (error) {
     console.error("Error clearing jobs:", error);

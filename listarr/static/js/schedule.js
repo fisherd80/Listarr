@@ -272,11 +272,11 @@ async function saveSchedule() {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+      throw new Error(errorData.message || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    if (!data.success) throw new Error(data.error || "Save failed");
+    if (!data.success) throw new Error(data.message || "Save failed");
 
     // Close modal and refresh status
     closeEditModal();

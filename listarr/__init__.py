@@ -5,7 +5,7 @@ from datetime import timedelta
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFError, CSRFProtect
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -152,14 +152,28 @@ def create_app(test_config=None):
     @app.errorhandler(404)
     def not_found_error(error):
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": "Not found"}), 404
+            return jsonify({"success": False, "message": "Not found"}), 404
         return render_template("errors/404.html"), 404
 
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": "Internal server error"}), 500
+            return jsonify({"success": False, "message": "Internal server error"}), 500
+        return render_template("errors/500.html"), 500
+
+    @app.errorhandler(CSRFError)
+    def csrf_error(error):
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"success": False, "message": "CSRF token missing or invalid"}), 400
+        return render_template("errors/404.html"), 400
+
+    @app.errorhandler(Exception)
+    def unhandled_error(error):
+        app.logger.error(f"Unhandled exception: {error}", exc_info=True)
+        db.session.rollback()
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"success": False, "message": "Internal server error"}), 500
         return render_template("errors/500.html"), 500
 
     # Initialize dashboard cache and recover interrupted jobs at startup
@@ -203,7 +217,7 @@ def unauthorized():
     """Handle unauthorized access attempts."""
     # For AJAX/JSON requests, return JSON error
     if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
 
     # For page requests, store next URL and redirect to login
     session["next"] = request.url
