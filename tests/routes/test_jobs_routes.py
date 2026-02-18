@@ -252,7 +252,7 @@ class TestRerunJob:
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
-        assert "only rerun failed jobs" in data["error"].lower()
+        assert "only rerun failed jobs" in data["message"].lower()
 
     def test_rejects_when_list_deleted(self, client, app):
         """Cannot rerun when list no longer exists."""
@@ -273,7 +273,7 @@ class TestRerunJob:
         response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert "no longer exists" in data["error"].lower()
+        assert "no longer exists" in data["message"].lower()
 
     def test_rejects_inactive_list(self, client, app):
         """Cannot rerun when list is inactive."""
@@ -306,7 +306,7 @@ class TestRerunJob:
         response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert "not active" in data["error"].lower()
+        assert "not active" in data["message"].lower()
 
 
 class TestClearJobs:

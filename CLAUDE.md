@@ -293,6 +293,9 @@ fetch("/endpoint", {
 
 ### Error Handling
 
+- **Centralized handlers**: 404, 500, CSRF, and unhandled Exception handlers in `create_app()` with JSON detection
+- **Standalone error pages**: `errors/404.html` and `errors/500.html` are self-contained (no base.html dependency)
+- **Standardized JSON errors**: All API endpoints return `{"success": false, "message": "..."}` on errors
 - **Routes**: Try/except with `db.session.rollback()` on database errors, `current_app.logger.error()` with `exc_info=True`
 - **Services**: Module-level loggers (`logger = logging.getLogger(__name__)`), return empty lists/dicts on errors
 - **Frontend**: HTTP status checks on all fetch calls, toast notifications for errors
@@ -314,7 +317,7 @@ fetch("/endpoint", {
 
 ### Testing
 
-- **536 tests** across unit, route, and integration test files
+- **541 tests** across unit, route, and integration test files
 - Proper isolation with fixtures (`temp_instance_path`, `app`, `client`)
 - External API calls mocked; in-memory SQLite for speed
 - Comprehensive coverage: error handling, validation, edge cases, security, caching, bulk imports
@@ -368,11 +371,11 @@ Defined in `requirements.txt`:
 
 ## Current Development Status
 
-**Completed phases** (1-13.2): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (536 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation), Tailwind CSS local compilation (removed CDN, added build-css.sh), dark mode toggle with localStorage persistence, footer redesign (version number + GitHub link).
+**Completed phases** (1-14): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (541 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation), Tailwind CSS local compilation (removed CDN, added build-css.sh), dark mode toggle with localStorage persistence, footer redesign (version number + GitHub link), release hardening (centralized error handling, standalone error pages, standardized JSON errors, Docker polish, dead code removal).
 
-**Next phase**: 14 (Release Readiness)
+**Next phase**: 15 (Documentation & Release)
 
-**Remaining phases**: 14 (Release Readiness)
+**Remaining phases**: 15 (Documentation & Release)
 
 See `.planning/ROADMAP.md` for full phase details.
 

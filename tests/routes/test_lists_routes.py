@@ -37,7 +37,7 @@ class TestRunListImport:
         assert response.status_code == 404
         data = response.get_json()
         assert data["success"] is False
-        assert "not found" in data["error"]
+        assert "not found" in data["message"]
 
     def test_returns_400_for_inactive_list(self, client, app):
         """Returns 400 when list is inactive."""
@@ -51,7 +51,7 @@ class TestRunListImport:
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
-        assert "not active" in data["error"]
+        assert "not active" in data["message"]
 
     def test_returns_400_when_already_running(self, client, app):
         """Returns 400 when job already running for this list."""
@@ -75,7 +75,7 @@ class TestRunListImport:
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
-        assert "already running" in data["error"]
+        assert "already running" in data["message"]
 
     @patch("listarr.routes.lists_routes.submit_job")
     def test_submits_job_successfully(self, mock_submit, client, app):
@@ -111,7 +111,7 @@ class TestRunListImport:
         data = response.get_json()
         assert data["success"] is False
         # Generic error message (specific errors not exposed per security policy)
-        assert "Invalid request" in data["error"]
+        assert "Invalid request" in data["message"]
 
     @patch("listarr.routes.lists_routes.submit_job")
     def test_handles_unexpected_exception(self, mock_submit, client, app):
@@ -128,7 +128,7 @@ class TestRunListImport:
         assert response.status_code == 500
         data = response.get_json()
         assert data["success"] is False
-        assert "Failed to start job" in data["error"]
+        assert "Failed to start job" in data["message"]
 
 
 class TestGetListStatus:
