@@ -71,8 +71,8 @@ def get_recent_jobs():
     result = []
     for job in jobs:
         job_dict = job.to_dict()
-        # Get service from list if still exists
-        list_obj = List.query.get(job.list_id)
+        # Get service from list if still exists (guard against NULL list_id)
+        list_obj = List.query.get(job.list_id) if job.list_id else None
         job_dict["target_service"] = list_obj.target_service if list_obj else None
         result.append(job_dict)
 
@@ -118,8 +118,8 @@ def rerun_job(job_id):
     if job.status != "failed":
         return jsonify({"success": False, "error": "Can only rerun failed jobs"}), 400
 
-    # Check if list still exists
-    list_obj = List.query.get(job.list_id)
+    # Check if list still exists (guard against NULL list_id)
+    list_obj = List.query.get(job.list_id) if job.list_id else None
     if not list_obj:
         return jsonify({"success": False, "error": "List no longer exists"}), 400
 
