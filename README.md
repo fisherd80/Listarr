@@ -169,7 +169,7 @@ listarr/
 
 ## Development Status
 
-**~98% Complete** - 12 of 13 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, security hardening, 536 tests, automated scheduling, direct API integration, and comprehensive UI/UX improvements. Remaining: release readiness.
+**~99% Complete** - 13 of 14 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, security hardening, 536 tests, automated scheduling, direct API integration, comprehensive UI/UX improvements, local Tailwind CSS compilation, and dark mode toggle. Remaining: release readiness.
 
 ### Completed Phases
 
@@ -191,10 +191,11 @@ listarr/
 - ✅ **Phase 10.1-10.5: UI Enhancements** - Bulk import API (8x faster), skeleton loading, activity-based timeout
 - ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 536 tests
 - ✅ **Phase 12: Security Hardening** - Security headers, session security, route protection audit
+- ✅ **Phase 13: Tailwind & UI Polish** - Local CSS compilation, dark mode toggle, footer redesign
 
 ### Planned Phases
 
-- 🔮 **Phase 13: Release Readiness** - Final polish and v1.0 release
+- 🔮 **Phase 14: Release Readiness** - Final polish and v1.0 release
 
 See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
 
@@ -295,7 +296,8 @@ The `instance/` folder contains all runtime data:
 | 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
 | 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (536 tests)        |
 | 12. Security Hardening    | ✅ Complete | Security headers, session security, route protection audit  |
-| 13. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
+| 13. Tailwind & UI Polish  | ✅ Complete | Local CSS compilation, dark mode toggle, footer redesign    |
+| 14. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
 
 ## License
 

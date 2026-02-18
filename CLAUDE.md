@@ -25,6 +25,9 @@ python run.py
 # Enable debug mode
 FLASK_DEBUG=true python run.py
 
+# Rebuild Tailwind CSS after template/JS changes
+./build-css.sh
+
 # Run all tests
 pytest tests/ -v
 
@@ -278,7 +281,10 @@ fetch("/endpoint", {
 
 ### Global Styles
 
-- Tailwind CSS with system-based dark mode
+- Tailwind CSS compiled locally via `pytailwindcss` (no CDN)
+- Class-based dark mode with manual toggle in footer
+- localStorage persistence for theme preference
+- FOUC prevention script in all standalone templates (base, login, setup)
 - Single-page feel with top navigation
 - Skeleton loading states for initial load
 - Buttons disabled during actions
@@ -343,6 +349,7 @@ Defined in `requirements.txt`:
 | APScheduler | ==3.11.2 | Cron-based job scheduling |
 | cronsim | ==2.7 | Cron expression parsing |
 | cron-descriptor | ==2.0.5 | Human-readable cron descriptions |
+| pytailwindcss | ==0.3.0 | Tailwind CSS compiler (dev dependency) |
 
 **No third-party API wrappers** - all Radarr, Sonarr, and TMDB API calls use direct HTTP via the shared `http_session`.
 <!-- GENERATED:END:dependencies -->
@@ -361,11 +368,11 @@ Defined in `requirements.txt`:
 
 ## Current Development Status
 
-**Completed phases** (1-12): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (536 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation).
+**Completed phases** (1-13.2): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (536 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation), Tailwind CSS local compilation (removed CDN, added build-css.sh), dark mode toggle with localStorage persistence, footer redesign (version number + GitHub link).
 
-**Next phase**: 13 (Release Readiness)
+**Next phase**: 14 (Release Readiness)
 
-**Remaining phases**: 13 (Release Readiness)
+**Remaining phases**: 14 (Release Readiness)
 
 See `.planning/ROADMAP.md` for full phase details.
 
