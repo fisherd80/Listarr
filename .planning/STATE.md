@@ -9,7 +9,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 14.1 - Complete Test Suite Regeneration
 **Current plan:** Plan 02 of 03
-**Status:** Plan 01 complete (dashboard/jobs/settings), next: Plan 02 (lists routes)
+**Status:** Plan 02 complete (lists/schedule tests), next: Plan 03 (auth routes)
 
 ## Accumulated Context
 
@@ -32,6 +32,9 @@ See: .planning/PROJECT.md
 - **14.1-01:** Dashboard stats tests must call refresh_dashboard_cache() inside mock context before API call
 - **14.1-01:** Mock rerun at listarr.services.job_executor.submit_job not at routes module (deferred import pattern)
 - **14.1-01:** Settings POST uses data={} (WTForms form), test_tmdb_api uses json={} (JSON body)
+- **14.1-02:** app_with_csrf and app_with_auth must use bounded contexts (not persistent) — prevents db.session routing to wrong SQLite database when multiple session apps coexist
+- **14.1-02:** Function-body imports (validate_cron_expression, schedule_list) must be mocked at service module level (listarr.services.scheduler.*), not route module level
+- **14.1-02:** Mock refresh_dashboard_cache on any route test that saves credentials to prevent real HTTP calls with mock API keys
 
 ## Session Log
 
@@ -43,3 +46,4 @@ See: .planning/PROJECT.md
 - 2026-02-18: Phase 13.1 Plan 01 complete - class-based dark mode, FOUC prevention, footer toggle button with localStorage persistence
 - 2026-02-18: Phase 13.2 complete (direct impl) - footer now shows v1.0.0 + GitHub link, copyright removed
 - 2026-02-19: Phase 14.1 Plan 01 complete - regenerated test_dashboard_routes.py (24 tests), test_jobs_routes.py (25 tests), test_settings_routes.py (18 tests); deleted test_dashboard_auth.py; all 67 tests pass in isolation
+- 2026-02-19: Phase 14.1 Plan 02 complete - regenerated test_lists_routes.py (73 tests), created test_schedule_routes.py (30 tests); fixed cross-file DB contamination in conftest.py; fixed bug in lists_routes.py; 596 tests pass in full suite

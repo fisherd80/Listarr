@@ -714,11 +714,11 @@ Plans:
 
 **Goal:** Regenerate all broken route test files from scratch to eliminate 47 failures + 1 error caused by cross-file DB state contamination, dashboard cache staleness, and auth state leaks
 **Depends on:** Phase 14
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 14.1-01-PLAN.md — Regenerate dashboard, jobs, and settings route tests (delete test_dashboard_auth.py)
-- [ ] 14.1-02-PLAN.md — Regenerate lists route tests and create new schedule route tests
+- [x] 14.1-01-PLAN.md — Regenerate dashboard, jobs, and settings route tests (delete test_dashboard_auth.py)
+- [x] 14.1-02-PLAN.md — Regenerate lists route tests and create new schedule route tests
 - [ ] 14.1-03-PLAN.md — Regenerate auth route tests and full suite validation
 
 ### Phase 15: Documentation & Release
