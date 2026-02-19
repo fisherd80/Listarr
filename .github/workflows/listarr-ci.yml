@@ -1,15 +1,16 @@
-name: Listarr – Develop CI
+name: Listarr CI
 
 on:
   push:
     branches:
       - develop
+      - main
   pull_request:
     branches:
       - develop
+      - main
 
 env:
-  FLASK_ENV: testing
   DATABASE_URL: "sqlite:///:memory:"
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
@@ -42,8 +43,8 @@ jobs:
       - name: Format check (black)
         run: black --check .
 
-      - name: Run unit tests
-        run: pytest --cov=listarr --cov-report=term-missing
+      - name: Run tests
+        run: pytest --cov=listarr --cov-report=term-missing --cov-fail-under=60
 
       - name: Dependency vulnerability scan
         run: pip-audit
@@ -53,3 +54,27 @@ jobs:
 
       - name: Docker build validation (no push)
         run: docker build -t listarr:ci .
+
+  docker-dev:
+    name: Push Dev Docker Image
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            fisherd91/listarr:dev
