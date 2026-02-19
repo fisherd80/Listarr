@@ -6,13 +6,13 @@ class Job(db.Model):
     __tablename__ = "jobs"
 
     id = db.Column(db.Integer, primary_key=True)
-    list_id = db.Column(db.Integer, db.ForeignKey("lists.id"))
+    list_id = db.Column(db.Integer, db.ForeignKey("lists.id"), index=True)
     list = db.relationship("List", backref=db.backref("jobs", lazy="dynamic"))
     list_name = db.Column(db.String(255))  # Denormalized, survives list deletion
 
-    status = db.Column(db.String(20))  # pending/running/failed/completed
+    status = db.Column(db.String(20), index=True)  # pending/running/failed/completed
     started_at = db.Column(TZDateTime)
-    completed_at = db.Column(TZDateTime)  # Renamed from finished_at
+    completed_at = db.Column(TZDateTime, index=True)  # Renamed from finished_at
     duration = db.Column(db.Integer)  # Seconds, calculated at job completion
 
     triggered_by = db.Column(db.String(20), default="manual")  # manual/scheduled

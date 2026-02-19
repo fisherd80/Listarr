@@ -192,6 +192,7 @@ docker-compose.override.yml
 # Test result files
 *_result.txt
 test_*.txt
+tests/coverage-*.txt
 
 # ===========================
 # AI & Local Development

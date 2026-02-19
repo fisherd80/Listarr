@@ -157,9 +157,9 @@ def create_list():
         try:
             new_list = List(
                 name=form.name.data,
-                target_service=form.target_service.data,
-                tmdb_list_type=form.tmdb_list_type.data,
-                filters_json=form.filters_json.data or "{}",
+                target_service=request.form.get("target_service", ""),
+                tmdb_list_type=request.form.get("tmdb_list_type", ""),
+                filters_json=request.form.get("filters_json") or "{}",
                 is_active=form.is_active.data,
                 created_at=datetime.now(timezone.utc),
             )
@@ -677,7 +677,7 @@ def wizard_submit():
     data = request.get_json()
 
     if not data:
-        return jsonify({"success": False, "error": "No data provided"}), 400
+        return jsonify({"success": False, "message": "No data provided"}), 400
 
     # Extract wizard data
     list_id = data.get("list_id")  # None for create, ID for edit
@@ -690,9 +690,9 @@ def wizard_submit():
 
     # Validation
     if not name:
-        return jsonify({"success": False, "error": "Name is required"}), 400
+        return jsonify({"success": False, "message": "Name is required"}), 400
     if not service or service not in ["radarr", "sonarr"]:
-        return jsonify({"success": False, "error": "Invalid service"}), 400
+        return jsonify({"success": False, "message": "Invalid service"}), 400
 
     # Determine tmdb_list_type
     if preset and preset not in ["custom", ""]:
@@ -800,7 +800,7 @@ def wizard_submit():
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving list: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Operation failed. Please try again."}), 500
+        return jsonify({"success": False, "message": "Operation failed. Please try again."}), 500
 
 
 @bp.route("/lists/wizard/defaults/<service>")
@@ -912,20 +912,6 @@ def wizard_defaults(service):
     )
 
 
-@bp.route("/lists/debug/cache-stats", methods=["GET"])
-@login_required
-def cache_stats():
-    """
-    Debug endpoint for TMDB cache statistics.
-
-    Returns JSON with cache sizes, max sizes, and TTLs for each cache type.
-    Intended for development/debugging - shows cache hit/miss effectiveness.
-    """
-    from listarr.services.tmdb_cache import get_cache_stats
-
-    return jsonify(get_cache_stats())
-
-
 @bp.route("/lists/<int:list_id>/run", methods=["POST"])
 @login_required
 def run_list_import(list_id):
@@ -937,14 +923,14 @@ def run_list_import(list_id):
     list_obj = List.query.get(list_id)
     if not list_obj:
         return (
-            jsonify({"success": False, "error": f"List with ID {list_id} not found"}),
+            jsonify({"success": False, "message": f"List with ID {list_id} not found"}),
             404,
         )
 
     # Check if list is active
     if not list_obj.is_active:
         return (
-            jsonify({"success": False, "error": f"List '{list_obj.name}' is not active"}),
+            jsonify({"success": False, "message": f"List '{list_obj.name}' is not active"}),
             400,
         )
 
@@ -954,7 +940,7 @@ def run_list_import(list_id):
             jsonify(
                 {
                     "success": False,
-                    "error": f"List '{list_obj.name}' is already running",
+                    "message": f"List '{list_obj.name}' is already running",
                 }
             ),
             400,
@@ -968,10 +954,10 @@ def run_list_import(list_id):
         return jsonify({"success": True, "job_id": job_id, "status": "started"}), 202
     except ValueError as e:
         current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Invalid request. Please try again."}), 400
+        return jsonify({"success": False, "message": "Invalid request. Please try again."}), 400
     except (OperationalError, RuntimeError) as e:
         current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Failed to start job"}), 500
+        return jsonify({"success": False, "message": "Failed to start job"}), 500
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])

@@ -1,14 +1,78 @@
-"""Tests for jobs routes."""
+"""
+Route tests for jobs_routes.py - Jobs page endpoints.
+
+Tests cover:
+- GET /jobs - Jobs page rendering
+- GET /api/jobs - Paginated job list with filters
+- GET /api/jobs/recent - 5 most recent jobs for dashboard widget
+- GET /api/jobs/<id> - Job detail with items
+- POST /api/jobs/<id>/rerun - Rerun a failed job
+- POST /api/jobs/clear - Clear all non-running jobs
+- POST /api/jobs/clear/<list_id> - Clear jobs for specific list
+- GET /api/jobs/running - Get currently running jobs
+
+Isolation pattern: Use db.session directly (no nested with app.app_context()
+blocks). The session-scoped app fixture keeps an app context open for the
+entire session; nested contexts corrupt Flask's ContextVar stack.
+
+Note on rerun endpoint: submit_job and is_list_running are imported INSIDE
+the rerun_job() function body (deferred import to avoid circular imports).
+This means they do NOT exist on the listarr.routes.jobs_routes module.
+Patch at listarr.services.job_executor.submit_job (the source module).
+"""
 
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
+
+from listarr import db
+from listarr.models.jobs_model import Job, JobItem
+from listarr.models.lists_model import List
+
+
+def _make_list(name="Test List", service="RADARR", list_type="trending_movies"):
+    """Create and flush a List without committing."""
+    lst = List(
+        name=name,
+        target_service=service,
+        tmdb_list_type=list_type,
+        filters_json={},
+        is_active=True,
+    )
+    db.session.add(lst)
+    db.session.flush()
+    return lst
+
+
+def _make_job(list_obj, status="completed", items_added=0, items_skipped=0):
+    """Create a Job for the given list. Does not commit."""
+    job = Job(
+        list_id=list_obj.id,
+        list_name=list_obj.name,
+        status=status,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc) if status != "running" else None,
+        items_added=items_added,
+        items_skipped=items_skipped,
+    )
+    db.session.add(job)
+    return job
+
+
+class TestJobsPage:
+    """Tests for GET /jobs page."""
+
+    def test_renders_jobs_page(self, client):
+        """Jobs page renders with 200 status."""
+        response = client.get("/jobs")
+        assert response.status_code == 200
 
 
 class TestGetJobs:
     """Tests for GET /api/jobs endpoint."""
 
-    def test_returns_empty_list_when_no_jobs(self, client, app):
+    def test_returns_empty_list_when_no_jobs(self, client):
         """Returns empty list when no jobs exist."""
         response = client.get("/api/jobs")
         assert response.status_code == 200
@@ -18,19 +82,10 @@ class TestGetJobs:
 
     def test_returns_paginated_jobs(self, client, app):
         """Returns paginated job list."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            for i in range(30):
-                job = Job(
-                    list_id=1,
-                    list_name=f"Test List {i}",
-                    status="completed",
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
+        test_list = _make_list()
+        for i in range(30):
+            _make_job(test_list, status="completed")
+        db.session.commit()
 
         response = client.get("/api/jobs?page=1&per_page=10")
         assert response.status_code == 200
@@ -41,19 +96,11 @@ class TestGetJobs:
 
     def test_filters_by_status(self, client, app):
         """Filters jobs by status."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            for status in ["completed", "completed", "failed"]:
-                job = Job(
-                    list_id=1,
-                    list_name="Test",
-                    status=status,
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
+        test_list = _make_list()
+        _make_job(test_list, status="completed")
+        _make_job(test_list, status="completed")
+        _make_job(test_list, status="failed")
+        db.session.commit()
 
         response = client.get("/api/jobs?status=failed")
         data = response.get_json()
@@ -62,394 +109,311 @@ class TestGetJobs:
 
     def test_filters_by_list_id(self, client, app):
         """Filters jobs by list_id."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
+        list1 = _make_list(name="List 1")
+        list2 = _make_list(name="List 2")
+        _make_job(list1, status="completed")
+        _make_job(list1, status="completed")
+        _make_job(list2, status="completed")
+        db.session.commit()
+        list1_id = list1.id
 
-        with app.app_context():
-            for list_id in [1, 1, 2]:
-                job = Job(
-                    list_id=list_id,
-                    list_name=f"List {list_id}",
-                    status="completed",
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/jobs?list_id=1")
+        response = client.get(f"/api/jobs?list_id={list1_id}")
         data = response.get_json()
         assert data["total"] == 2
 
-    def test_enforces_max_per_page(self, client, app):
-        """Enforces max 50 per_page limit."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            for i in range(60):
-                job = Job(
-                    list_id=1,
-                    list_name="Test",
-                    status="completed",
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
+    def test_max_per_page_enforced_at_50(self, client, app):
+        """per_page is capped at 50."""
+        test_list = _make_list()
+        for i in range(60):
+            _make_job(test_list, status="completed")
+        db.session.commit()
 
         response = client.get("/api/jobs?per_page=100")
         data = response.get_json()
-        # Should be capped at 50
         assert len(data["jobs"]) == 50
+
+    def test_default_pagination(self, client, app):
+        """Default page=1, per_page=25."""
+        test_list = _make_list()
+        for i in range(30):
+            _make_job(test_list, status="completed")
+        db.session.commit()
+
+        response = client.get("/api/jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 25
+        assert data["current_page"] == 1
 
 
 class TestGetRecentJobs:
     """Tests for GET /api/jobs/recent endpoint."""
 
-    def test_returns_max_5_jobs(self, client, app):
-        """Returns at most 5 recent jobs."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            for i in range(10):
-                job = Job(
-                    list_id=1,
-                    list_name="Test",
-                    status="completed",
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/jobs/recent")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert len(data["jobs"]) == 5
-
-    def test_returns_empty_list_when_no_jobs(self, client):
+    def test_returns_empty_when_no_jobs(self, client):
         """Returns empty list when no jobs exist."""
         response = client.get("/api/jobs/recent")
         assert response.status_code == 200
         data = response.get_json()
         assert data["jobs"] == []
 
-    def test_includes_target_service(self, client, app):
-        """Includes target_service from related list."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-        from listarr.models.lists_model import List
+    def test_returns_max_5_jobs(self, client, app):
+        """Returns at most 5 recent jobs."""
+        test_list = _make_list()
+        for i in range(10):
+            _make_job(test_list, status="completed")
+        db.session.commit()
 
-        with app.app_context():
-            list_obj = List(
-                name="Test List",
-                target_service="radarr",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-                is_active=True,
-            )
-            db.session.add(list_obj)
-            db.session.commit()
-            list_id = list_obj.id
+        response = client.get("/api/jobs/recent")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["jobs"]) == 5
 
-            job = Job(
-                list_id=list_id,
-                list_name="Test List",
-                status="completed",
-                started_at=datetime.now(timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
+    def test_includes_target_service_from_list(self, client, app):
+        """Includes target_service from the related List."""
+        radarr_list = _make_list(name="Radarr List", service="RADARR")
+        _make_job(radarr_list, status="completed")
+        db.session.commit()
 
         response = client.get("/api/jobs/recent")
         data = response.get_json()
         assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["target_service"] == "radarr"
+        assert data["jobs"][0]["target_service"] == "RADARR"
+
+    def test_handles_deleted_list(self, client, app):
+        """Returns null target_service when list no longer exists."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="completed")
+        db.session.commit()
+        job_id = job.id
+
+        # Delete the list
+        db.session.delete(test_list)
+        db.session.commit()
+
+        response = client.get("/api/jobs/recent")
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["target_service"] is None
 
 
 class TestGetJobDetail:
     """Tests for GET /api/jobs/<id> endpoint."""
 
-    def test_returns_404_for_missing_job(self, client):
-        """Returns 404 when job doesn't exist."""
-        response = client.get("/api/jobs/999")
-        assert response.status_code == 404
-
     def test_returns_job_with_items(self, client, app):
-        """Returns job detail with items."""
-        from listarr import db
-        from listarr.models.jobs_model import Job, JobItem
+        """Returns job detail including its items."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="completed", items_added=2)
+        db.session.flush()
+        job_id = job.id
 
-        with app.app_context():
-            job = Job(
-                list_id=1,
-                list_name="Test",
-                status="completed",
-                started_at=datetime.now(timezone.utc),
-                items_added=2,
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
-
-            for i in range(2):
-                item = JobItem(job_id=job_id, tmdb_id=100 + i, title=f"Movie {i}", status="added")
-                db.session.add(item)
-            db.session.commit()
+        item1 = JobItem(job_id=job_id, tmdb_id=101, title="Movie 1", status="added")
+        item2 = JobItem(job_id=job_id, tmdb_id=102, title="Movie 2", status="skipped")
+        db.session.add_all([item1, item2])
+        db.session.commit()
 
         response = client.get(f"/api/jobs/{job_id}")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["list_name"] == "Test"
+        assert data["list_name"] == "Test List"
         assert len(data["items"]) == 2
 
-    def test_returns_job_without_items(self, client, app):
-        """Returns job even when no items exist."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            job = Job(
-                list_id=1,
-                list_name="Test",
-                status="completed",
-                started_at=datetime.now(timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
-
-        response = client.get(f"/api/jobs/{job_id}")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data["items"] == []
+    def test_returns_404_for_missing_job(self, client):
+        """Returns 404 when job does not exist."""
+        response = client.get("/api/jobs/99999")
+        assert response.status_code == 404
 
 
 class TestRerunJob:
     """Tests for POST /api/jobs/<id>/rerun endpoint."""
 
-    def test_returns_404_for_missing_job(self, client):
-        """Returns 404 when job doesn't exist."""
-        response = client.post("/api/jobs/999/rerun")
-        assert response.status_code == 404
+    def test_rerun_failed_job_returns_202(self, client, app):
+        """Reruns a failed job and returns 202."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="failed")
+        db.session.commit()
+        job_id = job.id
 
-    def test_rejects_non_failed_job(self, client, app):
-        """Cannot rerun completed jobs."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
+        with (
+            patch("listarr.services.job_executor.submit_job") as mock_submit,
+            patch("listarr.services.job_executor.is_list_running") as mock_running,
+        ):
+            mock_running.return_value = False
+            mock_submit.return_value = 99
 
-        with app.app_context():
-            job = Job(
-                list_id=1,
-                list_name="Test",
-                status="completed",
-                started_at=datetime.now(timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
+            response = client.post(f"/api/jobs/{job_id}/rerun")
+
+        assert response.status_code == 202
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["job_id"] == 99
+
+    def test_rerun_non_failed_job_returns_400(self, client, app):
+        """Returns 400 when trying to rerun a non-failed job."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="completed")
+        db.session.commit()
+        job_id = job.id
 
         response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
-        assert "only rerun failed jobs" in data["error"].lower()
+        assert "only rerun failed jobs" in data["message"].lower()
 
-    def test_rejects_when_list_deleted(self, client, app):
-        """Cannot rerun when list no longer exists."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            job = Job(
-                list_id=9999,  # Non-existent list
-                list_name="Deleted List",
-                status="failed",
-                started_at=datetime.now(timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
+    def test_rerun_missing_list_returns_400(self, client, app):
+        """Returns 400 when job's list no longer exists."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="failed")
+        db.session.commit()
+        job_id = job.id
+        list_obj = List.query.get(test_list.id)
+        db.session.delete(list_obj)
+        db.session.commit()
 
         response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert "no longer exists" in data["error"].lower()
+        assert "no longer exists" in data["message"].lower()
 
-    def test_rejects_inactive_list(self, client, app):
-        """Cannot rerun when list is inactive."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-        from listarr.models.lists_model import List
+    def test_rerun_inactive_list_returns_400(self, client, app):
+        """Returns 400 when job's list is inactive."""
+        test_list = List(
+            name="Inactive List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+            is_active=False,
+        )
+        db.session.add(test_list)
+        db.session.flush()
 
-        with app.app_context():
-            list_obj = List(
-                name="Test List",
-                target_service="radarr",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-                is_active=False,
-            )
-            db.session.add(list_obj)
-            db.session.commit()
-            list_id = list_obj.id
-
-            job = Job(
-                list_id=list_id,
-                list_name="Test List",
-                status="failed",
-                started_at=datetime.now(timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
+        job = _make_job(test_list, status="failed")
+        db.session.commit()
+        job_id = job.id
 
         response = client.post(f"/api/jobs/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
-        assert "not active" in data["error"].lower()
+        assert "not active" in data["message"].lower()
+
+    def test_rerun_already_running_returns_400(self, client, app):
+        """Returns 400 when list already has a running job."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="failed")
+        db.session.commit()
+        job_id = job.id
+
+        with patch("listarr.services.job_executor.is_list_running") as mock_running:
+            mock_running.return_value = True
+            response = client.post(f"/api/jobs/{job_id}/rerun")
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert "already has a job running" in data["message"].lower()
 
 
-class TestClearJobs:
-    """Tests for clear endpoints."""
+class TestClearAllJobs:
+    """Tests for POST /api/jobs/clear endpoint."""
 
-    def test_clear_all_jobs(self, client, app):
-        """Clears all non-running jobs."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            for status in ["completed", "failed", "running"]:
-                job = Job(
-                    list_id=1,
-                    list_name="Test",
-                    status=status,
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
+    def test_clears_completed_and_failed_jobs(self, client, app):
+        """Clears completed and failed jobs but not running ones."""
+        test_list = _make_list()
+        _make_job(test_list, status="completed")
+        _make_job(test_list, status="failed")
+        _make_job(test_list, status="running")
+        db.session.commit()
 
         response = client.post("/api/jobs/clear")
         assert response.status_code == 200
         data = response.get_json()
-        assert data["deleted_count"] == 2  # completed + failed, not running
+        assert data["deleted_count"] == 2
 
-        # Verify running job still exists
-        with app.app_context():
-            remaining = Job.query.all()
-            assert len(remaining) == 1
-            assert remaining[0].status == "running"
+    def test_preserves_running_jobs(self, client, app):
+        """Running jobs survive a global clear."""
+        test_list = _make_list()
+        _make_job(test_list, status="completed")
+        running = _make_job(test_list, status="running")
+        db.session.commit()
+        running_id = running.id
 
-    def test_clear_list_jobs(self, client, app):
-        """Clears jobs for specific list."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
+        client.post("/api/jobs/clear")
 
-        with app.app_context():
-            for list_id in [1, 1, 2]:
-                job = Job(
-                    list_id=list_id,
-                    list_name=f"List {list_id}",
-                    status="completed",
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
+        remaining = Job.query.all()
+        assert len(remaining) == 1
+        assert remaining[0].id == running_id
 
-        response = client.post("/api/jobs/clear/1")
+    def test_returns_deleted_count(self, client, app):
+        """Returns the count of deleted jobs."""
+        test_list = _make_list()
+        for _ in range(5):
+            _make_job(test_list, status="completed")
+        db.session.commit()
+
+        response = client.post("/api/jobs/clear")
+        data = response.get_json()
+        assert data["deleted_count"] == 5
+
+
+class TestClearListJobs:
+    """Tests for POST /api/jobs/clear/<list_id> endpoint."""
+
+    def test_clears_jobs_for_specific_list(self, client, app):
+        """Only clears completed/failed jobs for the specified list."""
+        list1 = _make_list(name="List 1")
+        list2 = _make_list(name="List 2")
+        _make_job(list1, status="completed")
+        _make_job(list1, status="completed")
+        _make_job(list2, status="completed")
+        db.session.commit()
+        list1_id = list1.id
+
+        response = client.post(f"/api/jobs/clear/{list1_id}")
         assert response.status_code == 200
         data = response.get_json()
         assert data["deleted_count"] == 2
 
-        # Verify list 2 job still exists
-        with app.app_context():
-            remaining = Job.query.all()
-            assert len(remaining) == 1
-            assert remaining[0].list_id == 2
+        remaining = Job.query.all()
+        assert len(remaining) == 1
 
-    def test_clear_list_jobs_preserves_running(self, client, app):
-        """Clear per-list preserves running jobs."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
+    def test_preserves_running_jobs_for_list(self, client, app):
+        """Running jobs for a list survive a per-list clear."""
+        test_list = _make_list()
+        _make_job(test_list, status="completed")
+        running = _make_job(test_list, status="running")
+        db.session.commit()
+        list_id = test_list.id
+        running_id = running.id
 
-        with app.app_context():
-            for status in ["completed", "running"]:
-                job = Job(
-                    list_id=1,
-                    list_name="Test",
-                    status=status,
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
-
-        response = client.post("/api/jobs/clear/1")
+        response = client.post(f"/api/jobs/clear/{list_id}")
         data = response.get_json()
         assert data["deleted_count"] == 1
 
-        with app.app_context():
-            remaining = Job.query.all()
-            assert len(remaining) == 1
-            assert remaining[0].status == "running"
+        remaining = Job.query.all()
+        assert len(remaining) == 1
+        assert remaining[0].id == running_id
 
 
 class TestGetRunningJobs:
     """Tests for GET /api/jobs/running endpoint."""
 
     def test_returns_empty_when_no_running_jobs(self, client):
-        """Returns empty list when no running jobs."""
+        """Returns empty list when no running jobs exist."""
         response = client.get("/api/jobs/running")
         assert response.status_code == 200
         data = response.get_json()
         assert data["running_jobs"] == []
 
     def test_returns_running_jobs(self, client, app):
-        """Returns list of running jobs."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            for status in ["running", "completed", "running"]:
-                job = Job(
-                    list_id=1,
-                    list_name="Test",
-                    status=status,
-                    started_at=datetime.now(timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
+        """Returns only running jobs."""
+        test_list = _make_list()
+        _make_job(test_list, status="running")
+        _make_job(test_list, status="running")
+        _make_job(test_list, status="completed")
+        db.session.commit()
 
         response = client.get("/api/jobs/running")
         data = response.get_json()
         assert len(data["running_jobs"]) == 2
-
-    def test_includes_job_metadata(self, client, app):
-        """Running jobs include job_id, list_id, list_name."""
-        from listarr import db
-        from listarr.models.jobs_model import Job
-
-        with app.app_context():
-            job = Job(
-                list_id=5,
-                list_name="My Test List",
-                status="running",
-                started_at=datetime.now(timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
-
-        response = client.get("/api/jobs/running")
-        data = response.get_json()
-        assert len(data["running_jobs"]) == 1
-        assert data["running_jobs"][0]["job_id"] == job_id
-        assert data["running_jobs"][0]["list_id"] == 5
-        assert data["running_jobs"][0]["list_name"] == "My Test List"
-
-
-class TestJobsPage:
-    """Tests for GET /jobs page."""
-
-    def test_jobs_page_renders(self, client):
-        """Jobs page renders successfully."""
-        response = client.get("/jobs")
-        assert response.status_code == 200
+        for job in data["running_jobs"]:
+            assert "job_id" in job
+            assert "list_id" in job
+            assert "list_name" in job

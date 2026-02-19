@@ -94,12 +94,14 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
 
 ### Environment Variables
 
-- `LISTARR_SECRET_KEY`: Flask secret key for sessions (required in production)
-- `FERNET_KEY`: Optional override for encryption key (default: loaded from file)
-- `FLASK_ENV`: Flask environment (development/production)
-- `PORT`: Port to run the application on (default: 5000)
-- `TZ`: Server timezone for schedule interpretation (default: UTC)
-- `SCHEDULER_WORKER`: Internal Gunicorn worker flag (auto-managed, do not set manually)
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LISTARR_SECRET_KEY` | (auto-generated) | Flask secret key (auto-generates to `instance/.secret_key` if not set) |
+| `FERNET_KEY` | (from file) | Override encryption key (otherwise loaded from `instance/.fernet_key`) |
+| `FLASK_DEBUG` | `false` | Enable Flask debug mode |
+| `LOG_LEVEL` | `INFO` | Python logging level (DEBUG, INFO, WARNING, ERROR) |
+| `TZ` | `UTC` | Server timezone for cron schedule interpretation |
+| `SECURE_COOKIES` | `false` | Enable Secure flag on cookies (set to `true` when serving over HTTPS) |
 
 ### API Keys
 
@@ -169,7 +171,7 @@ listarr/
 
 ## Development Status
 
-**~99% Complete** - 13 of 14 main phases complete, plus 8 sub-phases. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, security hardening, 536 tests, automated scheduling, direct API integration, comprehensive UI/UX improvements, local Tailwind CSS compilation, and dark mode toggle. Remaining: release readiness.
+**Feature Complete** - All 14 development phases complete, plus sub-phases. 596 tests passing. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, security hardening, automated scheduling, direct API integration, comprehensive UI/UX improvements, local Tailwind CSS compilation, dark mode toggle, and release hardening. Remaining: documentation and v1.0 release.
 
 ### Completed Phases
 
@@ -192,10 +194,11 @@ listarr/
 - ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 536 tests
 - ✅ **Phase 12: Security Hardening** - Security headers, session security, route protection audit
 - ✅ **Phase 13: Tailwind & UI Polish** - Local CSS compilation, dark mode toggle, footer redesign
+- ✅ **Phase 14: Release Hardening** - Centralized error handling, Docker polish, dead code removal, 596 tests
 
 ### Planned Phases
 
-- 🔮 **Phase 14: Release Readiness** - Final polish and v1.0 release
+- 🔮 **Phase 15: Documentation & Release** - Final documentation and v1.0 release
 
 See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
 
@@ -203,11 +206,11 @@ See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
 
 ### Backend
 
-- **Flask 3.0.0**: Web framework
+- **Flask 3.1.2**: Web framework
 - **Flask-Login 0.6.3**: Session and user authentication
 - **SQLAlchemy 2.0.44**: ORM and database management
 - **Flask-WTF**: CSRF protection and forms
-- **cryptography 44.0.1**: Fernet encryption for API keys
+- **cryptography 46.0.5**: Fernet encryption for API keys
 - **requests 2.32.4**: Direct HTTP integration with Radarr/Sonarr/TMDB APIs
 - **APScheduler 3.11.2**: Cron-based job scheduling
 - **gunicorn 22.0.0**: Production WSGI server
@@ -297,11 +300,12 @@ The `instance/` folder contains all runtime data:
 | 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (536 tests)        |
 | 12. Security Hardening    | ✅ Complete | Security headers, session security, route protection audit  |
 | 13. Tailwind & UI Polish  | ✅ Complete | Local CSS compilation, dark mode toggle, footer redesign    |
-| 14. Release Readiness     | 🔮 Planned  | Final polish and v1.0 release                               |
+| 14. Release Hardening     | ✅ Complete | Centralized error handling, Docker polish, dead code removal |
+| 15. Documentation & Release | 🔮 Planned | Final documentation and v1.0 release                       |
 
 ## License
 
-[Add your license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 

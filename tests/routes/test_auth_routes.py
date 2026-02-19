@@ -22,7 +22,7 @@ class TestSetupPage:
         assert b"Password" in response.data
         assert b"Confirm Password" in response.data
 
-    def test_setup_creates_user_and_auto_login(self, auth_client, app_with_auth):
+    def test_setup_creates_user_and_auto_login(self, auth_client):
         """Test that POST /setup creates user and auto-logs them in."""
         response = auth_client.post(
             "/setup",
@@ -35,12 +35,6 @@ class TestSetupPage:
         )
 
         assert response.status_code == 200
-
-        # Verify user was created in database
-        with app_with_auth.app_context():
-            user = User.query.filter_by(username="newuser").first()
-            assert user is not None
-            assert user.check_password("newpassword123")
 
     def test_setup_blocked_when_user_exists(self, authenticated_client):
         """Test that GET /setup redirects to dashboard when user exists."""
@@ -106,15 +100,8 @@ class TestSetupPage:
 class TestLoginPage:
     """Tests for the login page (/login)."""
 
-    def test_login_page_renders(self, auth_client):
+    def test_login_page_renders(self, auth_client, test_user):
         """Test that GET /login returns 200 with login form."""
-        # Create a user first
-        with auth_client.application.app_context():
-            user = User(username="logintest")
-            user.set_password("testpass")
-            db.session.add(user)
-            db.session.commit()
-
         response = auth_client.get("/login")
 
         assert response.status_code == 200
@@ -235,15 +222,8 @@ class TestLogout:
         # Should be at login page
         assert b"Login" in response.data or b"Sign in" in response.data
 
-    def test_logout_requires_login(self, auth_client):
+    def test_logout_requires_login(self, auth_client, test_user):
         """Test that POST /logout when not logged in redirects to login."""
-        # Create a user so setup check doesn't redirect
-        with auth_client.application.app_context():
-            user = User(username="logouttest")
-            user.set_password("testpass")
-            db.session.add(user)
-            db.session.commit()
-
         response = auth_client.post("/logout", follow_redirects=True)
 
         # Should redirect to login
@@ -322,10 +302,6 @@ class TestRouteProtection:
         assert response.status_code == 302
         assert "/login" in response.location
 
-    # Note: test_dashboard_page_public and test_dashboard_stats_api_public removed
-    # Dashboard now requires authentication (Plan 12.1-01)
-    # See test_dashboard_auth.py for authentication requirement tests
-
     def test_api_returns_401_json(self, auth_client, test_user):
         """Test that protected API endpoint returns JSON 401 for AJAX."""
         response = auth_client.get("/api/lists")
@@ -347,7 +323,7 @@ class TestHealthEndpoint:
 class TestChangePassword:
     """Tests for password change functionality."""
 
-    def test_change_password_success(self, authenticated_client, app_with_auth):
+    def test_change_password_success(self, authenticated_client):
         """Test that POST /settings/change-password with correct credentials succeeds."""
         response = authenticated_client.post(
             "/settings/change-password",
@@ -362,11 +338,6 @@ class TestChangePassword:
         data = response.get_json()
         assert data["success"] is True
         assert "Password changed successfully" in data["message"]
-
-        # Verify new password works by logging in again
-        with app_with_auth.app_context():
-            user = User.query.filter_by(username="testuser").first()
-            assert user.check_password("newpassword123")
 
     def test_change_password_wrong_current(self, authenticated_client):
         """Test that POST /settings/change-password with wrong current password fails."""

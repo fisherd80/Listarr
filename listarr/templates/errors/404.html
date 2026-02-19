@@ -1,11 +1,35 @@
-{% extends "base.html" %}
-{% block title %}Page Not Found{% endblock %}
-{% block content %}
-<div class="flex flex-col items-center justify-center min-h-[60vh]">
-    <h1 class="text-6xl font-bold text-gray-300 dark:text-gray-600">404</h1>
-    <p class="mt-4 text-xl text-gray-600 dark:text-gray-400">Page not found</p>
-    <a href="{{ url_for('main.dashboard_page') }}" class="mt-6 text-blue-600 hover:text-blue-800 dark:text-blue-400">
-        Return to Dashboard
-    </a>
-</div>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='favicon.jpg') }}"
+    />
+    <meta charset="UTF-8" />
+    <script>
+      (function () {
+        var theme = localStorage.getItem('theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (theme === 'dark' || (!theme && systemDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page Not Found - Listarr</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+  </head>
+  <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="text-center">
+        <h1 class="text-3xl font-bold text-primary mb-2">Listarr</h1>
+        <p class="text-8xl font-bold text-gray-300 dark:text-gray-600">404</p>
+        <p class="mt-4 text-xl text-gray-600 dark:text-gray-400">Page not found</p>
+        <a href="/" class="mt-6 inline-block text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+          Go to Dashboard
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

@@ -116,17 +116,17 @@ def rerun_job(job_id):
 
     # Only allow rerun of failed jobs
     if job.status != "failed":
-        return jsonify({"success": False, "error": "Can only rerun failed jobs"}), 400
+        return jsonify({"success": False, "message": "Can only rerun failed jobs"}), 400
 
     # Check if list still exists (guard against NULL list_id)
     list_obj = List.query.get(job.list_id) if job.list_id else None
     if not list_obj:
-        return jsonify({"success": False, "error": "List no longer exists"}), 400
+        return jsonify({"success": False, "message": "List no longer exists"}), 400
 
     # Check if list is active
     if not list_obj.is_active:
         return (
-            jsonify({"success": False, "error": f"List '{list_obj.name}' is not active"}),
+            jsonify({"success": False, "message": f"List '{list_obj.name}' is not active"}),
             400,
         )
 
@@ -140,7 +140,7 @@ def rerun_job(job_id):
             jsonify(
                 {
                     "success": False,
-                    "error": f"List '{list_obj.name}' already has a job running",
+                    "message": f"List '{list_obj.name}' already has a job running",
                 }
             ),
             400,
@@ -156,10 +156,10 @@ def rerun_job(job_id):
             202,
         )
     except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "message": str(e)}), 400
     except OperationalError as e:
         current_app.logger.error(f"Error rerunning job {job_id}: {e}", exc_info=True)
-        return jsonify({"success": False, "error": "Failed to start job"}), 500
+        return jsonify({"success": False, "message": "Failed to start job"}), 500
 
 
 @bp.route("/api/jobs/clear", methods=["POST"])

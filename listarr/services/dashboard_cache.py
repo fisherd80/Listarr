@@ -186,16 +186,6 @@ def _calculate_service_stats(service: str) -> Dict:
     return result
 
 
-def _calculate_radarr_stats() -> Dict:
-    """Calculate Radarr statistics. Delegates to unified function."""
-    return _calculate_service_stats("RADARR")
-
-
-def _calculate_sonarr_stats() -> Dict:
-    """Calculate Sonarr statistics. Delegates to unified function."""
-    return _calculate_service_stats("SONARR")
-
-
 def refresh_dashboard_cache() -> Dict:
     """
     Refreshes the dashboard cache by recalculating all statistics.
@@ -210,10 +200,10 @@ def refresh_dashboard_cache() -> Dict:
             logger.info("Refreshing dashboard cache...")
 
             # Calculate Radarr stats
-            _dashboard_cache["radarr"] = _calculate_radarr_stats()
+            _dashboard_cache["radarr"] = _calculate_service_stats("RADARR")
 
             # Calculate Sonarr stats
-            _dashboard_cache["sonarr"] = _calculate_sonarr_stats()
+            _dashboard_cache["sonarr"] = _calculate_service_stats("SONARR")
 
             logger.info("Dashboard cache refreshed successfully")
             return _dashboard_cache.copy()
