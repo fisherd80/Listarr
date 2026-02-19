@@ -157,9 +157,9 @@ def create_list():
         try:
             new_list = List(
                 name=form.name.data,
-                target_service=form.target_service.data,
-                tmdb_list_type=form.tmdb_list_type.data,
-                filters_json=form.filters_json.data or "{}",
+                target_service=request.form.get("target_service", ""),
+                tmdb_list_type=request.form.get("tmdb_list_type", ""),
+                filters_json=request.form.get("filters_json") or "{}",
                 is_active=form.is_active.data,
                 created_at=datetime.now(timezone.utc),
             )
