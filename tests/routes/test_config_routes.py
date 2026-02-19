@@ -1807,8 +1807,9 @@ class TestErrorHandling:
         response = client.get("/config")
         assert response.status_code == 200
 
+    @patch("listarr.routes.config_routes.refresh_dashboard_cache")
     @patch("listarr.routes.config_routes.validate_api_key")
-    def test_save_radarr_api_with_special_characters(self, mock_test, app, client, temp_instance_path):
+    def test_save_radarr_api_with_special_characters(self, mock_test, mock_refresh, app, client, temp_instance_path):
         """Test saving Radarr API key with special characters."""
         mock_test.return_value = True
         special_key = "key!@#$%^&*()_+-={}[]|:;<>,.?/"
@@ -1826,13 +1827,14 @@ class TestErrorHandling:
         assert response.status_code == 200
 
         # Verify special characters were preserved
-        with app.app_context():
-            config = ServiceConfig.query.filter_by(service="RADARR").first()
-            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
-            assert decrypted == special_key
+        # Use db.session directly — session-scoped app fixture keeps context open
+        config = ServiceConfig.query.filter_by(service="RADARR").first()
+        decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
+        assert decrypted == special_key
 
+    @patch("listarr.routes.config_routes.refresh_dashboard_cache")
     @patch("listarr.routes.config_routes.validate_api_key")
-    def test_save_sonarr_api_with_unicode_characters(self, mock_test, app, client, temp_instance_path):
+    def test_save_sonarr_api_with_unicode_characters(self, mock_test, mock_refresh, app, client, temp_instance_path):
         """Test saving Sonarr API key with Unicode characters."""
         mock_test.return_value = True
         unicode_key = "key_测试_тест_🔑"
@@ -1849,7 +1851,7 @@ class TestErrorHandling:
 
         assert response.status_code == 200
 
-        with app.app_context():
-            config = ServiceConfig.query.filter_by(service="SONARR").first()
-            decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
-            assert decrypted == unicode_key
+        # Use db.session directly — session-scoped app fixture keeps context open
+        config = ServiceConfig.query.filter_by(service="SONARR").first()
+        decrypted = decrypt_data(config.api_key_encrypted, instance_path=temp_instance_path)
+        assert decrypted == unicode_key
