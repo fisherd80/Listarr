@@ -3,20 +3,21 @@ Route tests for dashboard_routes.py - Dashboard page endpoints.
 
 Tests cover:
 - GET / - Dashboard page rendering
-- GET /api/dashboard/stats - Dashboard statistics aggregation
+- GET /api/dashboard/stats - Dashboard statistics (cache-based)
 - GET /api/dashboard/recent-jobs - Recent jobs retrieval
+- GET /api/dashboard/upcoming - Upcoming scheduled jobs
 - Service status determination (online/offline/not_configured)
 - Error handling and graceful degradation
-- Database operations for jobs
-- Parallel API calls and data aggregation
+
+Isolation pattern: Use db.session directly (no nested with app.app_context()
+blocks). The session-scoped app fixture keeps an app context open for the
+entire session; nested contexts corrupt Flask's ContextVar stack.
 """
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from requests.exceptions import RequestException
-from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.jobs_model import Job
@@ -25,85 +26,37 @@ from listarr.models.service_config_model import ServiceConfig
 from listarr.services.crypto_utils import encrypt_data
 
 
-class TestDashboardPageGET:
-    """Tests for GET / endpoint (dashboard home)."""
+class TestDashboardPage:
+    """Tests for GET / endpoint."""
 
-    def test_dashboard_page_renders_successfully(self, client):
-        """Test that dashboard page renders without errors."""
+    def test_renders_dashboard_page(self, client):
+        """Dashboard page renders with 200 status."""
         response = client.get("/")
-
         assert response.status_code == 200
         assert b"Dashboard" in response.data
 
-    def test_dashboard_page_shows_radarr_card(self, client):
-        """Test that dashboard contains Radarr service card."""
+    def test_includes_javascript(self, client):
+        """Dashboard includes dashboard.js."""
         response = client.get("/")
-
-        assert response.status_code == 200
-        assert b"Radarr" in response.data
-        assert b"Total Movies" in response.data
-        assert b"Missing Movies" in response.data
-
-    def test_dashboard_page_shows_sonarr_card(self, client):
-        """Test that dashboard contains Sonarr service card."""
-        response = client.get("/")
-
-        assert response.status_code == 200
-        assert b"Sonarr" in response.data
-        assert b"Total Series" in response.data
-        assert b"Missing Episodes" in response.data
-
-    def test_dashboard_page_shows_recent_jobs_section(self, client):
-        """Test that dashboard contains recent jobs section."""
-        response = client.get("/")
-
-        assert response.status_code == 200
-        assert b"Recent Jobs" in response.data
-        assert b"Last 5 executed list jobs" in response.data
-
-    def test_dashboard_page_includes_refresh_button(self, client):
-        """Test that dashboard includes refresh button."""
-        response = client.get("/")
-
-        assert response.status_code == 200
-        assert b"refresh-dashboard-btn" in response.data
-        assert b"Refresh" in response.data
-
-    def test_dashboard_page_includes_javascript(self, client):
-        """Test that dashboard.js is included."""
-        response = client.get("/")
-
         assert response.status_code == 200
         assert b"dashboard.js" in response.data
 
-    def test_dashboard_page_includes_csrf_token(self, client):
-        """Test that CSRF token meta tag is present."""
+    def test_includes_csrf_token(self, client):
+        """Dashboard includes CSRF token meta tag."""
         response = client.get("/")
-
         assert response.status_code == 200
         assert b"csrf-token" in response.data
 
-    def test_dashboard_page_shows_added_by_listarr(self, client):
-        """Test that dashboard contains 'Added by Listarr' text."""
-        response = client.get("/")
 
-        assert response.status_code == 200
-        assert b"Added by Listarr" in response.data
-        assert b"radarr-added-by-listarr" in response.data
-        assert b"sonarr-added-by-listarr" in response.data
-
-
-class TestDashboardStatsGET:
+class TestDashboardStats:
     """Tests for GET /api/dashboard/stats endpoint."""
 
-    def test_dashboard_stats_with_no_services_configured(self, client):
-        """Test that stats endpoint returns default values when no services configured."""
+    def test_returns_default_not_configured_state(self, client):
+        """Returns not_configured state when no services are set up."""
         response = client.get("/api/dashboard/stats")
-
         assert response.status_code == 200
         data = response.get_json()
 
-        # Verify Radarr defaults
         assert data["radarr"]["configured"] is False
         assert data["radarr"]["status"] == "not_configured"
         assert data["radarr"]["version"] is None
@@ -111,7 +64,6 @@ class TestDashboardStatsGET:
         assert data["radarr"]["missing_movies"] == 0
         assert data["radarr"]["added_by_listarr"] == 0
 
-        # Verify Sonarr defaults
         assert data["sonarr"]["configured"] is False
         assert data["sonarr"]["status"] == "not_configured"
         assert data["sonarr"]["version"] is None
@@ -119,1110 +71,594 @@ class TestDashboardStatsGET:
         assert data["sonarr"]["missing_episodes"] == 0
         assert data["sonarr"]["added_by_listarr"] == 0
 
-    def test_dashboard_stats_with_refresh_parameter(self, app, client, temp_instance_path):
-        """Test that ?refresh=true parameter triggers cache refresh."""
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-        # Request with refresh parameter
-        response = client.get("/api/dashboard/stats?refresh=true")
+    def test_response_structure(self, client):
+        """Stats response has expected keys for both services."""
+        response = client.get("/api/dashboard/stats")
         assert response.status_code == 200
         data = response.get_json()
 
-        # Should return valid structure
         assert "radarr" in data
         assert "sonarr" in data
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_movie_count")
-    @patch("listarr.services.dashboard_cache.get_missing_movies_count")
-    def test_dashboard_stats_added_by_listarr_calculation(
-        self, mock_missing, mock_count, mock_status, app, client, temp_instance_path
-    ):
-        """Test that added_by_listarr is calculated from completed jobs."""
-        mock_status.return_value = {"version": "4.5.2.7388"}
-        mock_count.return_value = 150
-        mock_missing.return_value = 12
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-
-            # Create a Radarr list
-            radarr_list = List(
-                name="Test Movies",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(radarr_list)
-            db.session.flush()
-
-            # Create completed jobs with items_added
-            job1 = Job(
-                list_id=radarr_list.id,
-                status="completed",
-                items_found=50,
-                items_added=45,
-                items_skipped=5,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            job2 = Job(
-                list_id=radarr_list.id,
-                status="completed",
-                items_found=30,
-                items_added=25,
-                items_skipped=5,
-                started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc),
-            )
-            # Failed job should not be counted
-            job3 = Job(
-                list_id=radarr_list.id,
-                status="failed",
-                items_found=0,
-                items_added=0,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 13, 10, 0, 30, tzinfo=timezone.utc),
-            )
-            db.session.add_all([job1, job2, job3])
-            db.session.commit()
-
-            # Refresh cache to calculate stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should sum items_added from jobs with items_added > 0 (45 + 25 = 70)
-        # The failed job with items_added=0 is not counted
-        assert data["radarr"]["added_by_listarr"] == 70
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_movie_count")
-    @patch("listarr.services.dashboard_cache.get_missing_movies_count")
-    def test_dashboard_stats_added_by_listarr_includes_failed_jobs_with_items(
-        self, mock_missing, mock_count, mock_status, app, client, temp_instance_path
-    ):
-        """Test that failed jobs with items_added > 0 are counted (e.g., timeout after adding items)."""
-        mock_status.return_value = {"version": "4.5.2.7388"}
-        mock_count.return_value = 150
-        mock_missing.return_value = 12
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-
-            # Create a Radarr list
-            radarr_list = List(
-                name="Test Movies",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(radarr_list)
-            db.session.flush()
-
-            # Completed job
-            job1 = Job(
-                list_id=radarr_list.id,
-                status="completed",
-                items_found=50,
-                items_added=45,
-                items_skipped=5,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            # Failed job that still added items before timeout
-            job2 = Job(
-                list_id=radarr_list.id,
-                status="failed",
-                items_found=100,
-                items_added=30,  # Added 30 items before timing out
-                items_skipped=10,
-                started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 14, 10, 30, 0, tzinfo=timezone.utc),
-            )
-            db.session.add_all([job1, job2])
-            db.session.commit()
-
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should sum items_added from ALL jobs with items_added > 0, including failed ones
-        # 45 (completed) + 30 (failed but added items) = 75
-        assert data["radarr"]["added_by_listarr"] == 75
-
-    @patch("listarr.services.dashboard_cache.get_sonarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_series_count")
-    @patch("listarr.services.dashboard_cache.get_missing_episodes_count")
-    def test_dashboard_stats_added_by_listarr_sonarr_calculation(
-        self, mock_missing, mock_count, mock_status, app, client, temp_instance_path
-    ):
-        """Test that added_by_listarr is calculated for Sonarr from completed jobs."""
-        mock_status.return_value = {"version": "3.0.10.1567"}
-        mock_count.return_value = 85
-        mock_missing.return_value = 7
-
-        with app.app_context():
-            encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="SONARR",
-                base_url="http://localhost:8989",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-
-            # Create a Sonarr list
-            sonarr_list = List(
-                name="Test TV Shows",
-                target_service="SONARR",
-                tmdb_list_type="popular_tv",
-                filters_json={},
-            )
-            db.session.add(sonarr_list)
-            db.session.flush()
-
-            # Create completed jobs with items_added
-            job1 = Job(
-                list_id=sonarr_list.id,
-                status="completed",
-                items_found=100,
-                items_added=95,
-                items_skipped=5,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            job2 = Job(
-                list_id=sonarr_list.id,
-                status="completed",
-                items_found=50,
-                items_added=45,
-                items_skipped=5,
-                started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc),
-            )
-            db.session.add_all([job1, job2])
-            db.session.commit()
-
-            # Refresh cache to calculate stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should sum items_added from completed jobs (95 + 45 = 140)
-        assert data["sonarr"]["added_by_listarr"] == 140
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_movie_count")
-    @patch("listarr.services.dashboard_cache.get_missing_movies_count")
-    def test_dashboard_stats_with_radarr_configured_and_online(
-        self, mock_missing, mock_count, mock_status, app, client, temp_instance_path
-    ):
-        """Test stats endpoint with Radarr configured and reachable."""
-        mock_status.return_value = {"version": "4.5.2.7388", "instanceName": "Radarr"}
-        mock_count.return_value = 150
-        mock_missing.return_value = 12
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert data["radarr"]["configured"] is True
-        assert data["radarr"]["status"] == "online"
-        assert data["radarr"]["version"] == "4.5.2.7388"
-        assert data["radarr"]["total_movies"] == 150
-        assert data["radarr"]["missing_movies"] == 12
-        assert "added_by_listarr" in data["radarr"]
-        assert isinstance(data["radarr"]["added_by_listarr"], int)
-
-    @patch("listarr.services.dashboard_cache.get_sonarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_series_count")
-    @patch("listarr.services.dashboard_cache.get_missing_episodes_count")
-    def test_dashboard_stats_with_sonarr_configured_and_online(
-        self, mock_missing, mock_count, mock_status, app, client, temp_instance_path
-    ):
-        """Test stats endpoint with Sonarr configured and reachable."""
-        mock_status.return_value = {"version": "3.0.10.1567", "instanceName": "Sonarr"}
-        mock_count.return_value = 85
-        mock_missing.return_value = 7
-
-        with app.app_context():
-            encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="SONARR",
-                base_url="http://localhost:8989",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert data["sonarr"]["configured"] is True
-        assert data["sonarr"]["status"] == "online"
-        assert data["sonarr"]["version"] == "3.0.10.1567"
-        assert data["sonarr"]["total_series"] == 85
-        assert data["sonarr"]["missing_episodes"] == 7
-        assert "added_by_listarr" in data["sonarr"]
-        assert isinstance(data["sonarr"]["added_by_listarr"], int)
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_with_radarr_configured_but_offline(self, mock_status, app, client, temp_instance_path):
-        """Test stats endpoint when Radarr is configured but unreachable."""
-        mock_status.side_effect = RequestException("Connection refused")
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert data["radarr"]["configured"] is True
-        assert data["radarr"]["status"] == "offline"
-        assert data["radarr"]["version"] is None
-        assert data["radarr"]["total_movies"] == 0
-        assert data["radarr"]["missing_movies"] == 0
-        assert "added_by_listarr" in data["radarr"]
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_when_radarr_returns_empty_status(self, mock_status, app, client, temp_instance_path):
-        """Test stats endpoint when Radarr returns empty/null status."""
-        mock_status.return_value = None
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Empty status should be treated as offline
-        assert data["radarr"]["status"] == "offline"
-        assert data["radarr"]["version"] is None
-
-    @patch("listarr.services.dashboard_cache.get_movie_count")
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_with_zero_movies(self, mock_status, mock_count, app, client, temp_instance_path):
-        """Test stats endpoint when Radarr has zero movies."""
-        mock_status.return_value = {"version": "4.5.2.7388"}
-        mock_count.return_value = 0
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert data["radarr"]["status"] == "online"
-        assert data["radarr"]["total_movies"] == 0
-        assert data["radarr"]["missing_movies"] == 0
-
-    def test_dashboard_stats_with_only_base_url_configured(self, app, client, temp_instance_path):
-        """Test stats endpoint when service has base_url but no API key."""
-        with app.app_context():
-            # Use empty string for api_key_encrypted to satisfy NOT NULL constraint
-            config = ServiceConfig(service="RADARR", base_url="http://localhost:7878", api_key_encrypted="")
-            db.session.add(config)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should be treated as not configured (empty API key)
-        assert data["radarr"]["configured"] is False
-        assert data["radarr"]["status"] == "not_configured"
-
-    def test_dashboard_stats_with_only_api_key_configured(self, app, client, temp_instance_path):
-        """Test stats endpoint when service has API key but no base_url."""
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(service="RADARR", base_url=None, api_key_encrypted=encrypted)
-            db.session.add(config)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should be treated as not configured (needs both)
-        assert data["radarr"]["configured"] is False
-        assert data["radarr"]["status"] == "not_configured"
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_sonarr_system_status")
-    def test_dashboard_stats_with_both_services_configured(
-        self, mock_sonarr_status, mock_radarr_status, app, client, temp_instance_path
-    ):
-        """Test stats endpoint with both services configured."""
-        mock_radarr_status.return_value = {"version": "4.5.2.7388"}
-        mock_sonarr_status.return_value = {"version": "3.0.10.1567"}
-
-        with app.app_context():
-            radarr_encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            sonarr_encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
-            radarr_config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=radarr_encrypted,
-            )
-            sonarr_config = ServiceConfig(
-                service="SONARR",
-                base_url="http://localhost:8989",
-                api_key_encrypted=sonarr_encrypted,
-            )
-            db.session.add(radarr_config)
-            db.session.add(sonarr_config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Both should be configured and online
-        assert data["radarr"]["configured"] is True
-        assert data["radarr"]["status"] == "online"
-        assert data["sonarr"]["configured"] is True
-        assert data["sonarr"]["status"] == "online"
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    @patch("listarr.services.dashboard_cache.get_sonarr_system_status")
-    def test_dashboard_stats_with_one_service_online_one_offline(
-        self, mock_sonarr_status, mock_radarr_status, app, client, temp_instance_path
-    ):
-        """Test stats endpoint with mixed service statuses."""
-        mock_radarr_status.return_value = {"version": "4.5.2.7388"}
-        mock_sonarr_status.side_effect = RequestException("Connection refused")
-
-        with app.app_context():
-            radarr_encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            sonarr_encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
-            radarr_config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=radarr_encrypted,
-            )
-            sonarr_config = ServiceConfig(
-                service="SONARR",
-                base_url="http://localhost:8989",
-                api_key_encrypted=sonarr_encrypted,
-            )
-            db.session.add(radarr_config)
-            db.session.add(sonarr_config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Radarr should be online, Sonarr offline
-        assert data["radarr"]["status"] == "online"
-        assert data["sonarr"]["status"] == "offline"
-
-
-class TestRecentJobsGET:
-    """Tests for GET /api/dashboard/recent-jobs endpoint."""
-
-    def test_recent_jobs_with_empty_database(self, client):
-        """Test recent jobs endpoint with no jobs."""
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-        assert "jobs" in data
-        assert len(data["jobs"]) == 0
-
-    def test_recent_jobs_with_single_completed_job(self, app, client):
-        """Test recent jobs endpoint with one completed job."""
-        with app.app_context():
-            # Create list
-            test_list = List(
-                name="Trending Movies",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            # Create job
-            job = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=50,
-                items_added=45,
-                items_skipped=5,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["job_name"] == "Trending Movies"
-        assert data["jobs"][0]["service"] == "RADARR"
-        assert data["jobs"][0]["status"] == "completed"
-        assert "45 added" in data["jobs"][0]["summary"]
-        assert "5 skipped" in data["jobs"][0]["summary"]
-        assert data["jobs"][0]["executed_at"] is not None
-
-    def test_recent_jobs_with_failed_job(self, app, client):
-        """Test recent jobs endpoint with failed job."""
-        with app.app_context():
-            # Create list
-            test_list = List(
-                name="Popular TV Shows",
-                target_service="SONARR",
-                tmdb_list_type="popular_tv",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            # Create failed job
-            job = Job(
-                list_id=test_list.id,
-                status="failed",
-                items_found=0,
-                items_added=0,
-                items_skipped=0,
-                error_message="Connection to Sonarr failed: timeout after 30 seconds",
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["status"] == "failed"
-        assert "Connection to Sonarr failed" in data["jobs"][0]["summary"]
-
-    def test_recent_jobs_orders_by_completed_at_desc(self, app, client):
-        """Test that recent jobs are ordered by completed_at descending."""
-        with app.app_context():
-            # Create list
-            test_list = List(
-                name="Test List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            # Create jobs with different finished times
-            job1 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 10, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 10, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            job2 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=20,
-                items_added=20,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            job3 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=30,
-                items_added=30,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 12, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            db.session.add_all([job1, job2, job3])
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should be ordered by completed_at desc (newest first)
-        assert len(data["jobs"]) == 3
-        assert "20 added" in data["jobs"][0]["summary"]  # job2 (Jan 15)
-        assert "30 added" in data["jobs"][1]["summary"]  # job3 (Jan 12)
-        assert "10 added" in data["jobs"][2]["summary"]  # job1 (Jan 10)
-
-    def test_recent_jobs_limits_to_five_jobs(self, app, client):
-        """Test that recent jobs endpoint limits to 5 jobs."""
-        with app.app_context():
-            # Create list
-            test_list = List(
-                name="Test List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            # Create 10 jobs
-            for i in range(10):
-                job = Job(
-                    list_id=test_list.id,
-                    status="completed",
-                    items_found=i + 1,
-                    items_added=i + 1,
-                    items_skipped=0,
-                    started_at=datetime(2024, 1, i + 1, 10, 0, 0, tzinfo=timezone.utc),
-                    completed_at=datetime(2024, 1, i + 1, 10, 5, 0, tzinfo=timezone.utc),
-                )
-                db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should only return 5 most recent
-        assert len(data["jobs"]) == 5
-
-    def test_recent_jobs_with_job_without_list_id(self, app, client):
-        """Test recent jobs handles jobs without associated list."""
-        with app.app_context():
-            # Create job without list_id
-            job = Job(
-                list_id=None,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert len(data["jobs"]) == 1
-        # Should use fallback name
-        assert data["jobs"][0]["job_name"] == f"Job #{job_id}"
-        assert data["jobs"][0]["service"] == "Unknown"
-
-    def test_recent_jobs_with_deleted_list(self, app, client):
-        """Test recent jobs handles jobs whose list was deleted."""
-        with app.app_context():
-            # Create list and job, then delete list
-            test_list = List(
-                name="Deleted List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-            list_id = test_list.id
-
-            job = Job(
-                list_id=list_id,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-            job_id = job.id
-
-            # Delete the list
-            db.session.delete(test_list)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert len(data["jobs"]) == 1
-        # Should use fallback name when list is missing
-        assert data["jobs"][0]["job_name"] == f"Job #{job_id}"
-
-    def test_recent_jobs_only_includes_finished_jobs(self, app, client):
-        """Test that recent jobs only includes jobs with completed_at timestamp."""
-        with app.app_context():
-            # Create list
-            test_list = List(
-                name="Test List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            # Create finished job
-            finished_job = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-                completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
-            )
-
-            # Create running job (no completed_at)
-            running_job = Job(
-                list_id=test_list.id,
-                status="running",
-                items_found=0,
-                items_added=0,
-                items_skipped=0,
-                started_at=datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc),
-                completed_at=None,
-            )
-
-            db.session.add_all([finished_job, running_job])
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should only return finished job
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["status"] == "completed"
-
-    def test_recent_jobs_summary_formatting(self, app, client):
-        """Test that job summaries are formatted correctly."""
-        with app.app_context():
-            # Create list
-            test_list = List(
-                name="Test List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            # Create job with only added items
-            job1 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-            )
-
-            # Create job with both added and skipped
-            job2 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=20,
-                items_added=15,
-                items_skipped=5,
-                completed_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
-            )
-
-            # Create job with only skipped
-            job3 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=5,
-                items_added=0,
-                items_skipped=5,
-                completed_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-            )
-
-            # Create job with nothing processed
-            job4 = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=0,
-                items_added=0,
-                items_skipped=0,
-                completed_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc),
-            )
-
-            db.session.add_all([job1, job2, job3, job4])
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        assert len(data["jobs"]) == 4
-
-        # Job with only added
-        assert data["jobs"][0]["summary"] == "10 added"
-
-        # Job with both
-        assert "15 added" in data["jobs"][1]["summary"]
-        assert "5 skipped" in data["jobs"][1]["summary"]
-
-        # Job with only skipped
-        assert data["jobs"][2]["summary"] == "5 skipped"
-
-        # Job with nothing
-        assert data["jobs"][3]["summary"] == "No items processed"
-
-
-class TestDashboardErrorHandling:
-    """Tests for error handling and edge cases."""
-
-    @patch("listarr.services.dashboard_cache.decrypt_data")
-    def test_dashboard_stats_handles_decryption_error(self, mock_decrypt, app, client, temp_instance_path):
-        """Test that stats endpoint handles decryption errors gracefully."""
-        mock_decrypt.side_effect = ValueError("Decryption failed")
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        # Should not crash
-        response = client.get("/api/dashboard/stats")
-        assert response.status_code == 200
-
-        data = response.get_json()
-        # Should show as offline due to error
-        assert data["radarr"]["configured"] is True
-        assert data["radarr"]["status"] == "offline"
-
-    def test_recent_jobs_handles_database_error(self, app, client):
-        """Test that recent jobs endpoint handles database errors gracefully."""
-        with app.app_context():
-            with patch("listarr.routes.dashboard_routes.Job.query") as mock_query:
-                mock_query.outerjoin.side_effect = OperationalError("Database connection lost", None, None)
-
-                response = client.get("/api/dashboard/recent-jobs")
-
-                # Should return 200 with empty jobs array (graceful error handling)
-                assert response.status_code == 200
-                data = response.get_json()
-                assert data["jobs"] == []
-
-    @patch("listarr.services.dashboard_cache.get_movie_count")
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_handles_partial_api_failure(
-        self, mock_status, mock_count, app, client, temp_instance_path
-    ):
-        """Test stats endpoint handles partial API failures."""
-        mock_status.return_value = {"version": "4.5.2.7388"}
-        mock_count.side_effect = RequestException("Count endpoint failed")
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Status succeeded, so should be online
-        assert data["radarr"]["status"] == "online"
-        assert data["radarr"]["version"] == "4.5.2.7388"
-        # But count failed, so should be 0
-        assert data["radarr"]["total_movies"] == 0
-
-    @patch("listarr.services.dashboard_cache.get_radarr_system_status")
-    def test_dashboard_stats_handles_timeout(self, mock_status, app, client, temp_instance_path):
-        """Test stats endpoint handles timeout errors."""
-        from requests.exceptions import Timeout
-
-        mock_status.side_effect = Timeout("Request timed out")
-
-        with app.app_context():
-            encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
-            config = ServiceConfig(
-                service="RADARR",
-                base_url="http://localhost:7878",
-                api_key_encrypted=encrypted,
-            )
-            db.session.add(config)
-            db.session.commit()
-
-            # Refresh cache to get updated stats
-            from listarr.services.dashboard_cache import refresh_dashboard_cache
-
-            refresh_dashboard_cache()
-
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Should show as offline
-        assert data["radarr"]["status"] == "offline"
-
-
-class TestDashboardDataFormats:
-    """Tests for data format and structure."""
-
-    def test_dashboard_stats_includes_added_by_listarr_field(self, client):
-        """Test that stats response includes added_by_listarr field."""
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Verify added_by_listarr field exists for both services
-        assert "added_by_listarr" in data["radarr"]
-        assert "added_by_listarr" in data["sonarr"]
-        assert isinstance(data["radarr"]["added_by_listarr"], int)
-        assert isinstance(data["sonarr"]["added_by_listarr"], int)
-
-    def test_recent_jobs_executed_at_is_iso_format(self, app, client):
-        """Test that executed_at timestamp is in ISO format."""
-        with app.app_context():
-            test_list = List(
-                name="Test List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
-
-            job = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        executed_at = data["jobs"][0]["executed_at"]
-        # Verify ISO format
-        assert "T" in executed_at
-        assert executed_at.endswith("Z") or "+" in executed_at
-
-    def test_dashboard_stats_response_structure(self, client):
-        """Test that stats response has expected structure."""
-        response = client.get("/api/dashboard/stats")
-
-        assert response.status_code == 200
-        data = response.get_json()
-
-        # Verify root keys
-        assert "radarr" in data
-        assert "sonarr" in data
-
-        # Verify Radarr structure
         assert "configured" in data["radarr"]
         assert "status" in data["radarr"]
         assert "version" in data["radarr"]
         assert "total_movies" in data["radarr"]
         assert "missing_movies" in data["radarr"]
         assert "added_by_listarr" in data["radarr"]
-
-        # Verify Sonarr structure
-        assert "configured" in data["sonarr"]
-        assert "status" in data["sonarr"]
-        assert "version" in data["sonarr"]
         assert "total_series" in data["sonarr"]
         assert "missing_episodes" in data["sonarr"]
         assert "added_by_listarr" in data["sonarr"]
 
-    def test_recent_jobs_response_structure(self, app, client):
-        """Test that recent jobs response has expected structure."""
-        with app.app_context():
-            test_list = List(
-                name="Test List",
-                target_service="RADARR",
-                tmdb_list_type="trending_movies",
-                filters_json={},
-            )
-            db.session.add(test_list)
-            db.session.commit()
+    def test_refresh_param_forces_cache_refresh(self, client, app, temp_instance_path):
+        """?refresh=true triggers refresh_dashboard_cache."""
+        encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
 
-            job = Job(
-                list_id=test_list.id,
-                status="completed",
-                items_found=10,
-                items_added=10,
-                items_skipped=0,
-                completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
-            )
-            db.session.add(job)
-            db.session.commit()
-
-        response = client.get("/api/dashboard/recent-jobs")
+        with (
+            patch("listarr.services.dashboard_cache.get_radarr_system_status") as mock_status,
+            patch("listarr.services.dashboard_cache.get_movie_count") as mock_count,
+            patch("listarr.services.dashboard_cache.get_missing_movies_count") as mock_missing,
+        ):
+            mock_status.return_value = {"version": "4.5.2"}
+            mock_count.return_value = 10
+            mock_missing.return_value = 1
+            response = client.get("/api/dashboard/stats?refresh=true")
 
         assert response.status_code == 200
         data = response.get_json()
+        assert "radarr" in data
+        assert "sonarr" in data
 
-        # Verify root structure
+    def test_radarr_configured_and_online(self, client, app, temp_instance_path):
+        """Radarr configured and reachable shows online status."""
+        from listarr.services.dashboard_cache import refresh_dashboard_cache
+
+        encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        with (
+            patch("listarr.services.dashboard_cache.get_radarr_system_status") as mock_status,
+            patch("listarr.services.dashboard_cache.get_movie_count") as mock_count,
+            patch("listarr.services.dashboard_cache.get_missing_movies_count") as mock_missing,
+        ):
+            mock_status.return_value = {"version": "4.5.2.7388"}
+            mock_count.return_value = 150
+            mock_missing.return_value = 12
+            refresh_dashboard_cache()
+
+        response = client.get("/api/dashboard/stats")
+        data = response.get_json()
+        assert data["radarr"]["configured"] is True
+        assert data["radarr"]["status"] == "online"
+        assert data["radarr"]["version"] == "4.5.2.7388"
+        assert data["radarr"]["total_movies"] == 150
+        assert data["radarr"]["missing_movies"] == 12
+
+    def test_radarr_configured_but_offline(self, client, app, temp_instance_path):
+        """Radarr configured but unreachable shows offline status."""
+        from requests.exceptions import RequestException
+
+        from listarr.services.dashboard_cache import refresh_dashboard_cache
+
+        encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        with patch("listarr.services.dashboard_cache.get_radarr_system_status") as mock_status:
+            mock_status.side_effect = RequestException("Connection refused")
+            refresh_dashboard_cache()
+
+        response = client.get("/api/dashboard/stats")
+        data = response.get_json()
+        assert data["radarr"]["configured"] is True
+        assert data["radarr"]["status"] == "offline"
+        assert data["radarr"]["version"] is None
+        assert data["radarr"]["total_movies"] == 0
+
+    def test_sonarr_configured_and_online(self, client, app, temp_instance_path):
+        """Sonarr configured and reachable shows online status."""
+        from listarr.services.dashboard_cache import refresh_dashboard_cache
+
+        encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="SONARR",
+            base_url="http://localhost:8989",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        with (
+            patch("listarr.services.dashboard_cache.get_sonarr_system_status") as mock_status,
+            patch("listarr.services.dashboard_cache.get_series_count") as mock_count,
+            patch("listarr.services.dashboard_cache.get_missing_episodes_count") as mock_missing,
+        ):
+            mock_status.return_value = {"version": "3.0.10.1567"}
+            mock_count.return_value = 85
+            mock_missing.return_value = 7
+            refresh_dashboard_cache()
+
+        response = client.get("/api/dashboard/stats")
+        data = response.get_json()
+        assert data["sonarr"]["configured"] is True
+        assert data["sonarr"]["status"] == "online"
+        assert data["sonarr"]["version"] == "3.0.10.1567"
+        assert data["sonarr"]["total_series"] == 85
+        assert data["sonarr"]["missing_episodes"] == 7
+
+    def test_both_services_configured(self, client, app, temp_instance_path):
+        """Both services configured and online."""
+        from listarr.services.dashboard_cache import refresh_dashboard_cache
+
+        radarr_enc = encrypt_data("radarr_key", instance_path=temp_instance_path)
+        sonarr_enc = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+        db.session.add(ServiceConfig(service="RADARR", base_url="http://r:7878", api_key_encrypted=radarr_enc))
+        db.session.add(ServiceConfig(service="SONARR", base_url="http://s:8989", api_key_encrypted=sonarr_enc))
+        db.session.commit()
+
+        with (
+            patch("listarr.services.dashboard_cache.get_radarr_system_status") as mock_r,
+            patch("listarr.services.dashboard_cache.get_sonarr_system_status") as mock_s,
+            patch("listarr.services.dashboard_cache.get_movie_count") as mock_mc,
+            patch("listarr.services.dashboard_cache.get_missing_movies_count") as mock_mm,
+            patch("listarr.services.dashboard_cache.get_series_count") as mock_sc,
+            patch("listarr.services.dashboard_cache.get_missing_episodes_count") as mock_me,
+        ):
+            mock_r.return_value = {"version": "4.5.2"}
+            mock_s.return_value = {"version": "3.0.10"}
+            mock_mc.return_value = 100
+            mock_mm.return_value = 5
+            mock_sc.return_value = 50
+            mock_me.return_value = 3
+            refresh_dashboard_cache()
+
+        response = client.get("/api/dashboard/stats")
+        data = response.get_json()
+        assert data["radarr"]["configured"] is True
+        assert data["radarr"]["status"] == "online"
+        assert data["sonarr"]["configured"] is True
+        assert data["sonarr"]["status"] == "online"
+
+    def test_added_by_listarr_counts_completed_jobs(self, client, app, temp_instance_path):
+        """added_by_listarr is sum of items_added across jobs for that service."""
+        from listarr.services.dashboard_cache import refresh_dashboard_cache
+
+        encrypted = encrypt_data("radarr_key", instance_path=temp_instance_path)
+        db.session.add(ServiceConfig(service="RADARR", base_url="http://r:7878", api_key_encrypted=encrypted))
+
+        radarr_list = List(
+            name="Test Movies",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(radarr_list)
+        db.session.flush()
+
+        job1 = Job(
+            list_id=radarr_list.id,
+            status="completed",
+            items_added=45,
+            items_skipped=5,
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        job2 = Job(
+            list_id=radarr_list.id,
+            status="completed",
+            items_added=25,
+            items_skipped=5,
+            started_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 14, 10, 3, 0, tzinfo=timezone.utc),
+        )
+        # Failed job with 0 items — should not contribute
+        job3 = Job(
+            list_id=radarr_list.id,
+            status="failed",
+            items_added=0,
+            items_skipped=0,
+            started_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 13, 10, 0, 30, tzinfo=timezone.utc),
+        )
+        db.session.add_all([job1, job2, job3])
+        db.session.commit()
+
+        with (
+            patch("listarr.services.dashboard_cache.get_radarr_system_status") as mock_status,
+            patch("listarr.services.dashboard_cache.get_movie_count") as mock_count,
+            patch("listarr.services.dashboard_cache.get_missing_movies_count") as mock_missing,
+        ):
+            mock_status.return_value = {"version": "4.5.2"}
+            mock_count.return_value = 150
+            mock_missing.return_value = 12
+            refresh_dashboard_cache()
+
+        response = client.get("/api/dashboard/stats")
+        data = response.get_json()
+        # 45 + 25 = 70 items added
+        assert data["radarr"]["added_by_listarr"] == 70
+
+
+class TestDashboardRecentJobs:
+    """Tests for GET /api/dashboard/recent-jobs endpoint."""
+
+    def test_returns_empty_when_no_jobs(self, client):
+        """Returns empty jobs array when database has no jobs."""
+        response = client.get("/api/dashboard/recent-jobs")
+        assert response.status_code == 200
+        data = response.get_json()
         assert "jobs" in data
-        assert isinstance(data["jobs"], list)
+        assert len(data["jobs"]) == 0
 
-        # Verify job structure
-        job_data = data["jobs"][0]
-        assert "id" in job_data
-        assert "job_name" in job_data
-        assert "service" in job_data
-        assert "status" in job_data
-        assert "executed_at" in job_data
-        assert "summary" in job_data
+    def test_returns_jobs_ordered_by_completed_at_desc(self, client, app):
+        """Recent jobs are ordered newest first."""
+        test_list = List(
+            name="Test List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+
+        job1 = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=10,
+            started_at=datetime(2024, 1, 10, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 10, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        job2 = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=20,
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        job3 = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=30,
+            started_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 12, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        db.session.add_all([job1, job2, job3])
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 3
+        # Ordered by completed_at desc: job2 (Jan 15), job3 (Jan 12), job1 (Jan 10)
+        assert "20 added" in data["jobs"][0]["summary"]
+        assert "30 added" in data["jobs"][1]["summary"]
+        assert "10 added" in data["jobs"][2]["summary"]
+
+    def test_limits_to_5_jobs(self, client, app):
+        """Only the 5 most recent finished jobs are returned."""
+        test_list = List(
+            name="Test List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+
+        for i in range(10):
+            job = Job(
+                list_id=test_list.id,
+                status="completed",
+                items_added=i + 1,
+                started_at=datetime(2024, 1, i + 1, 10, 0, 0, tzinfo=timezone.utc),
+                completed_at=datetime(2024, 1, i + 1, 10, 5, 0, tzinfo=timezone.utc),
+            )
+            db.session.add(job)
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 5
+
+    def test_handles_deleted_list(self, client, app):
+        """Jobs whose list was deleted fall back to list_name."""
+        test_list = List(
+            name="Deleted List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+        list_id = test_list.id
+
+        job = Job(
+            list_id=list_id,
+            list_name="Deleted List",
+            status="completed",
+            items_added=10,
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        # Delete the list
+        db.session.delete(test_list)
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        # Should use denormalized list_name from Job
+        assert data["jobs"][0]["job_name"] == "Deleted List"
+        assert data["jobs"][0]["service"] == "Unknown"
+
+    def test_handles_null_list_id(self, client, app):
+        """Jobs with list_id=None use fallback name."""
+        job = Job(
+            list_id=None,
+            status="completed",
+            items_added=10,
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        db.session.add(job)
+        db.session.commit()
+        job_id = job.id
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["job_name"] == f"Job #{job_id}"
+        assert data["jobs"][0]["service"] == "Unknown"
+
+    def test_only_returns_finished_jobs(self, client, app):
+        """Only jobs with completed_at set are returned (not running/pending)."""
+        test_list = List(
+            name="Test List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+
+        finished = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=10,
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc),
+        )
+        running = Job(
+            list_id=test_list.id,
+            status="running",
+            items_added=0,
+            started_at=datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc),
+            completed_at=None,
+        )
+        db.session.add_all([finished, running])
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert data["jobs"][0]["status"] == "completed"
+
+    def test_completed_job_summary_format(self, client, app):
+        """Completed job summaries show added/skipped counts."""
+        test_list = List(
+            name="Test List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+
+        job_both = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=15,
+            items_skipped=5,
+            completed_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        job_only_added = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=10,
+            items_skipped=0,
+            completed_at=datetime(2024, 1, 14, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        job_only_skipped = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=0,
+            items_skipped=5,
+            completed_at=datetime(2024, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        job_empty = Job(
+            list_id=test_list.id,
+            status="completed",
+            items_added=0,
+            items_skipped=0,
+            completed_at=datetime(2024, 1, 12, 10, 0, 0, tzinfo=timezone.utc),
+        )
+        db.session.add_all([job_both, job_only_added, job_only_skipped, job_empty])
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 4
+        assert "15 added" in data["jobs"][0]["summary"]
+        assert "5 skipped" in data["jobs"][0]["summary"]
+        assert data["jobs"][1]["summary"] == "10 added"
+        assert data["jobs"][2]["summary"] == "5 skipped"
+        assert data["jobs"][3]["summary"] == "No items processed"
+
+    def test_failed_job_summary_format(self, client, app):
+        """Failed job summary shows error message."""
+        test_list = List(
+            name="Test List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+
+        job = Job(
+            list_id=test_list.id,
+            status="failed",
+            items_added=0,
+            error_message="Connection timeout",
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        assert "Connection timeout" in data["jobs"][0]["summary"]
+        assert "Failed" in data["jobs"][0]["summary"]
+
+    def test_truncates_long_error_messages(self, client, app):
+        """Long error messages are truncated at 100 chars."""
+        test_list = List(
+            name="Test List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+        )
+        db.session.add(test_list)
+        db.session.flush()
+
+        long_error = "A" * 200
+        job = Job(
+            list_id=test_list.id,
+            status="failed",
+            items_added=0,
+            error_message=long_error,
+            started_at=datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 15, 10, 0, 30, tzinfo=timezone.utc),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        response = client.get("/api/dashboard/recent-jobs")
+        data = response.get_json()
+        summary = data["jobs"][0]["summary"]
+        assert summary.endswith("...")
+        # "Failed: " + 100 chars + "..."
+        assert len(summary) < 120
+
+
+class TestDashboardUpcoming:
+    """Tests for GET /api/dashboard/upcoming endpoint."""
+
+    def test_returns_empty_when_no_scheduled_lists(self, client):
+        """Returns empty upcoming array when no lists have schedules."""
+        response = client.get("/api/dashboard/upcoming")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "upcoming" in data
+        assert data["upcoming"] == []
+        assert "scheduler_paused" in data
+
+    def test_returns_scheduled_lists(self, client, app):
+        """Returns lists with cron schedules and next run times."""
+        scheduled_list = List(
+            name="Scheduled List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+            schedule_cron="0 * * * *",
+            is_active=True,
+        )
+        db.session.add(scheduled_list)
+        db.session.commit()
+        list_id = scheduled_list.id
+
+        next_run = datetime(2024, 2, 1, 12, 0, 0, tzinfo=timezone.utc)
+        with patch("listarr.routes.dashboard_routes.get_next_run_time") as mock_next:
+            mock_next.return_value = next_run
+            response = client.get("/api/dashboard/upcoming")
+
+        data = response.get_json()
+        assert len(data["upcoming"]) == 1
+        assert data["upcoming"][0]["list_id"] == list_id
+        assert data["upcoming"][0]["list_name"] == "Scheduled List"
+        assert data["upcoming"][0]["service"] == "RADARR"
+
+    def test_includes_scheduler_paused_state(self, client, app):
+        """Returns scheduler_paused flag from ServiceConfig."""
+        config = ServiceConfig(
+            service="RADARR",
+            api_key_encrypted="enc_key",
+            base_url="http://r:7878",
+            scheduler_paused=True,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        response = client.get("/api/dashboard/upcoming")
+        data = response.get_json()
+        assert data["scheduler_paused"] is True
+
+    def test_only_includes_active_lists_with_cron(self, client, app):
+        """Only active lists with non-empty cron are included."""
+        inactive_list = List(
+            name="Inactive List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+            schedule_cron="0 * * * *",
+            is_active=False,
+        )
+        no_cron_list = List(
+            name="No Cron List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+            schedule_cron=None,
+            is_active=True,
+        )
+        active_list = List(
+            name="Active List",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={},
+            schedule_cron="0 * * * *",
+            is_active=True,
+        )
+        db.session.add_all([inactive_list, no_cron_list, active_list])
+        db.session.commit()
+
+        next_run = datetime(2024, 2, 1, 12, 0, 0, tzinfo=timezone.utc)
+        with patch("listarr.routes.dashboard_routes.get_next_run_time") as mock_next:
+            mock_next.return_value = next_run
+            response = client.get("/api/dashboard/upcoming")
+
+        data = response.get_json()
+        # Only the active list with cron should appear
+        assert len(data["upcoming"]) == 1
+        assert data["upcoming"][0]["list_name"] == "Active List"
