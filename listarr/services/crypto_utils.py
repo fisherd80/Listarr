@@ -1,7 +1,10 @@
+import logging
 import os
 import stat
 
 from cryptography.fernet import Fernet, InvalidToken
+
+logger = logging.getLogger(__name__)
 
 # Default key filename (path will be constructed from Flask's instance folder)
 KEY_FILENAME = ".fernet_key"
@@ -70,7 +73,7 @@ def load_encryption_key(*, instance_path=None, allow_generate=False) -> bytes:
     # 3️⃣ Optionally generate
     elif allow_generate:
         key_bytes = generate_key(instance_path=instance_path)
-        print(f"[INFO] Generated new Fernet key and saved to {path}")
+        logger.info("Generated new Fernet key and saved to %s", path)
 
     else:
         raise RuntimeError(
@@ -149,6 +152,6 @@ def load_or_generate_secret_key(instance_path) -> str:
         os.chmod(secret_key_path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
     except OSError:
         pass  # Windows or permission denied - best effort
-    print(f"[INFO] Generated new SECRET_KEY and saved to {secret_key_path}")
+    logger.info("Generated new SECRET_KEY and saved to %s", secret_key_path)
 
     return new_key

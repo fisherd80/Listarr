@@ -62,7 +62,7 @@ ENV PATH=/home/listarr/.local/bin:$PATH
 EXPOSE 5000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import requests; r=requests.get('http://localhost:5000/health', timeout=5); r.raise_for_status()" || exit 1
 
 # Entrypoint handles permissions and privilege drop
