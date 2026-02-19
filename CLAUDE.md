@@ -16,8 +16,14 @@ Listarr is a single-user, self-hosted Flask application for discovering content 
 ## Development Commands
 
 ```bash
+# Install dependencies
+pip install -r requirements.txt
+
 # First-time setup: Generate encryption key and create database
 python setup.py
+
+# Reset password (if locked out)
+python setup.py --reset-password
 
 # Run development server (debug off by default)
 python run.py
@@ -317,7 +323,7 @@ fetch("/endpoint", {
 
 ### Testing
 
-- **541 tests** across unit, route, and integration test files
+- **596 tests** across unit, route, and integration test files
 - Proper isolation with fixtures (`temp_instance_path`, `app`, `client`)
 - External API calls mocked; in-memory SQLite for speed
 - Comprehensive coverage: error handling, validation, edge cases, security, caching, bulk imports
@@ -371,7 +377,7 @@ Defined in `requirements.txt`:
 
 ## Current Development Status
 
-**Completed phases** (1-14): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (541 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation), Tailwind CSS local compilation (removed CDN, added build-css.sh), dark mode toggle with localStorage persistence, footer redesign (version number + GitHub link), release hardening (centralized error handling, standalone error pages, standardized JSON errors, Docker polish, dead code removal).
+**Completed phases** (1-14): List management, wizard UI, TMDB caching, tags, import automation, manual triggers, job execution framework, bug fixes, list enhancements (top rated, regions), comprehensive testing (596 tests), scheduler system with health checks, architecture consolidation (removed pyarr/tmdbv3api), code quality refactoring, config & JS deduplication, UI/UX simplification (Jinja macros, utils.js), bulk import API (8x faster), skeleton loading states, activity-based timeout, user authentication (Flask-Login, setup wizard, password change, CLI reset), security hardening (security headers, session security, route protection audit, SECRET_KEY auto-generation), Tailwind CSS local compilation (removed CDN, added build-css.sh), dark mode toggle with localStorage persistence, footer redesign (version number + GitHub link), release hardening (centralized error handling, standalone error pages, standardized JSON errors, Docker polish, dead code removal).
 
 **Next phase**: 15 (Documentation & Release)
 
@@ -385,5 +391,12 @@ See `.planning/ROADMAP.md` for full phase details.
 
 Configured in `.pre-commit-config.yaml`:
 
-- **ruff** + **ruff-format**: Python linting and formatting
-- **black**: Python code formatting
+- **ruff** (v0.1.14) + **ruff-format**: Python linting and formatting
+- **black** (24.3.0): Python code formatting
+
+### Code Style (`pyproject.toml`)
+
+- **Line length**: 120 characters (both black and ruff)
+- **Target**: Python 3.11
+- **Ruff rules**: E, F, W, I (with F403 ignored for Flask star imports)
+- **Test relaxations**: F401, F841, E501 ignored in `tests/`
