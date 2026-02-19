@@ -9,7 +9,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 14.1 - Complete Test Suite Regeneration
 **Current plan:** Plan 02 of 03
-**Status:** Plan 02 complete (lists/schedule tests), next: Plan 03 (auth routes)
+**Status:** Ready to plan
 
 ## Accumulated Context
 
