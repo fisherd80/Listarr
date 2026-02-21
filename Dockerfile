@@ -6,7 +6,7 @@
 # ===========================
 # Stage 1: Build Stage
 # ===========================
-FROM python:3.11-slim AS builder
+FROM python:3.14.3-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
 # ===========================
 # Stage 2: Production Stage
 # ===========================
-FROM python:3.11-slim
+FROM python:3.14.3-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
