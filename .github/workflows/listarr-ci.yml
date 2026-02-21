@@ -80,6 +80,8 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY_IMAGE }}:dev
+          sbom: true
+          provenance: mode=max
 
   docker-release:
     name: Push Release Docker Image
@@ -114,3 +116,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: mode=max

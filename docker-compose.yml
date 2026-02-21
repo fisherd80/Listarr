@@ -4,6 +4,7 @@ services:
     container_name: listarr
     ports:
       - "5000:5000"
+    user: root  # Start as root so entrypoint can fix bind-mount permissions, then drops to listarr
     volumes:
       - ./instance:/app/instance  # Bind mount - entrypoint fixes permissions
     environment:

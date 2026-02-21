@@ -18,7 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip wheel && \
+    pip install --no-cache-dir --user -r requirements.txt
 
 # ===========================
 # Stage 2: Production Stage
@@ -31,11 +32,15 @@ ENV PYTHONUNBUFFERED=1 \
     FLASK_APP=listarr \
     PORT=5000
 
-# Install gosu for privilege dropping in entrypoint
+# Install su-exec for privilege dropping in entrypoint (no Go dependency)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gosu && \
+    apt-get install -y --no-install-recommends gcc libc6-dev curl && \
+    curl -fsSL https://raw.githubusercontent.com/ncopa/su-exec/v0.2/su-exec.c -o /tmp/su-exec.c && \
+    gcc -Wall -o /usr/local/bin/su-exec /tmp/su-exec.c && \
+    rm -f /tmp/su-exec.c && \
+    apt-get purge -y --auto-remove gcc libc6-dev curl && \
     rm -rf /var/lib/apt/lists/* && \
-    gosu nobody true
+    su-exec nobody true
 
 # Create non-root user for security
 RUN useradd -m -u 1000 listarr && \
@@ -64,6 +69,9 @@ EXPOSE 5000
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import requests; r=requests.get('http://localhost:5000/health', timeout=5); r.raise_for_status()" || exit 1
+
+# Default non-root user (docker-compose overrides to root for bind-mount permission fixing)
+USER listarr
 
 # Entrypoint handles permissions and privilege drop
 ENTRYPOINT ["/entrypoint.sh"]
