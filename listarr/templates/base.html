@@ -3,8 +3,8 @@
   <head>
     <link
       rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='favicon.jpg') }}"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
     />
     <meta charset="UTF-8" />
     <!-- FOUC prevention: apply dark class before first paint -->
@@ -41,8 +41,9 @@
           <!-- Left side: Logo + Main Links -->
           <div class="flex items-center space-x-6">
             <!-- Logo / Site Name -->
-            <div class="flex-shrink-0 text-2xl font-bold text-primary">
-              Listarr
+            <div class="flex-shrink-0 flex items-center space-x-2 text-2xl font-bold text-primary">
+              <img src="{{ url_for('static', filename='logo-icon.png') }}" alt="Listarr" class="h-8 w-8" />
+              <span>Listarr</span>
             </div>
 
             <!-- Main links -->

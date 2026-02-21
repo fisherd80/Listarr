@@ -3,8 +3,8 @@
   <head>
     <link
       rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='favicon.jpg') }}"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
     />
     <meta charset="UTF-8" />
     <!-- FOUC prevention: apply dark class before first paint -->
@@ -33,6 +33,7 @@
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg px-8 py-10">
           <!-- Logo / Brand -->
           <div class="text-center mb-8">
+            <img src="{{ url_for('static', filename='logo-icon.png') }}" alt="Listarr" class="h-16 w-16 mx-auto mb-3" />
             <h1 class="text-3xl font-bold text-primary">Listarr</h1>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
               Media Discovery & List Management
