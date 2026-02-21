@@ -1,41 +1,112 @@
 # Listarr
 
-A single-user, self-hosted Flask application for discovering content via TMDB (The Movie Database) and importing curated lists into Radarr/Sonarr media servers.
+Automated media discovery and import for Radarr/Sonarr via TMDB.
+
+[![CI](https://github.com/fisherd80/listarr/actions/workflows/ci.yml/badge.svg)](https://github.com/fisherd80/listarr/actions/workflows/ci.yml)
+[![Docker Hub](https://img.shields.io/docker/v/fisherd91/listarr?label=Docker%20Hub)](https://hub.docker.com/r/fisherd91/listarr)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+---
+
+## Screenshots
+
+<!-- Screenshots captured in dark mode using the footer toggle -->
+
+| Dashboard | Lists |
+|-----------|-------|
+| ![Dashboard](.github/assets/screenshots/dashboard.png) | ![Lists](.github/assets/screenshots/lists.png) |
+
+| Wizard | Jobs |
+|--------|------|
+| ![Wizard](.github/assets/screenshots/wizard.png) | ![Jobs](.github/assets/screenshots/jobs.png) |
+
+---
 
 ## Features
 
-- 🎬 **TMDB Integration**: Discover movies and TV shows (Trending, Popular, Top Rated, Discover with filters)
-- 🔗 **IMDB ID Mapping**: Legal IMDB ID retrieval via TMDB (no web scraping)
-- 🎯 **Radarr/Sonarr Import**: Fully configured import settings with quality profiles and root folders
-- 🚀 **Bulk Import API**: 8x faster imports using batch operations (50 items per batch)
-- 📊 **Dashboard Stats**: Read-only summary from Radarr/Sonarr with cached stats, "Added by Listarr" counter, and recent jobs
-- 🔐 **User Authentication**: Single-user login with secure password hashing
-  - First-run setup wizard for account creation
-  - Remember me option (30-day sessions)
-  - Password change on Settings page
-  - CLI password reset command
-- 🛡️ **Security Hardened**: Production-ready security configuration
-  - All routes require authentication (except health check)
-  - CSRF protection on all forms and AJAX requests
-  - Security headers (CSP, X-Frame-Options, X-Content-Type-Options)
-  - Secure session cookies (HttpOnly, SameSite, Secure over HTTPS)
-- 🔒 **Encrypted Storage**: API keys encrypted at rest with Fernet encryption
-- ⏰ **Automated Scheduling**: Cron-based scheduling for automatic list execution
-  - Presets for common intervals (hourly, daily, weekly)
-  - Custom cron expressions for advanced users
-  - Global pause toggle for maintenance
-  - Pre-flight health checks before job execution
-- 💾 **SQLite Database**: Persistent storage with WAL mode
-- 🐳 **Docker-first**: Container-ready deployment
+**TMDB Discovery**
+
+- Browse Trending, Popular, and Top Rated movies and TV shows
+- Discover content with filters: genre, year, rating, language, region
+- Live preview of results before committing to an import
+- Multi-step list creation wizard with preset templates
+
+**Media Import**
+
+- Import movies directly into Radarr with configurable quality profiles, root folders, tags, and monitoring settings
+- Import TV shows directly into Sonarr with quality profiles, root folders, season folders, tags, and monitoring settings
+- Per-list import setting overrides (fall back to global defaults when not set)
+- Bulk import API for batch operations — 50 items per batch, significantly faster than one-at-a-time imports
+- Conflict handling: items already in your library are skipped automatically
+
+**Automation**
+
+- Cron-based scheduling with preset intervals (hourly, daily, weekly, monthly)
+- Custom cron expressions for advanced scheduling requirements
+- Global scheduler pause and resume for maintenance windows
+- Pre-flight health checks before each scheduled job execution
+
+**Monitoring**
+
+- Dashboard with read-only stats from Radarr and Sonarr (total, missing, "Added by Listarr" counters)
+- Job monitoring page with filtering, pagination, and expandable per-item details
+- Recent activity feed on dashboard with status indicators
+- Background job execution with activity-based idle timeout
+
+**Security**
+
+- Single-user authentication with setup wizard on first run
+- API keys encrypted at rest using Fernet symmetric encryption
+- CSRF protection on all forms and AJAX requests
+- Security headers: Content-Security-Policy, X-Frame-Options, X-Content-Type-Options
+- Secure session cookies: HttpOnly, SameSite=Lax, configurable Secure flag for HTTPS
+- Open redirect prevention on login
+
+---
 
 ## Quick Start
+
+### Docker Compose (recommended)
+
+1. **Download the compose file**
+
+   ```bash
+   curl -O https://raw.githubusercontent.com/fisherd80/listarr/main/docker-compose.yml
+   ```
+
+2. **Copy the environment template**
+
+   ```bash
+   curl -O https://raw.githubusercontent.com/fisherd80/listarr/main/.env.example
+   cp .env.example .env
+   ```
+
+3. **Start the container**
+
+   ```bash
+   docker compose up -d
+   ```
+
+4. **Open Listarr**
+
+   Navigate to [http://localhost:5000](http://localhost:5000). You will be redirected to the setup wizard to create your account on first run.
+
+5. **View logs**
+
+   ```bash
+   docker compose logs -f listarr
+   ```
+
+The `docker-compose.yml` uses a bind mount at `./instance` for the database and encryption key, so your data persists across container rebuilds.
+
+---
 
 ### Development Setup
 
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/fisherd80/listarr.git
    cd listarr
    ```
 
@@ -51,9 +122,7 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
    python setup.py
    ```
 
-   This creates:
-   - Encryption key at `instance/.fernet_key`
-   - SQLite database at `instance/listarr.db`
+   This generates the encryption key at `instance/.fernet_key` and creates the SQLite database at `instance/listarr.db`.
 
 4. **Start the development server**
 
@@ -61,256 +130,92 @@ A single-user, self-hosted Flask application for discovering content via TMDB (T
    python run.py
    ```
 
-5. **Access the application**
-   Open your browser to: http://localhost:5000
+5. **Open Listarr**
 
-6. **Create your account**
-   On first run, you'll be redirected to the setup wizard to create your admin account.
+   Navigate to [http://localhost:5000](http://localhost:5000). You will be redirected to the setup wizard to create your account on first run.
 
-### Docker Deployment
-
-1. **Create environment file**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env and set LISTARR_SECRET_KEY
-   ```
-
-2. **Build and run with Docker Compose**
-
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Access the application**
-   Open your browser to: http://localhost:5000
-
-4. **View logs**
-   ```bash
-   docker-compose logs -f listarr
-   ```
+---
 
 ## Configuration
 
-### Environment Variables
+### First Run
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `LISTARR_SECRET_KEY` | (auto-generated) | Flask secret key (auto-generates to `instance/.secret_key` if not set) |
-| `FERNET_KEY` | (from file) | Override encryption key (otherwise loaded from `instance/.fernet_key`) |
-| `FLASK_DEBUG` | `false` | Enable Flask debug mode |
-| `LOG_LEVEL` | `INFO` | Python logging level (DEBUG, INFO, WARNING, ERROR) |
-| `TZ` | `UTC` | Server timezone for cron schedule interpretation |
-| `SECURE_COOKIES` | `false` | Enable Secure flag on cookies (set to `true` when serving over HTTPS) |
+On first access, Listarr redirects you to `/setup` where you create your account (username and password). This step is blocked once an account exists.
+
+If you are locked out, reset your password from the command line:
+
+```bash
+python setup.py --reset-password
+```
 
 ### API Keys
 
-Configure API keys through the web interface:
+All API keys are configured through the web interface and encrypted before storage.
 
-1. **TMDB API Key** - Settings page (`/settings`)
-   - Test connection before saving
-   - Required for list discovery
-2. **Radarr API Key** - Config page (`/config`)
-   - Configure URL and API key
-   - Set default import settings (quality profile, root folder, monitoring)
-3. **Sonarr API Key** - Config page (`/config`)
-   - Configure URL and API key
-   - Set default import settings (quality profile, root folder, season folder, monitoring)
+- **TMDB API Key** — Settings page (`/settings`). Required before creating any lists.
+- **Radarr** — Config page (`/config`). Enter your Radarr URL and API key, then use "Test Connection" to verify.
+- **Sonarr** — Config page (`/config`). Enter your Sonarr URL and API key, then use "Test Connection" to verify.
 
-All API keys are encrypted at rest using Fernet symmetric encryption.
+### Import Settings
 
-## Usage
+Global import defaults for Radarr and Sonarr are set on the Config page. These apply to all lists unless a list has its own overrides configured in Step 3 of the wizard.
 
-### Scheduling Lists
+Settings include: quality profile, root folder, monitor mode, search on add, tags, and season folder (Sonarr only).
 
-Listarr allows you to automate list execution using cron-based scheduling:
+---
 
-1. **Create a scheduled list** via the wizard:
-   - Select a schedule preset (hourly, daily, weekly, etc.)
-   - Or use a custom cron expression for advanced scheduling
-   - The list will execute automatically at the specified intervals
+## Environment Variables
 
-2. **Edit existing lists** to add or change schedules:
-   - Navigate to the Lists page and click "Edit"
-   - Update the schedule preset or cron expression
-   - Changes take effect immediately
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LISTARR_SECRET_KEY` | (auto-generated) | Flask secret key for session signing. Auto-generated to `instance/.secret_key` on first run. |
+| `FERNET_KEY` | (from file) | Fernet encryption key for API keys at rest. Auto-generated to `instance/.fernet_key` on first run. Only override when migrating from another instance. |
+| `TZ` | `UTC` | Server timezone used to interpret cron schedule expressions. Examples: `America/New_York`, `Europe/London`. |
+| `LOG_LEVEL` | `INFO` | Python logging level. Options: `DEBUG`, `INFO`, `WARNING`, `ERROR`. |
+| `FLASK_DEBUG` | `false` | Enable Flask debug mode. Never enable in production. |
+| `SECURE_COOKIES` | `false` | Enable Secure flag on session and remember-me cookies. Set to `true` when serving behind an HTTPS reverse proxy. |
+| `LOG_ACCESS_REQUESTS` | `false` | Enable Gunicorn access logging for all requests. By default only 4xx/5xx responses are logged. |
 
-3. **Manage schedules** on the Schedule page (`/schedule`):
-   - View all scheduled lists and their next run times
-   - Global pause toggle for maintenance (pauses all scheduled jobs)
-   - Resume scheduling when ready
+See [.env.example](.env.example) for a ready-to-use template.
 
-4. **Monitor upcoming jobs** on the Dashboard:
-   - The Upcoming widget shows the next 5 scheduled jobs
-   - Displays relative times ("in 2 hours", "in 3 days")
-   - Updates automatically during job execution
+---
 
-## Project Structure
+## Known Limitations
 
-```
-listarr/
-├── listarr/              # Main application package
-│   ├── forms/           # WTForms form definitions
-│   ├── models/          # SQLAlchemy database models
-│   ├── routes/          # Blueprint-based routes
-│   ├── services/        # Business logic layer
-│   │   ├── http_client.py       # Shared HTTP client with retry logic
-│   │   ├── tmdb_service.py      # Direct TMDB API calls
-│   │   ├── radarr_service.py    # Direct Radarr API calls
-│   │   ├── sonarr_service.py    # Direct Sonarr API calls
-│   │   └── crypto_utils.py      # Fernet encryption utilities
-│   ├── static/          # Static assets (JS, images)
-│   └── templates/       # Jinja2 HTML templates
-├── instance/            # Runtime data (database, encryption key)
-│   ├── .fernet_key     # Encryption key (NEVER commit!)
-│   └── listarr.db      # SQLite database
-├── run.py              # Development server entry point
-├── setup.py            # First-time initialization script
-└── requirements.txt    # Python dependencies
-```
+- **Single-user only** — no multi-user support, roles, or permissions. Designed for personal homelab use.
+- **Homelab deployment** — not hardened for direct public internet exposure. Use a reverse proxy (nginx, Caddy, Traefik) with authentication if you need external access.
+- **SQLite only** — no PostgreSQL or MySQL support. SQLite with WAL mode handles typical single-user workloads without issue.
+- **Read-only dashboard** — Listarr shows stats from Radarr/Sonarr but does not edit or delete existing media. It only pushes new imports.
+- **No dry-run mode** — imports are executed immediately when a list is run. Use the wizard preview step to review content before saving a list.
 
-## Development Status
-
-**Feature Complete** - All 14 development phases complete, plus sub-phases. 596 tests passing. All core features implemented including list management, wizard UI, TMDB caching, bulk import automation, job execution framework, user authentication, security hardening, automated scheduling, direct API integration, comprehensive UI/UX improvements, local Tailwind CSS compilation, dark mode toggle, and release hardening. Remaining: documentation and v1.0 release.
-
-### Completed Phases
-
-- ✅ **Phase 1: List Management** - CRUD operations for TMDB lists
-- ✅ **Phase 2: List Creation Wizard** - 4-step wizard with presets, filters, live preview
-- ✅ **Phase 3: TMDB Caching** - TTL-based caching to respect rate limits
-- ✅ **Phase 3.1: Config Tags** - Tag storage with create-if-missing pattern
-- ✅ **Phase 4: Import Engine** - Radarr/Sonarr import with error handling
-- ✅ **Phase 5: Manual Trigger UI** - Run Now button with status feedback
-- ✅ **Phase 6: Job Framework** - Background processing, Jobs page, dashboard widget
-- ✅ **Phase 6.1: Bug Fixes** - Tag override logic, logging, UI feedback
-- ✅ **Phase 6.2: List Enhancements** - Top Rated presets, region filtering, larger limits
-- ✅ **Phase 6.3: Test Coverage** - Comprehensive test suite
-- ✅ **Phase 7: Scheduler System** - Cron-based automated list execution
-- ✅ **Phase 8: API Consolidation** - Direct API calls replacing pyarr and tmdbv3api
-- ✅ **Phase 9: Code Quality** - Refactoring and code cleanup
-- ✅ **Phase 9.1: Config Deduplication** - 55% route reduction, 57% JS reduction
-- ✅ **Phase 10: UI/UX Simplification** - Jinja macros, JS consolidation
-- ✅ **Phase 10.1-10.5: UI Enhancements** - Bulk import API (8x faster), skeleton loading, activity-based timeout
-- ✅ **Phase 11: User Authentication** - Login, setup wizard, password management, 536 tests
-- ✅ **Phase 12: Security Hardening** - Security headers, session security, route protection audit
-- ✅ **Phase 13: Tailwind & UI Polish** - Local CSS compilation, dark mode toggle, footer redesign
-- ✅ **Phase 14: Release Hardening** - Centralized error handling, Docker polish, dead code removal, 596 tests
-
-### Planned Phases
-
-- 🔮 **Phase 15: Documentation & Release** - Final documentation and v1.0 release
-
-See [CLAUDE.md](CLAUDE.md) for comprehensive development documentation.
-
-## Technology Stack
-
-### Backend
-
-- **Flask 3.1.2**: Web framework
-- **Flask-Login 0.6.3**: Session and user authentication
-- **SQLAlchemy 2.0.44**: ORM and database management
-- **Flask-WTF**: CSRF protection and forms
-- **cryptography 46.0.5**: Fernet encryption for API keys
-- **requests 2.32.4**: Direct HTTP integration with Radarr/Sonarr/TMDB APIs
-- **APScheduler 3.11.2**: Cron-based job scheduling
-- **gunicorn 22.0.0**: Production WSGI server
-
-### Frontend
-
-- **Tailwind CSS**: Utility-first styling
-- **Vanilla JavaScript**: Dynamic UI with shared utils.js library
-- **Jinja2**: Server-side templating with macro library
-
-### Database
-
-- **SQLite**: Embedded database with WAL mode
-
-## IMDB Integration Strategy
-
-**Important**: Listarr uses TMDB as the primary data source with **legal IMDB ID mapping**.
-
-- ✅ IMDB IDs retrieved via TMDB's `external_ids` endpoint
-- ✅ No web scraping (respects IMDB Terms of Service)
-- ✅ Fast, reliable, and officially supported
-- ✅ IMDB links displayed in UI for user reference
-- ❌ Does NOT use `cinemagoer` or any web scraping libraries
-
-This approach ensures legal compliance while providing IMDB references for users.
-
-## Security
-
-- 🔐 **User authentication** with secure password hashing (werkzeug scrypt)
-- 🔑 **API keys encrypted at rest** (Fernet symmetric encryption)
-- 🛡️ **CSRF protection** on all forms and AJAX requests
-- 🔒 **Secrets excluded** from version control (.gitignore)
-- 👤 **Single-user design** (no multi-tenancy)
-- 🏠 **Self-hosted** for homelab environments
-- 🔑 **Instance path isolation** for encryption key storage
-- 🔄 **Password reset** via CLI command (`python setup.py --reset-password`)
-- 🛡️ **Security headers** (Content-Security-Policy, X-Frame-Options, X-Content-Type-Options)
-- 🍪 **Secure sessions** (HttpOnly, SameSite=Lax, Secure over HTTPS)
-- 🚫 **Open redirect prevention** on login redirects
-- 🐳 **Docker security** (non-root user, gosu privilege drop)
-- 💓 **Health endpoint** (`/health`) for Docker HEALTHCHECK (unauthenticated)
-
-**Important**: This application is designed for single-user, self-hosted deployments. Do not expose directly to the public internet without additional security measures (reverse proxy, firewall).
-
-## Data Persistence
-
-The `instance/` folder contains all runtime data:
-
-- `listarr.db` - SQLite database
-- `.fernet_key` - Encryption key (auto-generated by setup.py)
-
-**Docker users**: The `instance/` folder is automatically persisted via a named volume in docker-compose.yml.
-
-## Documentation
-
-- **[CLAUDE.md](CLAUDE.md)** - Comprehensive developer documentation
-  - Architecture patterns and design decisions
-  - Implementation phases and roadmap
-  - IMDB integration strategy
-  - Security considerations
-  - Testing guidelines and patterns
-- **[CHANGELOG.md](docs/CHANGELOG.md)** - Detailed changelog of all changes
-
-- **Project Philosophy**: Read-only stats + push actions (no full media management)
-- **Design Pattern**: Application factory with blueprint-based routing
+---
 
 ## Roadmap
 
-| Phase                     | Status      | Description                                                 |
-| ------------------------- | ----------- | ----------------------------------------------------------- |
-| 1. List Management        | ✅ Complete | CRUD operations for TMDB lists through web interface        |
-| 2. List Creation Wizard   | ✅ Complete | Multi-step wizard with presets, filters, and live preview   |
-| 3. TMDB Caching           | ✅ Complete | Smart caching to respect API rate limits                    |
-| 3.1 Config Tags           | ✅ Complete | Tag storage with create-if-missing pattern                  |
-| 4. Import Engine          | ✅ Complete | Import system for Radarr/Sonarr with error handling         |
-| 5. Manual Trigger UI      | ✅ Complete | Run lists on-demand from UI                                 |
-| 6. Job Framework          | ✅ Complete | Background job processing with history tracking             |
-| 6.1 Bug Fixes             | ✅ Complete | Bugs from manual testing resolved                           |
-| 6.2 List Enhancements     | ✅ Complete | Top Rated presets, region filtering, larger limits          |
-| 6.3 Test Coverage         | ✅ Complete | Comprehensive test suite                                    |
-| 7. Scheduler System       | ✅ Complete | Cron-based automated list execution                         |
-| 8. API Consolidation      | ✅ Complete | Direct API calls replacing pyarr and tmdbv3api              |
-| 9. Code Quality           | ✅ Complete | Refactoring and code cleanup                                |
-| 9.1 Config Deduplication  | ✅ Complete | 55% route reduction, 57% JS reduction                       |
-| 10. UI/UX Simplification  | ✅ Complete | Jinja macros, JS consolidation                              |
-| 10.1-10.5 UI Enhancements | ✅ Complete | Bulk import (8x faster), skeleton loading, timeout handling |
-| 11. User Authentication   | ✅ Complete | Login, setup wizard, password management (536 tests)        |
-| 12. Security Hardening    | ✅ Complete | Security headers, session security, route protection audit  |
-| 13. Tailwind & UI Polish  | ✅ Complete | Local CSS compilation, dark mode toggle, footer redesign    |
-| 14. Release Hardening     | ✅ Complete | Centralized error handling, Docker polish, dead code removal |
-| 15. Documentation & Release | 🔮 Planned | Final documentation and v1.0 release                       |
+v1.0.0 is the initial release, covering the full discovery-to-import workflow with scheduling, monitoring, and authentication.
 
-## License
+Possible future enhancements:
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Multi-service instance support (multiple Radarr or Sonarr instances)
+- Advanced TMDB filtering (cast, crew, collection-based lists)
+- Import history analytics and reporting
+- Webhook-triggered list execution
+- Additional list sources beyond TMDB
+
+---
 
 ## Contributing
 
-This is a personal project for homelab use. Contributions are welcome!
+Contributions are welcome. Please open an issue to discuss the change before submitting a pull request.
 
-## Support
+---
 
-For issues or questions, please open an issue on GitHub.
+## Built with
+
+Flask, SQLAlchemy, Tailwind CSS, APScheduler, Gunicorn. No third-party API wrappers — all Radarr, Sonarr, and TMDB calls use direct HTTP.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

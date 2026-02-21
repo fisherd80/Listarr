@@ -202,5 +202,6 @@ sandbox/
 *.local
 .claude/
 .planning/
+CLAUDE.md
 
 .ruff_cache
