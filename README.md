@@ -2,7 +2,7 @@
 
 Automated media discovery and import for Radarr/Sonarr via TMDB.
 
-[![CI](https://github.com/fisherd80/listarr/actions/workflows/ci.yml/badge.svg)](https://github.com/fisherd80/listarr/actions/workflows/ci.yml)
+[![CI](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml/badge.svg)](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml)
 [![Docker Hub](https://img.shields.io/docker/v/fisherd91/listarr?label=Docker%20Hub)](https://hub.docker.com/r/fisherd91/listarr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
