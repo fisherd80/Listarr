@@ -1,0 +1,2 @@
+# This file ensures the instance/ directory is tracked by Git
+# The actual contents (.fernet_key, *.db) are excluded via .gitignore

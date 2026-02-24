@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+    />
+    <meta charset="UTF-8" />
+    <!-- FOUC prevention: apply dark class before first paint -->
+    <script>
+      (function () {
+        var theme = localStorage.getItem('theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (theme === 'dark' || (!theme && systemDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+
+    <title>{% block title %}Listarr{% endblock %}</title>
+
+    <!-- Compiled Tailwind CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+
+    <!-- Shared Utilities -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <!-- Shared Toast Notification System -->
+    <script src="{{ url_for('static', filename='js/toast.js') }}"></script>
+
+    {% block head %}{% endblock %}
+  </head>
+
+  <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+    <!-- Top Navigation -->
+    <nav class="bg-white dark:bg-gray-800 shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+          <!-- Left side: Logo + Main Links -->
+          <div class="flex items-center space-x-6">
+            <!-- Logo / Site Name -->
+            <div class="flex-shrink-0 flex items-center space-x-2 text-2xl font-bold text-primary">
+              <img src="{{ url_for('static', filename='logo-icon.png') }}" alt="Listarr" class="h-8 w-8" />
+              <span>Listarr</span>
+            </div>
+
+            <!-- Main links -->
+            <div class="flex space-x-4">
+              <a
+                href="{{ url_for('main.dashboard_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.dashboard_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Dashboard
+              </a>
+              {% if current_user.is_authenticated %}
+              <a
+                href="{{ url_for('main.lists_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Lists
+              </a>
+              <a
+                href="{{ url_for('main.jobs_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.jobs_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Jobs
+              </a>
+              <a
+                href="{{ url_for('main.schedule_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.schedule_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Schedule
+              </a>
+              <a
+                href="{{ url_for('main.config_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.config_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Config
+              </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Right side: User menu or Login -->
+          <div class="flex items-center">
+            {% if current_user.is_authenticated %}
+              <!-- Settings link -->
+              <a
+                href="{{ url_for('main.settings_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+              >
+                Settings
+              </a>
+              <!-- User dropdown -->
+              <div class="relative ml-3" id="user-dropdown">
+                <button
+                  type="button"
+                  id="user-dropdown-button"
+                  class="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary focus:outline-none"
+                >
+                  <span>{{ current_user.username }}</span>
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <!-- Dropdown menu -->
+                <div
+                  id="user-dropdown-menu"
+                  class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5 rounded-md py-1 z-50"
+                >
+                  <form method="POST" action="{{ url_for('main.logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button
+                      type="submit"
+                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                    >
+                      Logout
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% else %}
+              <a
+                href="{{ url_for('main.login_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary"
+              >
+                Login
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Toast Container (shared by Flask flash and JS toasts) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div
+        class="flash-toast flex items-center p-4 rounded-lg border shadow-lg max-w-md transition-all duration-300 {% if category == 'success' %}bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-800{% elif category == 'warning' %}bg-yellow-100 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-800{% elif category == 'error' %}bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-800{% else %}bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-800{% endif %}"
+      >
+        <svg class="w-5 h-5 mr-3 flex-shrink-0 {% if category == 'success' %}text-green-500 dark:text-green-400{% elif category == 'warning' %}text-yellow-500 dark:text-yellow-400{% elif category == 'error' %}text-red-500 dark:text-red-400{% else %}text-blue-500 dark:text-blue-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {% if category == 'success' %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          {% elif category == 'warning' %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          {% elif category == 'error' %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          {% else %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {% endif %}
+        </svg>
+        <span class="text-sm font-medium {% if category == 'success' %}text-green-800 dark:text-green-200{% elif category == 'warning' %}text-yellow-800 dark:text-yellow-200{% elif category == 'error' %}text-red-800 dark:text-red-200{% else %}text-blue-800 dark:text-blue-200{% endif %}">{{ message }}</span>
+      </div>
+      {% endfor %}
+      {% endwith %}
+    </div>
+    <script>
+      // Auto-dismiss flash messages after 3 seconds
+      document.querySelectorAll('.flash-toast').forEach((toast, index) => {
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(100%)';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000 + (index * 200));
+      });
+    </script>
+
+    <!-- Content -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-gray-800 text-sm py-4 text-gray-500 dark:text-gray-400">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <!-- Spacer for balance -->
+        <div class="w-10"></div>
+        <!-- Center: Version + GitHub -->
+        <div class="flex items-center gap-3">
+          <span>v1.0.0</span>
+          <a
+            href="https://github.com/fisherd80/Listarr"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            aria-label="View on GitHub"
+          >
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+          </a>
+        </div>
+        <!-- Right: Dark mode toggle -->
+        <button
+          id="dark-mode-toggle"
+          type="button"
+          aria-label="Toggle dark mode"
+          aria-pressed="false"
+          class="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+        >
+          <svg id="dark-mode-sun" class="hidden dark:block w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+          </svg>
+          <svg id="dark-mode-moon" class="block dark:hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
+      </div>
+    </footer>
+
+    <!-- User dropdown toggle script -->
+    <script>
+      (function () {
+        const dropdownButton = document.getElementById('user-dropdown-button');
+        const dropdownMenu = document.getElementById('user-dropdown-menu');
+
+        if (dropdownButton && dropdownMenu) {
+          // Toggle dropdown on button click
+          dropdownButton.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('hidden');
+          });
+
+          // Close dropdown when clicking outside
+          document.addEventListener('click', function () {
+            if (!dropdownMenu.classList.contains('hidden')) {
+              dropdownMenu.classList.add('hidden');
+            }
+          });
+        }
+      })();
+    </script>
+
+    <!-- Dark mode toggle script -->
+    <script>
+      (function () {
+        var btn = document.getElementById('dark-mode-toggle');
+        if (!btn) return;
+        btn.setAttribute('aria-pressed', document.documentElement.classList.contains('dark') ? 'true' : 'false');
+        btn.addEventListener('click', function () {
+          var isDark = document.documentElement.classList.toggle('dark');
+          localStorage.setItem('theme', isDark ? 'dark' : 'light');
+          btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

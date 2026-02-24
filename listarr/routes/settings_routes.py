@@ -1,0 +1,149 @@
+from datetime import datetime, timezone
+
+from cryptography.fernet import InvalidToken
+from flask import (
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError, OperationalError
+
+from listarr import db
+from listarr.forms.auth_forms import ChangePasswordForm
+from listarr.forms.settings_forms import TmdbApiForm
+from listarr.models.service_config_model import ServiceConfig
+from listarr.routes import bp
+from listarr.services.crypto_utils import decrypt_data, encrypt_data
+from listarr.services.tmdb_service import validate_tmdb_api_key
+
+
+def _test_and_update_tmdb_status(api_key):
+    """Test TMDB API key and update database with results."""
+    test_result = validate_tmdb_api_key(api_key)
+    test_timestamp = datetime.now(timezone.utc)
+    test_status = "success" if test_result else "failed"
+
+    try:
+        tmdb_service = ServiceConfig.query.filter_by(service="TMDB").first()
+        if tmdb_service:
+            tmdb_service.last_tested_at = test_timestamp
+            tmdb_service.last_test_status = test_status
+            db.session.commit()
+    except OperationalError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating TMDB test status: {e}", exc_info=True)
+
+    return test_result, test_timestamp, test_status
+
+
+@bp.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings_page():
+    tmdb_api_form = TmdbApiForm()
+    password_form = ChangePasswordForm()
+
+    if request.method == "POST":
+        api_key = tmdb_api_form.tmdb_api.data.strip()
+
+        if "save_api_key" in request.form:
+            if not api_key:
+                flash("API Key cannot be empty.", "warning")
+            else:
+                test_result, test_timestamp, test_status = _test_and_update_tmdb_status(api_key)
+
+                if not test_result:
+                    flash("Invalid TMDB API Key. Please check and try again.", "error")
+                else:
+                    try:
+                        enc_key = encrypt_data(api_key, instance_path=current_app.instance_path)
+
+                        tmdb_service = ServiceConfig.query.filter_by(service="TMDB").first()
+                        if not tmdb_service:
+                            tmdb_service = ServiceConfig(
+                                service="TMDB",
+                                api_key_encrypted=enc_key,
+                                last_tested_at=test_timestamp,
+                                last_test_status=test_status,
+                            )
+                            db.session.add(tmdb_service)
+                        else:
+                            tmdb_service.api_key_encrypted = enc_key
+                            tmdb_service.last_tested_at = test_timestamp
+                            tmdb_service.last_test_status = test_status
+                        tmdb_service.tmdb_region = tmdb_api_form.tmdb_region.data or None
+                        db.session.commit()
+                        flash("TMDB API Key saved successfully.", "success")
+                    except (IntegrityError, OperationalError, ValueError, RuntimeError, OSError) as e:
+                        db.session.rollback()
+                        current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
+                        flash("Failed to save TMDB configuration. Please try again.", "error")
+
+            return redirect(url_for("main.settings_page"))
+
+    # Populate form with existing key and region for GET requests
+    existing = ServiceConfig.query.filter_by(service="TMDB").first()
+    if existing and existing.api_key_encrypted:
+        try:
+            tmdb_api_form.tmdb_api.data = decrypt_data(
+                existing.api_key_encrypted, instance_path=current_app.instance_path
+            )
+        except (ValueError, InvalidToken) as e:
+            current_app.logger.error(f"Error decrypting TMDB API key: {e}", exc_info=True)
+            tmdb_api_form.tmdb_api.data = ""
+            flash("Unable to decrypt stored API key. Please re-enter your TMDB API key.", "warning")
+    if existing:
+        tmdb_api_form.tmdb_region.data = existing.tmdb_region or ""
+
+    last_test_at = existing.last_tested_at if existing else None
+    last_test_status = existing.last_test_status if existing else None
+
+    return render_template(
+        "settings.html",
+        tmdb_api_form=tmdb_api_form,
+        password_form=password_form,
+        last_test_at=last_test_at,
+        last_test_status=last_test_status,
+    )
+
+
+@bp.route("/settings/test_tmdb_api", methods=["POST"])
+@login_required
+def test_tmdb_api():
+    api_key = request.json.get("api_key", "")
+    if not api_key:
+        return jsonify({"success": False, "message": "API key cannot be empty."})
+
+    test_result, test_timestamp, test_status = _test_and_update_tmdb_status(api_key)
+
+    return jsonify(
+        {
+            "success": test_result,
+            "message": "TMDB API Key is valid." if test_result else "Invalid TMDB API Key.",
+            "timestamp": test_timestamp.isoformat(),
+        }
+    )
+
+
+@bp.route("/settings/change-password", methods=["POST"])
+@login_required
+def change_password():
+    """AJAX endpoint for password change."""
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        if not current_user.check_password(form.current_password.data):
+            return jsonify({"success": False, "message": "Current password is incorrect"}), 400
+
+        current_user.set_password(form.new_password.data)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Password changed successfully"})
+
+    errors = []
+    for field, field_errors in form.errors.items():
+        for error in field_errors:
+            errors.append(error)
+    return jsonify({"success": False, "message": errors[0] if errors else "Validation failed"}), 400

@@ -1,0 +1,15 @@
+# Test dependencies for Listarr project
+# Install with: pip install -r tests/requirements-test.txt
+
+# Testing frameworks
+pytest>=7.4.0
+pytest-flask>=1.2.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+
+# Mocking and test utilities
+responses>=0.23.0
+freezegun>=1.2.0
+
+# All production dependencies (required for testing)
+-r ../requirements.txt

@@ -1,0 +1,7 @@
+ruff
+pre-commit
+pytest
+pytest-cov
+bandit
+pip-audit
+pytailwindcss==0.3.0
