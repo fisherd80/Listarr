@@ -68,36 +68,32 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 ### Docker Compose (recommended)
 
-1. **Download the compose file**
+1. **Create a directory and download the compose file**
 
    ```bash
+   mkdir listarr && cd listarr
    curl -O https://raw.githubusercontent.com/fisherd80/listarr/main/docker-compose.yml
    ```
 
-2. **Copy the environment template**
-
-   ```bash
-   curl -O https://raw.githubusercontent.com/fisherd80/listarr/main/.env.example
-   cp .env.example .env
-   ```
-
-3. **Start the container**
+2. **Start the container**
 
    ```bash
    docker compose up -d
    ```
 
-4. **Open Listarr**
+3. **Open Listarr**
 
    Navigate to [http://localhost:5000](http://localhost:5000). You will be redirected to the setup wizard to create your account on first run.
 
-5. **View logs**
+4. **View logs**
 
    ```bash
    docker compose logs -f listarr
    ```
 
-The `docker-compose.yml` uses a bind mount at `./instance` for the database and encryption key, so your data persists across container rebuilds.
+The compose file pulls the latest image from Docker Hub and uses a bind mount at `./instance` for the database and encryption key, so your data persists across container updates.
+
+**Optional:** To customize environment variables (timezone, logging, HTTPS cookies), download the [`.env.example`](.env.example) template, save it as `.env` in the same directory, and edit as needed. The compose file will load it automatically if present.
 
 ---
 
