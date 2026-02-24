@@ -1,13 +1,48 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.14
+    rev: v0.15.2
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/psf/black
-    rev: 24.3.0 # <-- security fix for PYSEC-2024-48
+  - repo: local
     hooks:
-      - id: black
-        args: [] # don't override line length, pyproject.toml will be used
+      - id: pytest-unit
+        name: pytest unit tests
+        entry: pytest tests/unit/ -x -q --timeout=30
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: bandit
+        name: bandit security scan
+        entry: bandit -r listarr -ll
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: pip-audit
+        name: pip-audit dependency scan
+        entry: pip-audit
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

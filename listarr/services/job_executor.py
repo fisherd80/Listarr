@@ -158,9 +158,7 @@ def _monitor_idle(job_id, activity_tracker, monitor_stop):
             with _stop_events_lock:
                 stop_event = _stop_events.get(job_id)
                 if stop_event:
-                    logger.warning(
-                        f"Job {job_id} idle timeout: no activity for " f"{int(activity_tracker.idle_seconds)}s"
-                    )
+                    logger.warning(f"Job {job_id} idle timeout: no activity for {int(activity_tracker.idle_seconds)}s")
                     stop_event.set()
             break
 
