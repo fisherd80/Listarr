@@ -12,9 +12,13 @@ import os
 bind = "0.0.0.0:5000"
 
 # Worker processes
+worker_class = "gthread"
 workers = 2
 threads = 4
 timeout = 120
+
+# Disable control socket — not needed in containerized deployment
+control_socket_disable = True
 
 # Logging - only log errors (4xx/5xx), not successful requests
 errorlog = "-"  # stderr
