@@ -47,54 +47,37 @@
             </div>
 
             <!-- Main links -->
+            {% if current_user.is_authenticated %}
             <div class="flex space-x-4">
               <a
-                href="{{ url_for('main.dashboard_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.dashboard_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-              >
-                Dashboard
-              </a>
-              {% if current_user.is_authenticated %}
-              <a
                 href="{{ url_for('main.lists_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint in ('main.lists_page', 'main.dashboard_page') %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
               >
                 Lists
               </a>
               <a
-                href="{{ url_for('main.jobs_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.jobs_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+                href="{{ url_for('main.activity_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.activity_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
               >
-                Jobs
+                Activity
               </a>
-              <a
-                href="{{ url_for('main.schedule_redirect') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.schedule_redirect' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-              >
-                Schedule
-              </a>
-              <a
-                href="{{ url_for('main.config_redirect') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.config_redirect' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-              >
-                Config
-              </a>
-              {% endif %}
-            </div>
-          </div>
-
-          <!-- Right side: User menu or Login -->
-          <div class="flex items-center">
-            {% if current_user.is_authenticated %}
-              <!-- Settings link -->
               <a
                 href="{{ url_for('main.settings_page') }}"
                 class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
               >
                 Settings
               </a>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Right side: User menu or Login -->
+          <div class="flex items-center gap-3">
+            {% if current_user.is_authenticated %}
+              <!-- Connection status placeholder -->
+              <span class="w-2 h-2 rounded-full bg-gray-400" title="Service status"></span>
               <!-- User dropdown -->
-              <div class="relative ml-3" id="user-dropdown">
+              <div class="relative" id="user-dropdown">
                 <button
                   type="button"
                   id="user-dropdown-button"
@@ -110,6 +93,12 @@
                   id="user-dropdown-menu"
                   class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5 rounded-md py-1 z-50"
                 >
+                  <a
+                    href="{{ url_for('main.settings_page') }}"
+                    class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  >
+                    Change Password
+                  </a>
                   <form method="POST" action="{{ url_for('main.logout') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <button
