@@ -1268,3 +1268,36 @@ def update_schedule(list_id):
 def dashboard_redirect():
     """301 redirect to /lists — /dashboard page removed in v2."""
     return redirect(url_for("main.lists_page"), code=301)
+
+
+# ---------------------------------------------------------------------------
+# List create/edit stub routes (Phase 4 implementation)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/lists/create", methods=["GET"])
+@login_required
+def lists_create():
+    """Stub: List creation entry point (Phase 4 implementation)."""
+    return render_template("lists_create.html")
+
+
+@bp.route("/lists/create/preset")
+@login_required
+def lists_create_preset():
+    """Stub: Preset-based list creation (Phase 4 implementation)."""
+    return render_template("lists_create_preset.html")
+
+
+@bp.route("/lists/create/custom")
+@login_required
+def lists_create_custom():
+    """Stub: Custom TMDB query builder (Phase 4 implementation)."""
+    return render_template("lists_create_custom.html")
+
+
+@bp.route("/lists/<int:list_id>/edit")
+@login_required
+def lists_edit(list_id):
+    """Stub: Unified list edit page (Phase 4 implementation)."""
+    return render_template("lists_edit_stub.html", list_id=list_id)

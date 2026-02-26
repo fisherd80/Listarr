@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Create List — Custom{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <nav class="text-sm text-gray-400 mb-4">
+    <a href="{{ url_for('main.lists_page') }}" class="hover:text-white">Lists</a>
+    <span class="mx-1">/</span>
+    <a href="{{ url_for('main.lists_create') }}" class="hover:text-white">Create</a>
+    <span class="mx-1">/</span>
+    <span class="text-gray-300">Custom</span>
+  </nav>
+  <h1 class="text-2xl font-bold text-white mb-6">Create List — Custom</h1>
+  <div class="bg-gray-800 border border-gray-700 rounded p-8 text-center">
+    <p class="text-gray-400">Coming soon.</p>
+  </div>
+</div>
+{% endblock %}
