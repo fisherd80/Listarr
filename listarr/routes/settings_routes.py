@@ -41,6 +41,12 @@ def _test_and_update_tmdb_status(api_key):
     return test_result, test_timestamp, test_status
 
 
+@bp.route("/config", methods=["GET"])
+def config_redirect():
+    """301 redirect to /settings — /config page removed in v2."""
+    return redirect(url_for("main.settings_page"), code=301)
+
+
 @bp.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings_page():

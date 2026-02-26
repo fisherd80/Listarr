@@ -68,7 +68,7 @@ async function loadJobs() {
       params.append("status", state.filters.status);
     }
 
-    const response = await fetch(`/api/jobs?${params}`);
+    const response = await fetch(`/api/activity?${params}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
 
@@ -380,7 +380,7 @@ async function loadJobDetails(jobId) {
   if (!container) return;
 
   try {
-    const response = await fetch(`/api/jobs/${jobId}`);
+    const response = await fetch(`/api/activity/${jobId}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const job = await response.json();
 
@@ -506,7 +506,7 @@ async function rerunJob(jobId, button) {
   button.textContent = "Starting...";
 
   try {
-    const response = await fetch(`/api/jobs/${jobId}/rerun`, {
+    const response = await fetch(`/api/activity/${jobId}/rerun`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -564,7 +564,7 @@ async function clearAllJobs() {
   }
 
   try {
-    const response = await fetch("/api/jobs/clear", {
+    const response = await fetch("/api/activity/clear", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -650,7 +650,7 @@ function startPolling() {
     }
 
     try {
-      const response = await fetch("/api/jobs/running");
+      const response = await fetch("/api/activity/running");
       if (!response.ok) return;
       const data = await response.json();
 
