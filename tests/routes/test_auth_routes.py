@@ -271,12 +271,12 @@ class TestRouteProtection:
         assert "/login" in response.location
 
     def test_jobs_page_requires_auth(self, auth_client, test_user):
-        """Test that GET /jobs without login redirects to login."""
+        """Test that GET /jobs returns 301 redirect to /activity (no auth required for redirects)."""
         response = auth_client.get("/jobs")
 
-        # Should redirect to login
-        assert response.status_code == 302
-        assert "/login" in response.location
+        # /jobs is now a permanent redirect to /activity (no @login_required)
+        assert response.status_code == 301
+        assert "/activity" in response.location
 
     def test_schedule_page_requires_auth(self, auth_client, test_user):
         """Test that GET /schedule returns 301 redirect to /lists (no auth required for redirects)."""
