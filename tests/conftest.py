@@ -24,8 +24,6 @@ Performance design:
 - fernet_key_isolation is a function-scoped autouse fixture that temporarily unsets
   FERNET_KEY for tests that do not use any session-scoped app fixture, so unit tests
   for crypto_utils can test file-based key loading without env-var interference.
-- dashboard_cache is reset before each test so tests that expect an empty/unconfigured
-  dashboard state are not affected by previous tests that populated the in-memory cache.
 """
 
 import os
@@ -286,24 +284,6 @@ _TEST_DATA_TABLES = [
 # from hitting UNIQUE constraint violations.
 _APPS_WITH_SESSION_USER = {"app", "app_with_csrf"}
 
-# Default dashboard cache values (mirrors the initial values in dashboard_cache.py)
-_DEFAULT_RADARR_CACHE = {
-    "configured": False,
-    "status": "not_configured",
-    "version": None,
-    "total_movies": 0,
-    "missing_movies": 0,
-    "added_by_listarr": 0,
-}
-_DEFAULT_SONARR_CACHE = {
-    "configured": False,
-    "status": "not_configured",
-    "version": None,
-    "total_series": 0,
-    "missing_episodes": 0,
-    "added_by_listarr": 0,
-}
-
 
 def _delete_test_rows(tables):
     """
@@ -318,23 +298,6 @@ def _delete_test_rows(tables):
     for table in tables:
         db.session.execute(text(f"DELETE FROM {table}"))
     db.session.commit()
-
-
-def _reset_dashboard_cache():
-    """
-    Reset the module-level dashboard cache to its default (unconfigured) state.
-
-    With session-scoped app fixtures, the in-memory dashboard cache persists
-    between tests. Tests that expect an empty/unconfigured dashboard state
-    must have the cache reset before making dashboard API requests.
-    """
-    import copy
-
-    from listarr.services import dashboard_cache
-
-    with dashboard_cache._cache_lock:
-        dashboard_cache._dashboard_cache["radarr"] = copy.deepcopy(_DEFAULT_RADARR_CACHE)
-        dashboard_cache._dashboard_cache["sonarr"] = copy.deepcopy(_DEFAULT_SONARR_CACHE)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -399,9 +362,6 @@ def db_session(request):
         # app fixture keeps the context open — db.session works directly
         _delete_test_rows(tables_to_clear)
         db.session.remove()
-
-    # Reset in-memory dashboard cache to unconfigured defaults
-    _reset_dashboard_cache()
 
     yield db.session
 

@@ -178,17 +178,13 @@ def create_app(test_config=None):
             return jsonify({"success": False, "message": "Internal server error"}), 500
         return render_template("errors/500.html"), 500
 
-    # Initialize dashboard cache and recover interrupted jobs at startup
+    # Initialize database and recover interrupted jobs at startup
     with app.app_context():
         # Import models so they are registered with SQLAlchemy
         from listarr import models  # noqa: F401
 
         # Create tables if they don't exist
         db.create_all()
-
-        from .services.dashboard_cache import initialize_dashboard_cache
-
-        initialize_dashboard_cache(app)
 
         # Recover interrupted jobs
         recover_interrupted_jobs(app)
