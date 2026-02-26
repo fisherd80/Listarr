@@ -7,7 +7,6 @@ from flask import (
     flash,
     jsonify,
     redirect,
-    render_template,
     request,
     url_for,
 )
@@ -16,7 +15,6 @@ from requests.exceptions import RequestException
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import db
-from listarr.forms.config_forms import RadarrAPIForm, SonarrAPIForm
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.routes import bp
 from listarr.services.arr_service import (
@@ -27,7 +25,6 @@ from listarr.services.arr_service import (
     validate_api_key,
 )
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
-from listarr.services.dashboard_cache import refresh_dashboard_cache
 
 
 def _is_valid_url(url):
@@ -99,16 +96,6 @@ def _save_service_config(service, form_url_field, form_api_field):
 
         db.session.commit()
 
-        # Refresh dashboard cache to reflect newly configured service
-        try:
-            refresh_dashboard_cache()
-            current_app.logger.info(f"Dashboard cache refreshed after {service} configuration")
-        except (OperationalError, RequestException) as cache_error:
-            current_app.logger.error(
-                f"Error refreshing dashboard cache after {service} save: {cache_error}", exc_info=True
-            )
-            # Don't fail the save if cache refresh fails, just log it
-
         flash(f"{service} URL and API Key saved successfully.", "success")
     except (IntegrityError, OperationalError, ValueError, RuntimeError, OSError) as e:
         db.session.rollback()
@@ -116,68 +103,10 @@ def _save_service_config(service, form_url_field, form_api_field):
         flash(f"Failed to save {service} configuration. Please try again.", "error")
 
 
-@bp.route("/config", methods=["GET", "POST"])
-@login_required
-def config_page():
-    radarr_api_form = RadarrAPIForm()
-    sonarr_api_form = SonarrAPIForm()
-
-    if request.method == "POST":
-        if "save_radarr_api" in request.form:
-            _save_service_config("Radarr", radarr_api_form.radarr_url, radarr_api_form.radarr_api)
-
-        if "save_sonarr_api" in request.form:
-            _save_service_config("Sonarr", sonarr_api_form.sonarr_url, sonarr_api_form.sonarr_api)
-
-        return redirect(url_for("main.config_page"))
-
-    # Populate Radarr form with existing key for GET requests
-    radarr_existing = ServiceConfig.query.filter_by(service="RADARR").first()
-    if radarr_existing and radarr_existing.api_key_encrypted:
-        radarr_api_form.radarr_url.data = radarr_existing.base_url
-        try:
-            radarr_api_form.radarr_api.data = decrypt_data(
-                radarr_existing.api_key_encrypted,
-                instance_path=current_app.instance_path,
-            )
-        except (ValueError, InvalidToken) as e:
-            current_app.logger.error(f"Error decrypting Radarr API key: {e}", exc_info=True)
-            radarr_api_form.radarr_api.data = ""
-            flash("Unable to decrypt stored Radarr API key. Please re-enter your Radarr API key.", "warning")
-
-    last_radarr_test_at = radarr_existing.last_tested_at if radarr_existing else None
-    last_radarr_test_status = radarr_existing.last_test_status if radarr_existing else None
-    radarr_configured = bool(radarr_existing and radarr_existing.base_url and radarr_existing.api_key_encrypted)
-
-    # Populate Sonarr form with existing key for GET requests
-    sonarr_existing = ServiceConfig.query.filter_by(service="SONARR").first()
-    if sonarr_existing and sonarr_existing.api_key_encrypted:
-        sonarr_api_form.sonarr_url.data = sonarr_existing.base_url
-        try:
-            sonarr_api_form.sonarr_api.data = decrypt_data(
-                sonarr_existing.api_key_encrypted,
-                instance_path=current_app.instance_path,
-            )
-        except (ValueError, InvalidToken) as e:
-            current_app.logger.error(f"Error decrypting Sonarr API key: {e}", exc_info=True)
-            sonarr_api_form.sonarr_api.data = ""
-            flash("Unable to decrypt stored Sonarr API key. Please re-enter your Sonarr API key.", "warning")
-
-    last_sonarr_test_at = sonarr_existing.last_tested_at if sonarr_existing else None
-    last_sonarr_test_status = sonarr_existing.last_test_status if sonarr_existing else None
-    sonarr_configured = bool(sonarr_existing and sonarr_existing.base_url and sonarr_existing.api_key_encrypted)
-
-    return render_template(
-        "config.html",
-        radarr_api_form=radarr_api_form,
-        last_radarr_test_at=last_radarr_test_at,
-        last_radarr_test_status=last_radarr_test_status,
-        radarr_configured=radarr_configured,
-        sonarr_api_form=sonarr_api_form,
-        last_sonarr_test_at=last_sonarr_test_at,
-        last_sonarr_test_status=last_sonarr_test_status,
-        sonarr_configured=sonarr_configured,
-    )
+@bp.route("/config", methods=["GET"])
+def config_redirect():
+    """301 redirect to /settings — /config page removed in v2."""
+    return redirect(url_for("main.settings_page"), code=301)
 
 
 def _test_service_api(service_upper, base_url, api_key):

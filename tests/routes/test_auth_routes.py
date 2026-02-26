@@ -279,20 +279,20 @@ class TestRouteProtection:
         assert "/login" in response.location
 
     def test_schedule_page_requires_auth(self, auth_client, test_user):
-        """Test that GET /schedule without login redirects to login."""
+        """Test that GET /schedule returns 301 redirect to /lists (no auth required for redirects)."""
         response = auth_client.get("/schedule")
 
-        # Should redirect to login
-        assert response.status_code == 302
-        assert "/login" in response.location
+        # /schedule is now a permanent redirect to /lists (no @login_required)
+        assert response.status_code == 301
+        assert "/lists" in response.location
 
     def test_config_page_requires_auth(self, auth_client, test_user):
-        """Test that GET /config without login redirects to login."""
+        """Test that GET /config returns 301 redirect to /settings (no auth required for redirects)."""
         response = auth_client.get("/config")
 
-        # Should redirect to login
-        assert response.status_code == 302
-        assert "/login" in response.location
+        # /config is now a permanent redirect to /settings (no @login_required)
+        assert response.status_code == 301
+        assert "/settings" in response.location
 
     def test_settings_page_requires_auth(self, auth_client, test_user):
         """Test that GET /settings without login redirects to login."""

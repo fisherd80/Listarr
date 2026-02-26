@@ -10,6 +10,13 @@ from listarr.models.lists_model import List
 from listarr.routes import bp
 
 
+@bp.route("/activity")
+@login_required
+def activity_page():
+    """Render the Activity page."""
+    return render_template("jobs.html")
+
+
 @bp.route("/jobs")
 @login_required
 def jobs_page():

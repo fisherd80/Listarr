@@ -1,7 +1,7 @@
 """Schedule routes - API endpoints for schedule management."""
 
 from apscheduler.jobstores.base import JobLookupError
-from flask import current_app, jsonify, render_template, request
+from flask import current_app, jsonify, redirect, request, url_for
 from flask_login import login_required
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -95,23 +95,9 @@ def _build_schedule_data(lists, scheduler_paused, include_status_html=False):
 
 
 @bp.route("/schedule")
-@login_required
-def schedule_page():
-    """
-    Render the Schedule management page.
-
-    Displays all lists with their schedule status, next run time, and last run summary.
-    """
-    config = ServiceConfig.query.first()
-    scheduler_paused = config.scheduler_paused if config else False
-    lists = List.query.order_by(List.name).all()
-    schedule_data = _build_schedule_data(lists, scheduler_paused)
-
-    return render_template(
-        "schedule.html",
-        lists=schedule_data,
-        scheduler_paused=scheduler_paused,
-    )
+def schedule_redirect():
+    """301 redirect to /lists — /schedule page removed in v2."""
+    return redirect(url_for("main.lists_page"), code=301)
 
 
 def _get_list_status(list_obj, scheduler_paused):
