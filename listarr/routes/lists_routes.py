@@ -241,6 +241,7 @@ def edit_list(list_id):
     # Build choices for dropdowns (quality profile and root folder only, not tags)
     quality_profile_choices = [("", "Use Default")]
     root_folder_choices = [("", "Use Default")]
+    tags = []
 
     if config and config.api_key_encrypted:
         try:
@@ -394,7 +395,7 @@ def edit_list(list_id):
         form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
         form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
 
-    return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type)
+    return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags)
 
 
 @bp.route("/lists/delete/<int:list_id>", methods=["POST"])

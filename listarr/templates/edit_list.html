@@ -177,8 +177,17 @@
           <!-- Tag -->
           <div>
             <label for="override_tag" class="block text-xs font-medium text-gray-300 mb-1">Tag</label>
-            {{ form.override_tag(class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500", id="override_tag", placeholder="Use Default") }}
-            <p class="mt-1 text-xs text-gray-500">Tag will be created if it doesn't exist.</p>
+            <input type="text" id="override_tag" name="override_tag"
+                   value="{{ form.override_tag.data or '' }}"
+                   list="edit-tag-list"
+                   placeholder="Use Default"
+                   class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <datalist id="edit-tag-list">
+              {% for tag in tags %}
+              <option value="{{ tag.label }}">
+              {% endfor %}
+            </datalist>
+            <p class="mt-1 text-xs text-gray-500">Created automatically if it doesn't exist. Letters, numbers, hyphens.</p>
           </div>
 
           <!-- Monitored -->
