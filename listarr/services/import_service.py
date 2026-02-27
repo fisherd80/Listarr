@@ -306,6 +306,7 @@ def _import_movies(
     # Batch accumulation
     batch = []
     batch_meta = []
+    seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
 
     for item in tmdb_items:
         # Check for timeout/cancellation
@@ -326,6 +327,13 @@ def _import_movies(
 
         if not tmdb_id:
             result.failed.append({"tmdb_id": None, "title": title, "reason": "no_tmdb_id"})
+            if activity_tracker:
+                activity_tracker.update()
+            continue
+
+        # Check if already queued in this import (TMDB can return duplicates across pages)
+        if tmdb_id in seen_ids:
+            result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "duplicate_in_batch"})
             if activity_tracker:
                 activity_tracker.update()
             continue
@@ -375,6 +383,7 @@ def _import_movies(
 
         batch.append(payload)
         batch_meta.append({"tmdb_id": tmdb_id, "title": title})
+        seen_ids.add(tmdb_id)
 
         # Flush batch if full
         if len(batch) >= BATCH_SIZE:
@@ -477,6 +486,7 @@ def _import_series(
     # Batch accumulation
     batch = []
     batch_meta = []
+    seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
 
     for item in tmdb_items:
         # Check for timeout/cancellation
@@ -500,6 +510,14 @@ def _import_series(
             if activity_tracker:
                 activity_tracker.update()
             continue
+
+        # Check if already queued in this import (TMDB can return duplicates across pages)
+        if tmdb_id in seen_ids:
+            result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "duplicate_in_batch"})
+            if activity_tracker:
+                activity_tracker.update()
+            continue
+        seen_ids.add(tmdb_id)
 
         # Translate TMDB ID to TVDB ID
         tvdb_id = tmdb_service.get_tvdb_id_from_tmdb(tmdb_id, tmdb_api_key)
