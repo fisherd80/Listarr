@@ -2,7 +2,7 @@
 Route tests for settings_routes.py - Settings page and config API endpoints.
 
 Tests cover:
-- GET /settings - 4-tab settings stub page
+- GET /settings - 3-tab settings page (Integrations, TMDB, Account)
 - POST /settings/test_tmdb_api - AJAX TMDB connection testing
 - POST /api/settings/test_radarr_api - AJAX Radarr connection testing
 - POST /api/settings/test_sonarr_api - AJAX Sonarr connection testing
@@ -31,7 +31,7 @@ from listarr.services.crypto_utils import encrypt_data
 
 
 class TestSettingsPage:
-    """Tests for GET /settings stub page."""
+    """Tests for GET /settings 3-tab settings page."""
 
     def test_settings_page_returns_200(self, client):
         """Settings page renders with 200 status."""
@@ -39,14 +39,14 @@ class TestSettingsPage:
         assert response.status_code == 200
         assert b"Settings" in response.data
 
-    def test_settings_page_has_four_tabs(self, client):
-        """Settings page has 4 tab buttons."""
+    def test_settings_page_has_three_tabs(self, client):
+        """Settings page has 3 tab buttons: Integrations, TMDB, Account. No General tab."""
         response = client.get("/settings")
         assert response.status_code == 200
         assert b"Integrations" in response.data
         assert b"TMDB" in response.data
-        assert b"General" in response.data
         assert b"Account" in response.data
+        assert b"General" not in response.data
 
 
 class TestTmdbApiTest:
