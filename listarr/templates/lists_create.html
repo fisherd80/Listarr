@@ -1,15 +1,55 @@
 {% extends "base.html" %}
-{% block title %}Create List{% endblock %}
+{% block title %}Create List - Listarr{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='js/create.js') }}" defer></script>
+{% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-  <nav class="text-sm text-gray-400 mb-4">
-    <a href="{{ url_for('main.lists_page') }}" class="hover:text-white">Lists</a>
-    <span class="mx-1">/</span>
-    <span class="text-gray-300">Create</span>
-  </nav>
-  <h1 class="text-2xl font-bold text-white mb-6">Create List</h1>
-  <div class="bg-gray-800 border border-gray-700 rounded p-8 text-center">
-    <p class="text-gray-400">Coming soon.</p>
+
+<div class="space-y-4">
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <nav class="text-sm text-gray-400 mb-1">
+        <a href="{{ url_for('main.lists_page') }}" class="hover:text-white">Lists</a>
+        <span class="mx-1">/</span>
+        <span class="text-gray-300">Create</span>
+      </nav>
+      <h1 class="text-2xl font-semibold text-gray-100">Create List</h1>
+    </div>
+    <a href="{{ url_for('main.lists_page') }}"
+       class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400 hover:text-white border border-gray-600 rounded-md hover:border-gray-400 transition-colors">
+      <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      Back to Lists
+    </a>
   </div>
+
+  <!-- Tab Toggle -->
+  <div class="border-b border-gray-700">
+    <div class="flex space-x-0">
+      <button id="tab-presets"
+              class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-blue-500 text-white transition-colors focus:outline-none">
+        Presets
+      </button>
+      <button id="tab-custom"
+              class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-300 transition-colors focus:outline-none">
+        Custom
+      </button>
+    </div>
+  </div>
+
+  <!-- Presets Panel -->
+  <div id="panel-presets" class="tab-panel">
+    {% include 'lists_create_preset.html' %}
+  </div>
+
+  <!-- Custom Panel -->
+  <div id="panel-custom" class="tab-panel hidden">
+    {% include 'lists_create_custom.html' %}
+  </div>
+
 </div>
+
 {% endblock %}

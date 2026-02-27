@@ -1,17 +1,293 @@
-{% extends "base.html" %}
-{% block title %}Create List — Preset{% endblock %}
-{% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-  <nav class="text-sm text-gray-400 mb-4">
-    <a href="{{ url_for('main.lists_page') }}" class="hover:text-white">Lists</a>
-    <span class="mx-1">/</span>
-    <a href="{{ url_for('main.lists_create') }}" class="hover:text-white">Create</a>
-    <span class="mx-1">/</span>
-    <span class="text-gray-300">Preset</span>
-  </nav>
-  <h1 class="text-2xl font-bold text-white mb-6">Create List — Preset</h1>
-  <div class="bg-gray-800 border border-gray-700 rounded p-8 text-center">
-    <p class="text-gray-400">Coming soon.</p>
+<!-- Preset creation panel — included fragment (no extends) -->
+
+<div id="preset-panel-content">
+
+  <!-- Step 1: Choose Template -->
+  <div class="accordion-section" data-step="1" data-panel="preset">
+    <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
+         data-step="1" data-panel="preset">
+      <div class="flex items-center gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+        <span class="text-sm font-medium text-gray-100">Choose Template</span>
+        <span class="preset-step1-summary text-xs text-gray-400"></span>
+      </div>
+      <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+    <div class="accordion-body border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="1" data-panel="preset">
+      <div class="p-4">
+
+        <!-- Movies group -->
+        <p class="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3">Movies (Radarr)</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          {% for key, meta in presets.items() %}
+          {% if 'movie' in key %}
+          <button type="button"
+                  class="preset-card text-left p-3 bg-gray-700 border-2 border-gray-600 rounded-lg hover:border-amber-500 transition-colors focus:outline-none"
+                  data-preset="{{ key }}"
+                  data-service="radarr"
+                  data-title="{{ meta.title }}">
+            <div class="flex items-start gap-2">
+              <span class="flex-shrink-0 w-6 h-6 bg-amber-900 rounded text-amber-300 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                </svg>
+              </span>
+              <div>
+                <p class="text-sm font-medium text-gray-100">{{ meta.title }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ meta.description }}</p>
+              </div>
+            </div>
+          </button>
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        <!-- TV group -->
+        <p class="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3">TV Shows (Sonarr)</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {% for key, meta in presets.items() %}
+          {% if 'tv' in key %}
+          <button type="button"
+                  class="preset-card text-left p-3 bg-gray-700 border-2 border-gray-600 rounded-lg hover:border-blue-500 transition-colors focus:outline-none"
+                  data-preset="{{ key }}"
+                  data-service="sonarr"
+                  data-title="{{ meta.title }}">
+            <div class="flex items-start gap-2">
+              <span class="flex-shrink-0 w-6 h-6 bg-blue-900 rounded text-blue-300 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </span>
+              <div>
+                <p class="text-sm font-medium text-gray-100">{{ meta.title }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ meta.description }}</p>
+              </div>
+            </div>
+          </button>
+          {% endif %}
+          {% endfor %}
+        </div>
+
+      </div>
+    </div>
   </div>
+
+  <!-- Step 2: Target Service & Import Settings -->
+  <div class="accordion-section mt-2" data-step="2" data-panel="preset">
+    <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
+         data-step="2" data-panel="preset">
+      <div class="flex items-center gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">2</span>
+        <span class="text-sm font-medium text-gray-400">Import Settings</span>
+        <span class="preset-step2-summary text-xs text-gray-400"></span>
+      </div>
+      <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="2" data-panel="preset">
+      <div class="p-4 space-y-4">
+
+        <!-- Target service (auto-set, display only) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Target Service</label>
+          <div id="preset-service-display" class="text-sm text-gray-400 italic">Select a template above to auto-set</div>
+          <input type="hidden" id="preset-service" name="preset_service" value="">
+        </div>
+
+        <!-- Import settings loading area -->
+        <div id="preset-import-settings">
+          <div class="text-sm text-gray-500 italic">Select a template to load import settings.</div>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button type="button" class="next-step-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                  data-current-step="2" data-panel="preset">
+            Next: Filters
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Filters (limit + year range for presets) -->
+  <div class="accordion-section mt-2" data-step="3" data-panel="preset">
+    <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
+         data-step="3" data-panel="preset">
+      <div class="flex items-center gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">3</span>
+        <span class="text-sm font-medium text-gray-400">Filters</span>
+      </div>
+      <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="3" data-panel="preset">
+      <div class="p-4 space-y-4">
+
+        <!-- Limit -->
+        <div>
+          <label for="preset-limit" class="block text-xs font-medium text-gray-300 mb-1">
+            Max Items to Import
+          </label>
+          <input type="number" id="preset-limit" name="preset_limit" value="20" min="1" max="500"
+                 class="w-32 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <p class="text-xs text-gray-500 mt-1">Maximum number of titles to import from this list.</p>
+        </div>
+
+        <!-- Year range (optional) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-300 mb-1">Year Range (optional)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="preset-year-min" name="preset_year_min" placeholder="From"
+                   min="1900" max="2030"
+                   class="w-28 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <span class="text-gray-500 text-sm">to</span>
+            <input type="number" id="preset-year-max" name="preset_year_max" placeholder="To"
+                   min="1900" max="2030"
+                   class="w-28 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button type="button" class="next-step-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                  data-current-step="3" data-panel="preset">
+            Next: Schedule
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Schedule -->
+  <div class="accordion-section mt-2" data-step="4" data-panel="preset">
+    <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
+         data-step="4" data-panel="preset">
+      <div class="flex items-center gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">4</span>
+        <span class="text-sm font-medium text-gray-400">Schedule</span>
+        <span class="preset-step4-summary text-xs text-gray-400"></span>
+      </div>
+      <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="4" data-panel="preset">
+      <div class="p-4 space-y-4">
+
+        <!-- Frequency picker -->
+        <div>
+          <label for="preset-freq" class="block text-xs font-medium text-gray-300 mb-1">Frequency</label>
+          <select id="preset-freq" class="cron-freq-select text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  data-panel="preset">
+            <option value="manual">Manual (run on demand only)</option>
+            <option value="hourly">Hourly</option>
+            <option value="daily" selected>Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="custom">Custom (cron expression)</option>
+          </select>
+        </div>
+
+        <!-- Time picker (shown for daily/weekly) -->
+        <div id="preset-time-row" class="flex items-center gap-3">
+          <label for="preset-time" class="text-xs font-medium text-gray-300 whitespace-nowrap">At Hour (UTC)</label>
+          <select id="preset-time" class="cron-time-select text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  data-panel="preset">
+            {% for h in range(24) %}
+            <option value="{{ '%02d'|format(h) }}" {% if h == 0 %}selected{% endif %}>{{ '%02d:00'|format(h) }} UTC</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Day picker (shown for weekly) -->
+        <div id="preset-day-row" class="hidden flex items-center gap-3">
+          <label for="preset-day" class="text-xs font-medium text-gray-300 whitespace-nowrap">On Day</label>
+          <select id="preset-day" class="cron-day-select text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  data-panel="preset">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+
+        <!-- Advanced toggle -->
+        <div>
+          <button type="button" id="preset-advanced-toggle"
+                  class="text-xs text-blue-400 hover:text-blue-300 underline focus:outline-none"
+                  data-panel="preset">
+            Advanced: Enter raw cron expression
+          </button>
+        </div>
+
+        <!-- Raw cron input (hidden until advanced) -->
+        <div id="preset-cron-advanced" class="hidden space-y-2">
+          <label for="preset-cron-raw" class="block text-xs font-medium text-gray-300">Cron Expression</label>
+          <input type="text" id="preset-cron-raw" placeholder="0 0 * * *"
+                 class="cron-raw-input w-full text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                 data-panel="preset">
+          <div id="preset-cron-description" class="text-xs text-gray-400"></div>
+        </div>
+
+        <!-- Hidden cron value storage -->
+        <input type="hidden" id="preset-cron-value" value="0 0 * * *">
+
+        <div class="flex justify-end pt-2">
+          <button type="button" class="next-step-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                  data-current-step="4" data-panel="preset">
+            Next: Review
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5: Review & Save -->
+  <div class="accordion-section mt-2" data-step="5" data-panel="preset">
+    <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
+         data-step="5" data-panel="preset">
+      <div class="flex items-center gap-3">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">5</span>
+        <span class="text-sm font-medium text-gray-400">Review &amp; Save</span>
+      </div>
+      <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="5" data-panel="preset">
+      <div class="p-4 space-y-4">
+
+        <!-- Name input -->
+        <div>
+          <label for="preset-list-name" class="block text-xs font-medium text-gray-300 mb-1">List Name</label>
+          <input type="text" id="preset-list-name" name="preset_list_name" placeholder="e.g. Trending Movies"
+                 class="w-full text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+
+        <!-- Active toggle -->
+        <div class="flex items-center gap-3">
+          <input type="checkbox" id="preset-is-active" name="preset_is_active" checked
+                 class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500">
+          <label for="preset-is-active" class="text-sm text-gray-300">Enable schedule (run automatically)</label>
+        </div>
+
+        <!-- Error message area -->
+        <div id="preset-submit-error" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-md px-3 py-2"></div>
+
+        <!-- Submit button -->
+        <div class="flex justify-end pt-2">
+          <button type="button" id="preset-submit-btn"
+                  class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-green-500">
+            Create List
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
-{% endblock %}
