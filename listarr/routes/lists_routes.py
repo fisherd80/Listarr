@@ -29,6 +29,7 @@ from listarr.services.scheduler import (
     resume_scheduler,
     schedule_list,
     unschedule_list,
+    validate_cron_expression,
 )
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
@@ -544,7 +545,7 @@ def wizard_preview():
     TMDB preview endpoint for the list creation wizard.
 
     Fetches a sample of TMDB results based on preset or custom filters.
-    Returns up to 5 items for preview display.
+    Returns up to 20 items for preview display.
 
     Request JSON:
         service: string (radarr or sonarr)
@@ -636,9 +637,9 @@ def wizard_preview():
         current_app.logger.error(f"Error fetching TMDB preview: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch preview from TMDB", "items": []})
 
-    # Return first 5 items for preview
+    # Return first 20 items for preview
     # Native API returns plain list of dicts
-    items_list = items[:5] if items else []
+    items_list = items[:20] if items else []
 
     preview_items = []
     for item in items_list:
@@ -941,18 +942,6 @@ def run_list_import(list_id):
             400,
         )
 
-    # Check if already running (database check)
-    if is_list_running(list_id):
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "message": f"List '{list_obj.name}' is already running",
-                }
-            ),
-            400,
-        )
-
     # Submit job via executor
     try:
         app = current_app._get_current_object()
@@ -965,6 +954,17 @@ def run_list_import(list_id):
     except (OperationalError, RuntimeError) as e:
         current_app.logger.error(f"Error starting job for list {list_id}: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to start job"}), 500
+
+
+@bp.route("/api/cron/validate", methods=["GET"])
+@login_required
+def validate_cron():
+    """Validate a cron expression and return human-readable description."""
+    expr = request.args.get("expr", "")
+    if not expr:
+        return jsonify({"valid": False, "error": "No expression provided", "description": "", "next_runs": []})
+    result = validate_cron_expression(expr)
+    return jsonify(result)
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])

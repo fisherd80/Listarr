@@ -652,8 +652,8 @@ class TestWizardPreview:
         assert len(data["items"]) == 1
         assert data["items"][0]["title"] == "Show 1"
 
-    def test_limits_preview_to_5_items(self, client, db_session, temp_instance_path):
-        """Preview returns at most 5 items even when TMDB returns more."""
+    def test_limits_preview_to_20_items(self, client, db_session, temp_instance_path):
+        """Preview returns at most 20 items even when TMDB returns more."""
         from listarr.services.crypto_utils import encrypt_data
 
         encrypted = encrypt_data("tmdb_key", instance_path=temp_instance_path)
@@ -662,7 +662,7 @@ class TestWizardPreview:
         db.session.commit()
 
         mock_items = [
-            {"id": i, "title": f"Movie {i}", "release_date": "2024-01-01", "vote_average": 7.0} for i in range(20)
+            {"id": i, "title": f"Movie {i}", "release_date": "2024-01-01", "vote_average": 7.0} for i in range(30)
         ]
 
         with (
@@ -672,7 +672,7 @@ class TestWizardPreview:
             response = client.post("/lists/wizard/preview", json={"service": "radarr", "preset": "trending_movies"})
 
         data = response.get_json()
-        assert len(data["items"]) == 5
+        assert len(data["items"]) == 20
 
     def test_custom_discovery_with_filters(self, client, db_session, temp_instance_path):
         """Custom discovery uses filters to call discover_movies_cached."""
@@ -1105,25 +1105,9 @@ class TestRunListImport:
         assert data["success"] is False
         assert "not active" in data["message"]
 
-    @patch("listarr.routes.lists_routes.is_list_running")
-    def test_returns_400_when_already_running(self, mock_running, client, db_session):
-        """Returns 400 when job already running for this list."""
-        mock_running.return_value = True
-        lst = make_list(name="Running List")
-        db.session.add(lst)
-        db.session.commit()
-
-        response = client.post(f"/lists/{lst.id}/run")
-        assert response.status_code == 400
-        data = response.get_json()
-        assert data["success"] is False
-        assert "already running" in data["message"]
-
-    @patch("listarr.routes.lists_routes.is_list_running")
     @patch("listarr.routes.lists_routes.submit_job")
-    def test_starts_job_returns_202(self, mock_submit, mock_running, client, db_session):
+    def test_starts_job_returns_202(self, mock_submit, client, db_session):
         """Returns 202 with job_id when job submitted successfully."""
-        mock_running.return_value = False
         mock_submit.return_value = 42
 
         lst = make_list(name="Job List")
@@ -1137,11 +1121,9 @@ class TestRunListImport:
         assert data["job_id"] == 42
         assert data["status"] == "started"
 
-    @patch("listarr.routes.lists_routes.is_list_running")
     @patch("listarr.routes.lists_routes.submit_job")
-    def test_handles_value_error_from_submit(self, mock_submit, mock_running, client, db_session):
+    def test_handles_value_error_from_submit(self, mock_submit, client, db_session):
         """Returns 400 when submit_job raises ValueError."""
-        mock_running.return_value = False
         mock_submit.side_effect = ValueError("Bad job")
 
         lst = make_list(name="ValueError List")
@@ -1153,11 +1135,9 @@ class TestRunListImport:
         data = response.get_json()
         assert data["success"] is False
 
-    @patch("listarr.routes.lists_routes.is_list_running")
     @patch("listarr.routes.lists_routes.submit_job")
-    def test_handles_runtime_error_from_submit(self, mock_submit, mock_running, client, db_session):
+    def test_handles_runtime_error_from_submit(self, mock_submit, client, db_session):
         """Returns 500 when submit_job raises RuntimeError."""
-        mock_running.return_value = False
         mock_submit.side_effect = RuntimeError("Worker pool error")
 
         lst = make_list(name="RuntimeError List")
