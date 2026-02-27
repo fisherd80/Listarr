@@ -744,16 +744,19 @@ function loadImportDefaults(service, panelName) {
     }
     html += '</select></div>';
 
-    // Tag (optional)
+    // Tag (optional) — text input with datalist for existing tags + ability to create new
     html += '<div>';
     html += '<label for="' + prefix + '-tag" class="block text-xs font-medium text-gray-300 mb-1">Tag (optional)</label>';
-    html += '<select id="' + prefix + '-tag" class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">';
-    html += '<option value="">None</option>';
+    html += '<input type="text" id="' + prefix + '-tag" list="' + prefix + '-tag-list" placeholder="None"';
+    html += ' class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full">';
+    html += '<datalist id="' + prefix + '-tag-list">';
     for (var k = 0; k < tags.length; k++) {
       var t = tags[k];
-      html += '<option value="' + t.id + '">' + escapeHtml(t.label || String(t.id)) + '</option>';
+      html += '<option value="' + escapeHtml(t.label || String(t.id)) + '">';
     }
-    html += '</select></div>';
+    html += '</datalist>';
+    html += '<p class="mt-1 text-xs text-gray-500">Created automatically if it doesn\'t exist. Letters, numbers, hyphens.</p>';
+    html += '</div>';
 
     // Monitored checkbox
     var monitoredChecked = (defaults.monitored !== false) ? ' checked' : '';
@@ -849,7 +852,7 @@ function submitList(panelName) {
       import_settings: {
         quality_profile_id: qualityEl ? parseInt(qualityEl.value, 10) || null : null,
         root_folder: folderEl ? folderEl.value : '',
-        tag: tagEl && tagEl.value ? parseInt(tagEl.value, 10) : null,
+        tag: tagEl && tagEl.value.trim() ? tagEl.value.trim() : null,
         monitored: monitoredEl ? monitoredEl.checked : true,
         search_on_add: searchEl ? searchEl.checked : true
       },
@@ -890,7 +893,7 @@ function submitList(panelName) {
       import_settings: {
         quality_profile_id: cqEl ? parseInt(cqEl.value, 10) || null : null,
         root_folder: cfEl ? cfEl.value : '',
-        tag: ctEl && ctEl.value ? parseInt(ctEl.value, 10) : null,
+        tag: ctEl && ctEl.value.trim() ? ctEl.value.trim() : null,
         monitored: cmEl ? cmEl.checked : true,
         search_on_add: csEl ? csEl.checked : true
       },
