@@ -300,6 +300,14 @@
   var existingCron = {{ (list.schedule_cron or '') | tojson }};
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Initialize cron picker for edit panel FIRST — this attaches the change
+    // listeners that the dispatchEvent below depends on. We must call this here
+    // because this listener fires BEFORE create.js's DOMContentLoaded listener
+    // (inline scripts register listeners before deferred scripts).
+    // initCronPickerForPanel is available because create.js is defer-loaded,
+    // meaning it has been parsed and executed before DOMContentLoaded fires.
+    initCronPickerForPanel('edit');
+
     var freqEl = document.getElementById('edit-freq');
     var timeEl = document.getElementById('edit-time');
     var dayEl = document.getElementById('edit-day');
@@ -359,7 +367,9 @@
       }
     }
 
-    // Trigger change event to update row visibility and rebuild cron
+    // Trigger change event to update row visibility and rebuild cron value
+    // This works because initCronPickerForPanel('edit') above already attached
+    // the change listener to freqEl
     freqEl.dispatchEvent(new Event('change'));
   });
 }());

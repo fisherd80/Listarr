@@ -534,6 +534,7 @@ function collectFilters() {
 function initCronPicker() {
   initCronPickerForPanel('preset');
   initCronPickerForPanel('custom');
+  initCronPickerForPanel('edit');
 }
 
 /**
