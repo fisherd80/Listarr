@@ -763,7 +763,9 @@ def wizard_submit():
     # Handle tag - create or get tag_id from tag name
     tag_id = None
     tag_name = import_settings.get("tag")
-    if tag_name and tag_name.strip():
+    if tag_name is not None:
+        tag_name = str(tag_name).strip()
+    if tag_name:
         # Get service config
         service_upper = service.upper()
         config = ServiceConfig.query.filter_by(service=service_upper).first()
