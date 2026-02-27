@@ -125,6 +125,29 @@ class TestTestRadarrAPIAjax:
     """Tests for POST /api/settings/test_radarr_api endpoint (AJAX)."""
 
     @patch("listarr.routes.settings_routes.validate_api_key")
+    def test_test_radarr_empty_key_uses_stored(self, mock_validate, app, client, temp_instance_path):
+        """Empty api_key uses stored Radarr key from DB — returns success."""
+        encrypted = encrypt_data("stored_radarr_key_9999", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        mock_validate.return_value = True
+        response = client.post(
+            "/api/settings/test_radarr_api",
+            json={"base_url": "http://localhost:7878", "api_key": ""},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+    @patch("listarr.routes.settings_routes.validate_api_key")
     def test_test_radarr_api_with_valid_credentials(self, mock_test, app, client):
         """Test AJAX endpoint with valid Radarr credentials."""
         mock_test.return_value = True
@@ -1148,6 +1171,42 @@ class TestHelperFunctions:
 class TestSaveRadarrConnection:
     """Tests for POST /api/settings/radarr/connection."""
 
+    def test_save_empty_api_key_uses_stored_key(self, client, app, temp_instance_path):
+        """POST with empty api_key returns 200 if a stored encrypted key exists (fallback)."""
+        encrypted = encrypt_data("stored_api_key_1234", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        with (
+            patch("listarr.routes.settings_routes.validate_api_key") as mock_validate,
+            patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt,
+        ):
+            mock_validate.return_value = True
+            mock_encrypt.return_value = "re_encrypted_key"
+            response = client.post(
+                "/api/settings/radarr/connection",
+                json={"base_url": "http://localhost:7878", "api_key": ""},
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+    def test_save_empty_api_key_no_stored_key_returns_400(self, client):
+        """POST with empty api_key and no pre-configured service returns 400."""
+        response = client.post(
+            "/api/settings/radarr/connection",
+            json={"base_url": "http://localhost:7878", "api_key": ""},
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+
     def test_save_valid_connection(self, client, app):
         """Successful connection test + save returns success JSON."""
         with (
@@ -1238,6 +1297,31 @@ class TestSaveSonarrConnection:
 
 class TestSaveTmdbSettings:
     """Tests for POST /api/settings/tmdb."""
+
+    def test_save_empty_api_key_uses_stored_key(self, client, app, temp_instance_path):
+        """POST with empty api_key returns 200 if a stored encrypted TMDB key exists (fallback)."""
+        encrypted = encrypt_data("stored_tmdb_key_5678", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="TMDB",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+        db.session.commit()
+
+        with (
+            patch("listarr.routes.settings_routes.validate_tmdb_api_key") as mock_validate,
+            patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt,
+        ):
+            mock_validate.return_value = True
+            mock_encrypt.return_value = "re_encrypted_key"
+            response = client.post(
+                "/api/settings/tmdb",
+                json={"api_key": "", "region": "US"},
+            )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
 
     def test_save_valid_tmdb_settings(self, client, app):
         """Successful TMDB save returns success JSON."""

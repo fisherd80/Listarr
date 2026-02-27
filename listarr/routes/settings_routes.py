@@ -86,6 +86,17 @@ def _test_and_update_service_status(service, base_url, api_key):
     return test_result, test_timestamp, test_status
 
 
+def _resolve_api_key(service_name):
+    """Return the stored decrypted API key for a service, or None."""
+    cfg = ServiceConfig.query.filter_by(service=service_name).first()
+    if cfg and cfg.api_key_encrypted:
+        try:
+            return decrypt_data(cfg.api_key_encrypted, instance_path=current_app.instance_path)
+        except (ValueError, InvalidToken):
+            return None
+    return None
+
+
 def _test_service_api(service_upper, base_url, api_key):
     """Handle test connection logic for any service."""
     if not base_url or not api_key:
@@ -180,8 +191,13 @@ def save_service_connection(service):
     api_key = (data.get("api_key") or "").strip()
     force_save = data.get("force_save", False)
 
-    if not base_url or not api_key:
+    if not base_url:
         return jsonify({"success": False, "message": "URL and API key are required."}), 400
+
+    if not api_key:
+        api_key = _resolve_api_key(service_upper) or ""
+        if not api_key:
+            return jsonify({"success": False, "message": "API key is required."}), 400
 
     if not _is_valid_url(base_url):
         return jsonify({"success": False, "message": "Invalid URL format. Please enter a valid URL."}), 400
@@ -238,7 +254,9 @@ def save_tmdb_settings():
     force_save = data.get("force_save", False)
 
     if not api_key:
-        return jsonify({"success": False, "message": "API key is required."}), 400
+        api_key = _resolve_api_key("TMDB") or ""
+        if not api_key:
+            return jsonify({"success": False, "message": "API key is required."}), 400
 
     test_timestamp = None
     test_status = None
@@ -289,9 +307,11 @@ def save_tmdb_settings():
 @bp.route("/settings/test_tmdb_api", methods=["POST"])
 @login_required
 def test_tmdb_api():
-    api_key = request.json.get("api_key", "")
+    api_key = (request.json.get("api_key") or "").strip()
     if not api_key:
-        return jsonify({"success": False, "message": "API key cannot be empty."})
+        api_key = _resolve_api_key("TMDB") or ""
+        if not api_key:
+            return jsonify({"success": False, "message": "API key cannot be empty."})
 
     test_result, test_timestamp, test_status = _test_and_update_tmdb_status(api_key)
 
@@ -337,13 +357,21 @@ def change_password():
 @bp.route("/api/settings/test_radarr_api", methods=["POST"])
 @login_required
 def test_radarr_api():
-    return _test_service_api("RADARR", request.json.get("base_url", ""), request.json.get("api_key", ""))
+    base_url = request.json.get("base_url", "")
+    api_key = (request.json.get("api_key") or "").strip()
+    if not api_key:
+        api_key = _resolve_api_key("RADARR") or ""
+    return _test_service_api("RADARR", base_url, api_key)
 
 
 @bp.route("/api/settings/test_sonarr_api", methods=["POST"])
 @login_required
 def test_sonarr_api():
-    return _test_service_api("SONARR", request.json.get("base_url", ""), request.json.get("api_key", ""))
+    base_url = request.json.get("base_url", "")
+    api_key = (request.json.get("api_key") or "").strip()
+    if not api_key:
+        api_key = _resolve_api_key("SONARR") or ""
+    return _test_service_api("SONARR", base_url, api_key)
 
 
 @bp.route("/api/settings/<service>/quality-profiles", methods=["GET"])
