@@ -262,10 +262,9 @@ function saveConnection(service, force) {
           importPanel.classList.remove('hidden');
           loadImportDefaults(service);
         }
-        // Update placeholder to reflect new key_last4
-        if (data.key_last4) {
-          keyInput.value = '';
-          keyInput.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' + data.key_last4;
+        // Ensure the saved key is in the input value (for toggle reveal)
+        if (keyInput.value) {
+          keyInput.type = 'password';
         }
       } else if (data.test_failed) {
         setStatus(statusEl, false, data.message || 'Connection test failed.');
@@ -390,9 +389,9 @@ function saveTmdbSettings(force) {
 
       if (data.success) {
         setStatus(statusEl, true, data.message || 'TMDB settings saved.');
-        if (data.key_last4) {
-          keyInput.value = '';
-          keyInput.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' + data.key_last4;
+        // Ensure the saved key stays masked (for toggle reveal)
+        if (keyInput.value) {
+          keyInput.type = 'password';
         }
       } else if (data.test_failed) {
         setStatus(statusEl, false, data.message || 'Connection test failed.');

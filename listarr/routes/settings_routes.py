@@ -144,21 +144,18 @@ def settings_page():
             return {
                 "configured": False,
                 "base_url": None,
-                "key_last4": None,
+                "api_key": None,
                 "last_tested_at": None,
                 "last_test_status": None,
             }
         try:
             key = decrypt_data(cfg.api_key_encrypted, instance_path=current_app.instance_path)
-            key_last4 = key[-4:] if len(key) >= 4 else key
         except (ValueError, InvalidToken):
             key = None
-            key_last4 = "????"
         return {
             "configured": True,
             "base_url": cfg.base_url,
             "api_key": key,
-            "key_last4": key_last4,
             "last_tested_at": cfg.last_tested_at,
             "last_test_status": cfg.last_test_status,
         }
@@ -239,7 +236,7 @@ def save_service_connection(service):
             service_config.last_test_status = test_status
 
         db.session.commit()
-        return jsonify({"success": True, "message": f"{label} connection saved.", "key_last4": api_key[-4:]})
+        return jsonify({"success": True, "message": f"{label} connection saved."})
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving {service_upper} configuration: {e}", exc_info=True)
@@ -294,7 +291,7 @@ def save_tmdb_settings():
             tmdb_config.last_test_status = test_status
 
         db.session.commit()
-        return jsonify({"success": True, "message": "TMDB settings saved.", "key_last4": api_key[-4:]})
+        return jsonify({"success": True, "message": "TMDB settings saved."})
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)

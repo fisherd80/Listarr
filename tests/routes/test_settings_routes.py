@@ -1222,7 +1222,7 @@ class TestSaveRadarrConnection:
         assert response.status_code == 200
         data = response.get_json()
         assert data["success"] is True
-        assert data["key_last4"] == "1234"
+        assert "key_last4" not in data
 
     def test_save_empty_fields_returns_400(self, client):
         """Empty URL or API key returns 400."""
@@ -1292,7 +1292,7 @@ class TestSaveSonarrConnection:
         assert response.status_code == 200
         data = response.get_json()
         assert data["success"] is True
-        assert data["key_last4"] == "1234"
+        assert "key_last4" not in data
 
 
 class TestSaveTmdbSettings:
