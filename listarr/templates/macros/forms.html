@@ -1,4 +1,5 @@
-{% macro import_settings_form(service, show_season_folder=false) %}
+{% macro import_settings_form(service, show_season_folder=false, inline=false) %}
+{% if not inline %}
 <div class="border-t pt-4 mt-4 max-w-lg">
   <button
     type="button"
@@ -12,6 +13,10 @@
   </button>
 
   <div id="{{ service }}-import-settings" class="hidden mt-2 space-y-4">
+{% else %}
+<div id="{{ service }}-import-settings" class="space-y-4" data-inline="true">
+{% endif %}
+
     {# Skeleton loading state - shown while fetching data #}
     <div id="{{ service }}-import-skeleton" class="animate-pulse space-y-4">
       <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
@@ -92,6 +97,11 @@
       Save Import Settings
     </button>
     </div>{# end import-form #}
+
+{% if not inline %}
   </div>
 </div>
+{% else %}
+</div>
+{% endif %}
 {% endmacro %}
