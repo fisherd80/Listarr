@@ -1264,6 +1264,12 @@ def update_schedule(list_id):
 # ---------------------------------------------------------------------------
 
 
+@bp.route("/")
+def root_redirect():
+    """301 redirect to /lists — root route entry point."""
+    return redirect(url_for("main.lists_page"), code=301)
+
+
 @bp.route("/dashboard")
 def dashboard_redirect():
     """301 redirect to /lists — /dashboard page removed in v2."""
