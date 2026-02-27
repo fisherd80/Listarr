@@ -760,11 +760,16 @@ def wizard_submit():
         "rating_min": filters.get("rating_min"),
     }
 
-    # Handle tag - create or get tag_id from tag name
+    # Handle tag - create or get tag_id from tag name.
+    # The frontend must send a string label (e.g. "listarr-popular"), not a numeric ID.
+    # Reject non-string values explicitly to prevent numeric IDs from being silently
+    # converted to strings and then treated as tag names (which creates spurious tags).
     tag_id = None
     tag_name = import_settings.get("tag")
+    if tag_name is not None and not isinstance(tag_name, str):
+        return jsonify({"success": False, "error": "tag must be a string label, not a numeric ID"}), 400
     if tag_name is not None:
-        tag_name = str(tag_name).strip()
+        tag_name = tag_name.strip()
     if tag_name:
         # Get service config
         service_upper = service.upper()

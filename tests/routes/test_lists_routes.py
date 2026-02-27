@@ -910,6 +910,28 @@ class TestWizardSubmit:
         lst = List.query.filter_by(name="Tagged List").first()
         assert lst.override_tag_id == 7
 
+    def test_rejects_numeric_tag_id_to_prevent_spurious_tag_creation(self, client, db_session):
+        """Sending tag as an integer ID must return 400, not create a spurious tag named '45'.
+
+        Regression test for: create.js old dropdown sent tag: 45 (integer) instead of
+        "listarr-popular" (string label). wizard_submit previously converted this to str("45")
+        and called create_or_get_tag_id("45"), creating a new tag literally named "45" in
+        Radarr/Sonarr instead of applying the intended tag.
+        """
+        payload = {
+            "name": "Bad Tag List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {},
+            "import_settings": {"tag": 45},  # integer ID — must be rejected
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "string" in data.get("error", "").lower()
+
     @patch("listarr.routes.lists_routes.unschedule_list")
     @patch("listarr.routes.lists_routes.schedule_list")
     def test_registers_schedule_after_create(self, mock_schedule, mock_unschedule, client, db_session):
