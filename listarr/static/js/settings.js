@@ -152,9 +152,15 @@ function testConnection(service) {
 
   var baseUrl = urlInput.value.trim();
   var apiKey = keyInput.value.trim();
+  var formContainer = document.getElementById(service + '-connection-form');
+  var isConfigured = formContainer && formContainer.dataset.configured === 'true';
 
-  if (!baseUrl || !apiKey) {
-    setStatus(statusEl, false, 'URL and API key are required to test.');
+  if (!baseUrl) {
+    setStatus(statusEl, false, 'URL is required to test.');
+    return;
+  }
+  if (!apiKey && !isConfigured) {
+    setStatus(statusEl, false, 'API key is required to test.');
     return;
   }
 
@@ -219,9 +225,15 @@ function saveConnection(service, force) {
 
   var baseUrl = urlInput.value.trim();
   var apiKey = keyInput.value.trim();
+  var formContainer = document.getElementById(service + '-connection-form');
+  var isConfigured = formContainer && formContainer.dataset.configured === 'true';
 
-  if (!baseUrl || !apiKey) {
-    setStatus(statusEl, false, 'URL and API key are required.');
+  if (!baseUrl) {
+    setStatus(statusEl, false, 'URL is required.');
+    return;
+  }
+  if (!apiKey && !isConfigured) {
+    setStatus(statusEl, false, 'API key is required.');
     return;
   }
 
@@ -294,7 +306,9 @@ function testTmdb() {
   if (!keyInput || !btn) return;
 
   var apiKey = keyInput.value.trim();
-  if (!apiKey) {
+  var formContainer = document.getElementById('tmdb-connection-form');
+  var isConfigured = formContainer && formContainer.dataset.configured === 'true';
+  if (!apiKey && !isConfigured) {
     setStatus(statusEl, false, 'API key is required to test.');
     return;
   }
@@ -350,8 +364,9 @@ function saveTmdbSettings(force) {
 
   var apiKey = keyInput.value.trim();
   var region = regionSelect ? regionSelect.value : '';
-
-  if (!apiKey) {
+  var formContainer = document.getElementById('tmdb-connection-form');
+  var isConfigured = formContainer && formContainer.dataset.configured === 'true';
+  if (!apiKey && !isConfigured) {
     setStatus(statusEl, false, 'API key is required.');
     return;
   }
