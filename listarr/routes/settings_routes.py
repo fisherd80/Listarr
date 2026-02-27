@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 from cryptography.fernet import InvalidToken
 from flask import (
     current_app,
-    flash,
     jsonify,
     redirect,
     render_template,
@@ -17,6 +16,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import db
 from listarr.forms.auth_forms import ChangePasswordForm
+from listarr.forms.settings_forms import REGION_CHOICES
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.routes import bp
 from listarr.services.arr_service import (
@@ -86,54 +86,6 @@ def _test_and_update_service_status(service, base_url, api_key):
     return test_result, test_timestamp, test_status
 
 
-def _save_service_config(service, form_url_field, form_api_field):
-    """Save service API config from form POST data."""
-    service_upper = service.upper()
-    url_data = form_url_field.data.strip()
-    api_data = form_api_field.data.strip()
-
-    if not url_data or not api_data:
-        flash("URL and API Key cannot be empty.", "warning")
-        return
-
-    if not _is_valid_url(url_data):
-        flash("Invalid URL format. Please enter a valid URL.", "warning")
-        return
-
-    test_result, test_timestamp, test_status = _test_and_update_service_status(service_upper, url_data, api_data)
-
-    if not test_result:
-        flash(f"Invalid {service} URL or API Key. Please check and try again.", "error")
-        return
-
-    try:
-        enc_key = encrypt_data(api_data, instance_path=current_app.instance_path)
-        service_config = ServiceConfig.query.filter_by(service=service_upper).first()
-
-        if not service_config:
-            service_config = ServiceConfig(
-                service=service_upper,
-                base_url=url_data,
-                api_key_encrypted=enc_key,
-                last_tested_at=test_timestamp,
-                last_test_status=test_status,
-            )
-            db.session.add(service_config)
-        else:
-            service_config.base_url = url_data
-            service_config.api_key_encrypted = enc_key
-            service_config.last_tested_at = test_timestamp
-            service_config.last_test_status = test_status
-
-        db.session.commit()
-
-        flash(f"{service} URL and API Key saved successfully.", "success")
-    except (IntegrityError, OperationalError, ValueError, RuntimeError, OSError) as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error saving {service} configuration: {e}", exc_info=True)
-        flash(f"Failed to save {service} configuration. Please try again.", "error")
-
-
 def _test_service_api(service_upper, base_url, api_key):
     """Handle test connection logic for any service."""
     if not base_url or not api_key:
@@ -173,8 +125,160 @@ def config_redirect():
 @bp.route("/settings")
 @login_required
 def settings_page():
-    """Settings page stub — Phase 3 implements real forms."""
-    return render_template("settings.html")
+    """Settings page with per-service configuration state."""
+
+    def _service_state(service_name):
+        cfg = ServiceConfig.query.filter_by(service=service_name).first()
+        if not cfg or not cfg.api_key_encrypted:
+            return {
+                "configured": False,
+                "base_url": None,
+                "key_last4": None,
+                "last_tested_at": None,
+                "last_test_status": None,
+            }
+        try:
+            key = decrypt_data(cfg.api_key_encrypted, instance_path=current_app.instance_path)
+            key_last4 = key[-4:] if len(key) >= 4 else key
+        except (ValueError, InvalidToken):
+            key_last4 = "????"
+        return {
+            "configured": True,
+            "base_url": cfg.base_url,
+            "key_last4": key_last4,
+            "last_tested_at": cfg.last_tested_at,
+            "last_test_status": cfg.last_test_status,
+        }
+
+    tmdb_cfg = ServiceConfig.query.filter_by(service="TMDB").first()
+    return render_template(
+        "settings.html",
+        radarr=_service_state("RADARR"),
+        sonarr=_service_state("SONARR"),
+        tmdb=_service_state("TMDB"),
+        tmdb_region=tmdb_cfg.tmdb_region if tmdb_cfg else None,
+        region_choices=REGION_CHOICES,
+        change_password_form=ChangePasswordForm(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Connection save endpoints (AJAX, JSON)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/api/settings/<service>/connection", methods=["POST"])
+@login_required
+def save_service_connection(service):
+    """Save Radarr or Sonarr connection credentials."""
+    service_upper = service.upper()
+    if service_upper not in ("RADARR", "SONARR"):
+        return jsonify({"success": False, "message": "Invalid service. Must be 'radarr' or 'sonarr'."}), 400
+
+    data = request.json or {}
+    base_url = (data.get("base_url") or "").strip()
+    api_key = (data.get("api_key") or "").strip()
+    force_save = data.get("force_save", False)
+
+    if not base_url or not api_key:
+        return jsonify({"success": False, "message": "URL and API key are required."}), 400
+
+    if not _is_valid_url(base_url):
+        return jsonify({"success": False, "message": "Invalid URL format. Please enter a valid URL."}), 400
+
+    label = service_upper.capitalize()
+    test_timestamp = None
+    test_status = None
+
+    if not force_save:
+        test_result, test_timestamp, test_status = _test_and_update_service_status(service_upper, base_url, api_key)
+        if not test_result:
+            return jsonify(
+                {
+                    "success": False,
+                    "test_failed": True,
+                    "message": "Connection test failed. Save anyway?",
+                }
+            )
+
+    try:
+        enc_key = encrypt_data(api_key, instance_path=current_app.instance_path)
+        service_config = ServiceConfig.query.filter_by(service=service_upper).first()
+
+        if not service_config:
+            service_config = ServiceConfig(
+                service=service_upper,
+                base_url=base_url,
+                api_key_encrypted=enc_key,
+                last_tested_at=test_timestamp,
+                last_test_status=test_status,
+            )
+            db.session.add(service_config)
+        else:
+            service_config.base_url = base_url
+            service_config.api_key_encrypted = enc_key
+            service_config.last_tested_at = test_timestamp
+            service_config.last_test_status = test_status
+
+        db.session.commit()
+        return jsonify({"success": True, "message": f"{label} connection saved.", "key_last4": api_key[-4:]})
+    except (IntegrityError, OperationalError) as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving {service_upper} configuration: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to save configuration. Please try again."}), 500
+
+
+@bp.route("/api/settings/tmdb", methods=["POST"])
+@login_required
+def save_tmdb_settings():
+    """Save TMDB API key and region."""
+    data = request.json or {}
+    api_key = (data.get("api_key") or "").strip()
+    region = (data.get("region") or "").strip()
+    force_save = data.get("force_save", False)
+
+    if not api_key:
+        return jsonify({"success": False, "message": "API key is required."}), 400
+
+    test_timestamp = None
+    test_status = None
+
+    if not force_save:
+        test_result, test_timestamp, test_status = _test_and_update_tmdb_status(api_key)
+        if not test_result:
+            return jsonify(
+                {
+                    "success": False,
+                    "test_failed": True,
+                    "message": "Connection test failed. Save anyway?",
+                }
+            )
+
+    try:
+        enc_key = encrypt_data(api_key, instance_path=current_app.instance_path)
+        tmdb_config = ServiceConfig.query.filter_by(service="TMDB").first()
+
+        if not tmdb_config:
+            tmdb_config = ServiceConfig(
+                service="TMDB",
+                api_key_encrypted=enc_key,
+                tmdb_region=region or None,
+                last_tested_at=test_timestamp,
+                last_test_status=test_status,
+            )
+            db.session.add(tmdb_config)
+        else:
+            tmdb_config.api_key_encrypted = enc_key
+            tmdb_config.tmdb_region = region or None
+            tmdb_config.last_tested_at = test_timestamp
+            tmdb_config.last_test_status = test_status
+
+        db.session.commit()
+        return jsonify({"success": True, "message": "TMDB settings saved.", "key_last4": api_key[-4:]})
+    except (IntegrityError, OperationalError) as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to save configuration. Please try again."}), 500
 
 
 # ---------------------------------------------------------------------------
