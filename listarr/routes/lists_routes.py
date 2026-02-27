@@ -83,6 +83,48 @@ PRESET_METADATA = {
     },
 }
 
+# TMDB genre lookup lists (stable IDs from TMDB API)
+MOVIE_GENRES = [
+    {"id": 28, "name": "Action"},
+    {"id": 12, "name": "Adventure"},
+    {"id": 16, "name": "Animation"},
+    {"id": 35, "name": "Comedy"},
+    {"id": 80, "name": "Crime"},
+    {"id": 99, "name": "Documentary"},
+    {"id": 18, "name": "Drama"},
+    {"id": 10751, "name": "Family"},
+    {"id": 14, "name": "Fantasy"},
+    {"id": 36, "name": "History"},
+    {"id": 27, "name": "Horror"},
+    {"id": 10402, "name": "Music"},
+    {"id": 9648, "name": "Mystery"},
+    {"id": 10749, "name": "Romance"},
+    {"id": 878, "name": "Science Fiction"},
+    {"id": 10770, "name": "TV Movie"},
+    {"id": 53, "name": "Thriller"},
+    {"id": 10752, "name": "War"},
+    {"id": 37, "name": "Western"},
+]
+
+TV_GENRES = [
+    {"id": 10759, "name": "Action & Adventure"},
+    {"id": 16, "name": "Animation"},
+    {"id": 35, "name": "Comedy"},
+    {"id": 80, "name": "Crime"},
+    {"id": 99, "name": "Documentary"},
+    {"id": 18, "name": "Drama"},
+    {"id": 10751, "name": "Family"},
+    {"id": 10762, "name": "Kids"},
+    {"id": 9648, "name": "Mystery"},
+    {"id": 10763, "name": "News"},
+    {"id": 10764, "name": "Reality"},
+    {"id": 10765, "name": "Sci-Fi & Fantasy"},
+    {"id": 10766, "name": "Soap"},
+    {"id": 10767, "name": "Talk"},
+    {"id": 10768, "name": "War & Politics"},
+    {"id": 37, "name": "Western"},
+]
+
 # Helper functions for tri-state boolean conversion
 # Database stores: 0 (False), 1 (True), None (inherit/unset)
 # API uses: False, True, None
@@ -1284,22 +1326,31 @@ def dashboard_redirect():
 @bp.route("/lists/create", methods=["GET"])
 @login_required
 def lists_create():
-    """Stub: List creation entry point (Phase 4 implementation)."""
-    return render_template("lists_create.html")
+    """List creation entry point — Presets/Custom tab toggle."""
+    return render_template(
+        "lists_create.html",
+        presets=PRESET_METADATA,
+        movie_genres=MOVIE_GENRES,
+        tv_genres=TV_GENRES,
+    )
 
 
 @bp.route("/lists/create/preset")
 @login_required
 def lists_create_preset():
-    """Stub: Preset-based list creation (Phase 4 implementation)."""
-    return render_template("lists_create_preset.html")
+    """Preset-based list creation."""
+    return render_template("lists_create_preset.html", presets=PRESET_METADATA)
 
 
 @bp.route("/lists/create/custom")
 @login_required
 def lists_create_custom():
-    """Stub: Custom TMDB query builder (Phase 4 implementation)."""
-    return render_template("lists_create_custom.html")
+    """Custom TMDB query builder."""
+    return render_template(
+        "lists_create_custom.html",
+        movie_genres=MOVIE_GENRES,
+        tv_genres=TV_GENRES,
+    )
 
 
 @bp.route("/lists/<int:list_id>/edit")
