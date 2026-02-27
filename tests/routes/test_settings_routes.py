@@ -1138,3 +1138,171 @@ class TestHelperFunctions:
         from listarr.routes.settings_routes import _is_valid_url
 
         assert _is_valid_url(url) == expected
+
+
+# ---------------------------------------------------------------------------
+# New connection-save endpoint tests (Plan 03-01)
+# ---------------------------------------------------------------------------
+
+
+class TestSaveRadarrConnection:
+    """Tests for POST /api/settings/radarr/connection."""
+
+    def test_save_valid_connection(self, client, app):
+        """Successful connection test + save returns success JSON."""
+        with (
+            patch("listarr.routes.settings_routes.validate_api_key") as mock_validate,
+            patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt,
+        ):
+            mock_validate.return_value = True
+            mock_encrypt.return_value = "encrypted_key"
+            response = client.post(
+                "/api/settings/radarr/connection",
+                json={"base_url": "http://localhost:7878", "api_key": "testapikey1234"},
+            )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["key_last4"] == "1234"
+
+    def test_save_empty_fields_returns_400(self, client):
+        """Empty URL or API key returns 400."""
+        response = client.post(
+            "/api/settings/radarr/connection",
+            json={"base_url": "", "api_key": ""},
+        )
+        assert response.status_code == 400
+
+    def test_save_invalid_url_returns_400(self, client):
+        """Invalid URL format returns 400."""
+        response = client.post(
+            "/api/settings/radarr/connection",
+            json={"base_url": "not-a-url", "api_key": "key123"},
+        )
+        assert response.status_code == 400
+
+    def test_save_test_fails_returns_test_failed(self, client):
+        """Failed connection test returns test_failed flag for save-anyway UX."""
+        with patch("listarr.routes.settings_routes.validate_api_key") as mock_validate:
+            mock_validate.return_value = False
+            response = client.post(
+                "/api/settings/radarr/connection",
+                json={"base_url": "http://localhost:7878", "api_key": "badkey1234"},
+            )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["test_failed"] is True
+
+    def test_force_save_bypasses_test(self, client, app):
+        """force_save=True saves even without testing."""
+        with patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt:
+            mock_encrypt.return_value = "encrypted_key"
+            response = client.post(
+                "/api/settings/radarr/connection",
+                json={"base_url": "http://localhost:7878", "api_key": "key1234", "force_save": True},
+            )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+    def test_invalid_service_returns_400(self, client):
+        """Non-radarr/sonarr service returns 400."""
+        response = client.post(
+            "/api/settings/plex/connection",
+            json={"base_url": "http://localhost", "api_key": "key"},
+        )
+        assert response.status_code == 400
+
+
+class TestSaveSonarrConnection:
+    """Tests for POST /api/settings/sonarr/connection."""
+
+    def test_save_valid_sonarr_connection(self, client, app):
+        """Successful connection test + save returns success JSON."""
+        with (
+            patch("listarr.routes.settings_routes.validate_api_key") as mock_validate,
+            patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt,
+        ):
+            mock_validate.return_value = True
+            mock_encrypt.return_value = "encrypted_key"
+            response = client.post(
+                "/api/settings/sonarr/connection",
+                json={"base_url": "http://localhost:8989", "api_key": "sonarrkey1234"},
+            )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["key_last4"] == "1234"
+
+
+class TestSaveTmdbSettings:
+    """Tests for POST /api/settings/tmdb."""
+
+    def test_save_valid_tmdb_settings(self, client, app):
+        """Successful TMDB save returns success JSON."""
+        with (
+            patch("listarr.routes.settings_routes.validate_tmdb_api_key") as mock_validate,
+            patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt,
+        ):
+            mock_validate.return_value = True
+            mock_encrypt.return_value = "encrypted_key"
+            response = client.post(
+                "/api/settings/tmdb",
+                json={"api_key": "tmdbkey12345678", "region": "US"},
+            )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+    def test_save_empty_api_key_returns_400(self, client):
+        """Empty API key returns 400."""
+        response = client.post("/api/settings/tmdb", json={"api_key": "", "region": "US"})
+        assert response.status_code == 400
+
+    def test_save_test_fails_returns_test_failed(self, client):
+        """Failed TMDB connection test returns test_failed flag."""
+        with patch("listarr.routes.settings_routes.validate_tmdb_api_key") as mock_validate:
+            mock_validate.return_value = False
+            response = client.post(
+                "/api/settings/tmdb",
+                json={"api_key": "badtmdbkey1234", "region": "US"},
+            )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["test_failed"] is True
+
+    def test_force_save_bypasses_test(self, client, app):
+        """force_save=True saves without testing the TMDB key."""
+        with patch("listarr.routes.settings_routes.encrypt_data") as mock_encrypt:
+            mock_encrypt.return_value = "encrypted_key"
+            response = client.post(
+                "/api/settings/tmdb",
+                json={"api_key": "tmdbkey12345678", "region": "", "force_save": True},
+            )
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
+
+
+class TestSettingsPageContext:
+    """Tests for enriched GET /settings context (Plan 03-01)."""
+
+    def test_settings_page_with_configured_service(self, client, app):
+        """Configured service shows without error in rendered page."""
+        enc_key = encrypt_data("my_radarr_api_key", instance_path=app.instance_path)
+        cfg = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=enc_key,
+            last_test_status="success",
+        )
+        db.session.add(cfg)
+        db.session.commit()
+        response = client.get("/settings")
+        assert response.status_code == 200
+
+    def test_settings_page_unconfigured_renders(self, client):
+        """Page renders when no services configured."""
+        response = client.get("/settings")
+        assert response.status_code == 200
