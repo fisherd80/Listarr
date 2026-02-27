@@ -152,10 +152,12 @@ def settings_page():
             key = decrypt_data(cfg.api_key_encrypted, instance_path=current_app.instance_path)
             key_last4 = key[-4:] if len(key) >= 4 else key
         except (ValueError, InvalidToken):
+            key = None
             key_last4 = "????"
         return {
             "configured": True,
             "base_url": cfg.base_url,
+            "api_key": key,
             "key_last4": key_last4,
             "last_tested_at": cfg.last_tested_at,
             "last_test_status": cfg.last_test_status,
