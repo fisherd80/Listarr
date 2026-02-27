@@ -706,9 +706,10 @@ function loadImportDefaults(service, panelName) {
       return;
     }
 
-    var profiles = data.quality_profiles || [];
-    var folders = data.root_folders || [];
-    var tags = data.tags || [];
+    var options = data.options || {};
+    var profiles = options.quality_profiles || [];
+    var folders = options.root_folders || [];
+    var tags = options.tags || [];
     var defaults = data.defaults || {};
 
     var prefix = panelName + '-import';
