@@ -40,7 +40,7 @@
   </div>
 
   <!-- Data Table -->
-  <div class="bg-gray-800 shadow overflow-hidden">
+  <div class="bg-gray-800 shadow">
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-700">
         <thead class="bg-gray-700">
@@ -193,7 +193,7 @@
                       Run Now
                     </button>
                     <a href="{{ url_for('main.edit_list', list_id=list.id) }}"
-                       class="block px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-600">
+                       class="block w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-600">
                       Edit
                     </a>
                     <button type="button" data-delete-list="{{ list.id }}" data-list-name="{{ list.name }}"
