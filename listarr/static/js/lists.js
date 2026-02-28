@@ -517,15 +517,31 @@ function initOverflowMenus() {
       // Close all menus first (single-open behaviour)
       closeAllOverflowMenus();
       if (!isOpen) {
+        // Position fixed dropdown relative to the trigger button
+        var rect = this.getBoundingClientRect();
         menu.style.display = 'block';
+        var menuW = menu.offsetWidth;
+        var menuH = menu.offsetHeight;
+        // Horizontal: align right edge to button, clamp to viewport
+        var left = rect.right - menuW;
+        if (left < 4) { left = 4; }
+        if (left + menuW > window.innerWidth - 4) { left = window.innerWidth - menuW - 4; }
+        menu.style.left = left + 'px';
+        // Vertical: below button, flip up if overflowing
+        var top = rect.bottom + 4;
+        if (top + menuH > window.innerHeight) {
+          top = rect.top - menuH - 4;
+        }
+        menu.style.top = top + 'px';
       }
     });
   }
 
-  // Close menus on outside click
+  // Close menus on outside click or scroll
   document.addEventListener('click', function () {
     closeAllOverflowMenus();
   });
+  window.addEventListener('scroll', closeAllOverflowMenus, true);
 }
 
 // ---------------------

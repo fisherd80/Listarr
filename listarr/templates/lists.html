@@ -40,7 +40,7 @@
   </div>
 
   <!-- Data Table -->
-  <div class="bg-gray-800 shadow">
+  <div class="bg-gray-800 shadow overflow-hidden">
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-700">
         <thead class="bg-gray-700">
@@ -185,7 +185,7 @@
                     &#x2026;
                   </button>
                   <div data-overflow-menu="{{ list.id }}"
-                       class="hidden absolute right-0 z-10 mt-1 w-32 bg-gray-700 border border-gray-600 shadow-lg py-1"
+                       class="hidden fixed z-50 w-32 bg-gray-700 border border-gray-600 shadow-lg py-1"
                        style="display: none;">
                     <button type="button" data-run-list="{{ list.id }}"
                             {% if not list.is_active %}style="display: none;"{% endif %}
