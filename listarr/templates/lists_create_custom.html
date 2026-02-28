@@ -72,54 +72,42 @@
         <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="2" data-panel="custom">
           <div class="p-4 space-y-4">
 
-            <!-- Genre Include -->
+            <!-- Genres -->
             <div>
-              <label class="block text-xs font-medium text-gray-300 mb-2">Include Genres</label>
+              <label class="block text-xs font-medium text-gray-300 mb-2">Genres</label>
+              <p class="text-xs text-gray-500 mb-2">Click + to include, - to exclude. Click again to clear.</p>
 
               <!-- Movie genres (shown for radarr) -->
-              <div id="custom-movie-genres-include" class="flex flex-wrap gap-2">
+              <div id="custom-movie-genres" class="flex flex-wrap gap-x-3 gap-y-2">
                 {% for genre in movie_genres %}
-                <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" class="genre-include-checkbox rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500 w-3.5 h-3.5"
-                         data-service="radarr" value="{{ genre.id }}">
+                <div class="genre-row flex items-center gap-1" data-genre-id="{{ genre.id }}" data-service="radarr">
+                  <button type="button"
+                          class="genre-include-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-blue-500 hover:text-blue-400 flex items-center justify-center focus:outline-none"
+                          data-genre-id="{{ genre.id }}" data-service="radarr"
+                          title="Include {{ genre.name }}">+</button>
+                  <button type="button"
+                          class="genre-exclude-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-red-500 hover:text-red-400 flex items-center justify-center focus:outline-none"
+                          data-genre-id="{{ genre.id }}" data-service="radarr"
+                          title="Exclude {{ genre.name }}">&#8722;</button>
                   <span class="text-xs text-gray-300">{{ genre.name }}</span>
-                </label>
+                </div>
                 {% endfor %}
               </div>
 
               <!-- TV genres (shown for sonarr, hidden by default) -->
-              <div id="custom-tv-genres-include" class="hidden flex flex-wrap gap-2">
+              <div id="custom-tv-genres" class="hidden flex flex-wrap gap-x-3 gap-y-2">
                 {% for genre in tv_genres %}
-                <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" class="genre-include-checkbox rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500 w-3.5 h-3.5"
-                         data-service="sonarr" value="{{ genre.id }}">
+                <div class="genre-row flex items-center gap-1" data-genre-id="{{ genre.id }}" data-service="sonarr">
+                  <button type="button"
+                          class="genre-include-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-blue-500 hover:text-blue-400 flex items-center justify-center focus:outline-none"
+                          data-genre-id="{{ genre.id }}" data-service="sonarr"
+                          title="Include {{ genre.name }}">+</button>
+                  <button type="button"
+                          class="genre-exclude-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-red-500 hover:text-red-400 flex items-center justify-center focus:outline-none"
+                          data-genre-id="{{ genre.id }}" data-service="sonarr"
+                          title="Exclude {{ genre.name }}">&#8722;</button>
                   <span class="text-xs text-gray-300">{{ genre.name }}</span>
-                </label>
-                {% endfor %}
-              </div>
-            </div>
-
-            <!-- Genre Exclude -->
-            <div>
-              <label class="block text-xs font-medium text-gray-300 mb-2">Exclude Genres</label>
-
-              <div id="custom-movie-genres-exclude" class="flex flex-wrap gap-2">
-                {% for genre in movie_genres %}
-                <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" class="genre-exclude-checkbox rounded border-gray-500 bg-gray-700 text-red-500 focus:ring-red-500 w-3.5 h-3.5"
-                         data-service="radarr" value="{{ genre.id }}">
-                  <span class="text-xs text-gray-300">{{ genre.name }}</span>
-                </label>
-                {% endfor %}
-              </div>
-
-              <div id="custom-tv-genres-exclude" class="hidden flex flex-wrap gap-2">
-                {% for genre in tv_genres %}
-                <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" class="genre-exclude-checkbox rounded border-gray-500 bg-gray-700 text-red-500 focus:ring-red-500 w-3.5 h-3.5"
-                         data-service="sonarr" value="{{ genre.id }}">
-                  <span class="text-xs text-gray-300">{{ genre.name }}</span>
-                </label>
+                </div>
                 {% endfor %}
               </div>
             </div>

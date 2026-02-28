@@ -362,28 +362,24 @@ function selectCustomService(service) {
     }
   }
 
-  // Swap genre lists for include/exclude
-  var movieGenresInclude = document.getElementById('custom-movie-genres-include');
-  var tvGenresInclude = document.getElementById('custom-tv-genres-include');
-  var movieGenresExclude = document.getElementById('custom-movie-genres-exclude');
-  var tvGenresExclude = document.getElementById('custom-tv-genres-exclude');
+  // Swap genre grids for selected service
+  var movieGenres = document.getElementById('custom-movie-genres');
+  var tvGenres = document.getElementById('custom-tv-genres');
 
   if (service === 'radarr') {
-    if (movieGenresInclude) { movieGenresInclude.classList.remove('hidden'); }
-    if (tvGenresInclude) { tvGenresInclude.classList.add('hidden'); }
-    if (movieGenresExclude) { movieGenresExclude.classList.remove('hidden'); }
-    if (tvGenresExclude) { tvGenresExclude.classList.add('hidden'); }
+    if (movieGenres) { movieGenres.classList.remove('hidden'); }
+    if (tvGenres) { tvGenres.classList.add('hidden'); }
   } else {
-    if (movieGenresInclude) { movieGenresInclude.classList.add('hidden'); }
-    if (tvGenresInclude) { tvGenresInclude.classList.remove('hidden'); }
-    if (movieGenresExclude) { movieGenresExclude.classList.add('hidden'); }
-    if (tvGenresExclude) { tvGenresExclude.classList.remove('hidden'); }
+    if (movieGenres) { movieGenres.classList.add('hidden'); }
+    if (tvGenres) { tvGenres.classList.remove('hidden'); }
   }
 
-  // Clear genre checkbox selections when switching services
-  var allCheckboxes = document.querySelectorAll('.genre-include-checkbox, .genre-exclude-checkbox');
-  for (var j = 0; j < allCheckboxes.length; j++) {
-    allCheckboxes[j].checked = false;
+  // Clear all genre toggle states when switching services
+  var allToggleBtns = document.querySelectorAll('.genre-include-btn.active, .genre-exclude-btn.active');
+  for (var j = 0; j < allToggleBtns.length; j++) {
+    allToggleBtns[j].classList.remove('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300',
+                                       'border-red-500', 'bg-red-900/20', 'text-red-300');
+    allToggleBtns[j].classList.add('border-gray-600', 'text-gray-500');
   }
 
   // Update step 1 summary
@@ -496,16 +492,16 @@ function collectFilters() {
   var serviceInput = document.getElementById('custom-service');
   var service = serviceInput ? serviceInput.value : 'radarr';
 
-  // Collect checked include genres (only from visible service group)
-  var includeChecked = document.querySelectorAll('.genre-include-checkbox:checked[data-service="' + service + '"]');
-  for (var i = 0; i < includeChecked.length; i++) {
-    genresInclude.push(parseInt(includeChecked[i].value, 10));
+  // Collect active include genre toggle buttons (only from current service)
+  var includeActive = document.querySelectorAll('.genre-include-btn.active[data-service="' + service + '"]');
+  for (var i = 0; i < includeActive.length; i++) {
+    genresInclude.push(parseInt(includeActive[i].getAttribute('data-genre-id'), 10));
   }
 
-  // Collect checked exclude genres
-  var excludeChecked = document.querySelectorAll('.genre-exclude-checkbox:checked[data-service="' + service + '"]');
-  for (var j = 0; j < excludeChecked.length; j++) {
-    genresExclude.push(parseInt(excludeChecked[j].value, 10));
+  // Collect active exclude genre toggle buttons (only from current service)
+  var excludeActive = document.querySelectorAll('.genre-exclude-btn.active[data-service="' + service + '"]');
+  for (var j = 0; j < excludeActive.length; j++) {
+    genresExclude.push(parseInt(excludeActive[j].getAttribute('data-genre-id'), 10));
   }
 
   var languageEl = document.getElementById('custom-language');
@@ -942,6 +938,62 @@ function submitList(panelName) {
 }
 
 // ---------------------
+// Genre Toggle Buttons
+// ---------------------
+
+/**
+ * Initialize +/- toggle buttons for genre include/exclude selection.
+ * Include (blue) and exclude (red) are mutually exclusive per genre.
+ */
+function initGenreToggles() {
+  var includeBtns = document.querySelectorAll('.genre-include-btn');
+  for (var i = 0; i < includeBtns.length; i++) {
+    includeBtns[i].addEventListener('click', function () {
+      var row = this.parentElement;
+      var excludeBtn = row.querySelector('.genre-exclude-btn');
+
+      if (this.classList.contains('active')) {
+        // Deactivate include
+        this.classList.remove('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300');
+        this.classList.add('border-gray-600', 'text-gray-500');
+      } else {
+        // Activate include, deactivate exclude
+        this.classList.add('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300');
+        this.classList.remove('border-gray-600', 'text-gray-500');
+        if (excludeBtn) {
+          excludeBtn.classList.remove('active', 'border-red-500', 'bg-red-900/20', 'text-red-300');
+          excludeBtn.classList.add('border-gray-600', 'text-gray-500');
+        }
+      }
+      schedulePreview('custom');
+    });
+  }
+
+  var excludeBtns = document.querySelectorAll('.genre-exclude-btn');
+  for (var j = 0; j < excludeBtns.length; j++) {
+    excludeBtns[j].addEventListener('click', function () {
+      var row = this.parentElement;
+      var includeBtn = row.querySelector('.genre-include-btn');
+
+      if (this.classList.contains('active')) {
+        // Deactivate exclude
+        this.classList.remove('active', 'border-red-500', 'bg-red-900/20', 'text-red-300');
+        this.classList.add('border-gray-600', 'text-gray-500');
+      } else {
+        // Activate exclude, deactivate include
+        this.classList.add('active', 'border-red-500', 'bg-red-900/20', 'text-red-300');
+        this.classList.remove('border-gray-600', 'text-gray-500');
+        if (includeBtn) {
+          includeBtn.classList.remove('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300');
+          includeBtn.classList.add('border-gray-600', 'text-gray-500');
+        }
+      }
+      schedulePreview('custom');
+    });
+  }
+}
+
+// ---------------------
 // Filter change listeners
 // ---------------------
 
@@ -962,11 +1014,7 @@ function initFilterListeners() {
     }
   }
 
-  // Genre checkboxes
-  var checkboxes = document.querySelectorAll('.genre-include-checkbox, .genre-exclude-checkbox');
-  for (var j = 0; j < checkboxes.length; j++) {
-    checkboxes[j].addEventListener('change', function () { schedulePreview('custom'); });
-  }
+  // Genre toggle buttons — preview on click (listeners attached after initGenreToggles runs)
 }
 
 /**
@@ -988,6 +1036,7 @@ function initNameFieldTracking() {
 document.addEventListener('DOMContentLoaded', function () {
   initTabs();
   initAccordion();
+  initGenreToggles();
   initPresetCards();
   initServiceSelector();
   initCronPicker();
