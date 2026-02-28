@@ -488,6 +488,47 @@ function handleRunClick() {
 }
 
 // ---------------------
+// Overflow menu
+// ---------------------
+
+/**
+ * Close all open overflow menus.
+ */
+function closeAllOverflowMenus() {
+  var menus = document.querySelectorAll('div[data-overflow-menu]');
+  for (var i = 0; i < menus.length; i++) {
+    menus[i].style.display = 'none';
+  }
+}
+
+/**
+ * Initialize overflow menu toggle logic.
+ * Each [...] button toggles its associated dropdown; clicking outside closes all.
+ */
+function initOverflowMenus() {
+  var buttons = document.querySelectorAll('button[data-overflow-list]');
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener('click', function (e) {
+      e.stopPropagation();
+      var listId = this.getAttribute('data-overflow-list');
+      var menu = document.querySelector('div[data-overflow-menu="' + listId + '"]');
+      if (!menu) { return; }
+      var isOpen = menu.style.display === 'block';
+      // Close all menus first (single-open behaviour)
+      closeAllOverflowMenus();
+      if (!isOpen) {
+        menu.style.display = 'block';
+      }
+    });
+  }
+
+  // Close menus on outside click
+  document.addEventListener('click', function () {
+    closeAllOverflowMenus();
+  });
+}
+
+// ---------------------
 // Delete modal
 // ---------------------
 
@@ -678,6 +719,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initToggleSwitches();
   initRunButtons();
   initDeleteButtons();
+  initOverflowMenus();
   restoreRunningStates();
 });
 
