@@ -75,39 +75,33 @@
             <!-- Genres -->
             <div>
               <label class="block text-xs font-medium text-gray-300 mb-2">Genres</label>
-              <p class="text-xs text-gray-500 mb-2">Click + to include, - to exclude. Click again to clear.</p>
+              <p class="text-xs text-gray-500 mb-2">Click to include, click again to exclude, click again to clear.</p>
 
               <!-- Movie genres (shown for radarr) -->
-              <div id="custom-movie-genres" class="flex flex-wrap gap-x-3 gap-y-2">
+              <div id="custom-movie-genres" class="flex flex-wrap gap-2">
                 {% for genre in movie_genres %}
-                <div class="genre-row flex items-center gap-1" data-genre-id="{{ genre.id }}" data-service="radarr">
-                  <button type="button"
-                          class="genre-include-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-blue-500 hover:text-blue-400 flex items-center justify-center focus:outline-none"
-                          data-genre-id="{{ genre.id }}" data-service="radarr"
-                          title="Include {{ genre.name }}">+</button>
-                  <button type="button"
-                          class="genre-exclude-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-red-500 hover:text-red-400 flex items-center justify-center focus:outline-none"
-                          data-genre-id="{{ genre.id }}" data-service="radarr"
-                          title="Exclude {{ genre.name }}">&#8722;</button>
-                  <span class="text-xs text-gray-300">{{ genre.name }}</span>
-                </div>
+                <button type="button"
+                        class="genre-pill inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border border-gray-600 text-gray-300 bg-transparent transition-colors focus:outline-none"
+                        data-genre-id="{{ genre.id }}" data-service="radarr" data-state="neutral">
+                  <svg class="genre-pill-icon w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="" />
+                  </svg>
+                  {{ genre.name }}
+                </button>
                 {% endfor %}
               </div>
 
               <!-- TV genres (shown for sonarr, hidden by default) -->
-              <div id="custom-tv-genres" class="hidden flex flex-wrap gap-x-3 gap-y-2">
+              <div id="custom-tv-genres" class="hidden flex flex-wrap gap-2">
                 {% for genre in tv_genres %}
-                <div class="genre-row flex items-center gap-1" data-genre-id="{{ genre.id }}" data-service="sonarr">
-                  <button type="button"
-                          class="genre-include-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-blue-500 hover:text-blue-400 flex items-center justify-center focus:outline-none"
-                          data-genre-id="{{ genre.id }}" data-service="sonarr"
-                          title="Include {{ genre.name }}">+</button>
-                  <button type="button"
-                          class="genre-exclude-btn w-5 h-5 text-xs rounded border border-gray-600 text-gray-500 hover:border-red-500 hover:text-red-400 flex items-center justify-center focus:outline-none"
-                          data-genre-id="{{ genre.id }}" data-service="sonarr"
-                          title="Exclude {{ genre.name }}">&#8722;</button>
-                  <span class="text-xs text-gray-300">{{ genre.name }}</span>
-                </div>
+                <button type="button"
+                        class="genre-pill inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border border-gray-600 text-gray-300 bg-transparent transition-colors focus:outline-none"
+                        data-genre-id="{{ genre.id }}" data-service="sonarr" data-state="neutral">
+                  <svg class="genre-pill-icon w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="" />
+                  </svg>
+                  {{ genre.name }}
+                </button>
                 {% endfor %}
               </div>
             </div>

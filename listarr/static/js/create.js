@@ -374,12 +374,16 @@ function selectCustomService(service) {
     if (tvGenres) { tvGenres.classList.remove('hidden'); }
   }
 
-  // Clear all genre toggle states when switching services
-  var allToggleBtns = document.querySelectorAll('.genre-include-btn.active, .genre-exclude-btn.active');
-  for (var j = 0; j < allToggleBtns.length; j++) {
-    allToggleBtns[j].classList.remove('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300',
-                                       'border-red-500', 'bg-red-900/20', 'text-red-300');
-    allToggleBtns[j].classList.add('border-gray-600', 'text-gray-500');
+  // Reset all genre pills to neutral state when switching services
+  var allPills = document.querySelectorAll('.genre-pill');
+  for (var j = 0; j < allPills.length; j++) {
+    var pill = allPills[j];
+    pill.setAttribute('data-state', 'neutral');
+    pill.classList.remove('border-green-500', 'text-green-300', 'bg-green-900/20',
+                          'border-red-500', 'text-red-300', 'bg-red-900/20');
+    pill.classList.add('border-gray-600', 'text-gray-300', 'bg-transparent');
+    var pillIcon = pill.querySelector('.genre-pill-icon');
+    if (pillIcon) { pillIcon.classList.add('hidden'); }
   }
 
   // Update step 1 summary
@@ -492,14 +496,14 @@ function collectFilters() {
   var serviceInput = document.getElementById('custom-service');
   var service = serviceInput ? serviceInput.value : 'radarr';
 
-  // Collect active include genre toggle buttons (only from current service)
-  var includeActive = document.querySelectorAll('.genre-include-btn.active[data-service="' + service + '"]');
+  // Collect included genre pills (only from current service)
+  var includeActive = document.querySelectorAll('.genre-pill[data-state="include"][data-service="' + service + '"]');
   for (var i = 0; i < includeActive.length; i++) {
     genresInclude.push(parseInt(includeActive[i].getAttribute('data-genre-id'), 10));
   }
 
-  // Collect active exclude genre toggle buttons (only from current service)
-  var excludeActive = document.querySelectorAll('.genre-exclude-btn.active[data-service="' + service + '"]');
+  // Collect excluded genre pills (only from current service)
+  var excludeActive = document.querySelectorAll('.genre-pill[data-state="exclude"][data-service="' + service + '"]');
   for (var j = 0; j < excludeActive.length; j++) {
     genresExclude.push(parseInt(excludeActive[j].getAttribute('data-genre-id'), 10));
   }
@@ -938,58 +942,52 @@ function submitList(panelName) {
 }
 
 // ---------------------
-// Genre Toggle Buttons
+// Genre Pill Toggles
 // ---------------------
 
 /**
- * Initialize +/- toggle buttons for genre include/exclude selection.
- * Include (blue) and exclude (red) are mutually exclusive per genre.
+ * Initialize pill/chip genre buttons with three-state cycle: neutral -> include -> exclude -> neutral.
+ * Neutral: gray border, no icon.
+ * Include: green border + checkmark icon.
+ * Exclude: red border + X icon.
  */
 function initGenreToggles() {
-  var includeBtns = document.querySelectorAll('.genre-include-btn');
-  for (var i = 0; i < includeBtns.length; i++) {
-    includeBtns[i].addEventListener('click', function () {
-      var row = this.parentElement;
-      var excludeBtn = row.querySelector('.genre-exclude-btn');
+  var pills = document.querySelectorAll('.genre-pill');
+  for (var i = 0; i < pills.length; i++) {
+    pills[i].addEventListener('click', (function (pill) {
+      return function () {
+        var state = pill.getAttribute('data-state') || 'neutral';
+        var icon = pill.querySelector('.genre-pill-icon');
+        var path = icon ? icon.querySelector('path') : null;
 
-      if (this.classList.contains('active')) {
-        // Deactivate include
-        this.classList.remove('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300');
-        this.classList.add('border-gray-600', 'text-gray-500');
-      } else {
-        // Activate include, deactivate exclude
-        this.classList.add('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300');
-        this.classList.remove('border-gray-600', 'text-gray-500');
-        if (excludeBtn) {
-          excludeBtn.classList.remove('active', 'border-red-500', 'bg-red-900/20', 'text-red-300');
-          excludeBtn.classList.add('border-gray-600', 'text-gray-500');
+        if (state === 'neutral') {
+          // neutral -> include (green + checkmark)
+          pill.classList.remove('border-gray-600', 'text-gray-300', 'bg-transparent');
+          pill.classList.add('border-green-500', 'text-green-300', 'bg-green-900/20');
+          if (icon) { icon.classList.remove('hidden'); }
+          if (path) { path.setAttribute('d', 'M5 13l4 4L19 7'); }
+          pill.setAttribute('data-state', 'include');
+
+        } else if (state === 'include') {
+          // include -> exclude (red + X)
+          pill.classList.remove('border-green-500', 'text-green-300', 'bg-green-900/20');
+          pill.classList.add('border-red-500', 'text-red-300', 'bg-red-900/20');
+          if (icon) { icon.classList.remove('hidden'); }
+          if (path) { path.setAttribute('d', 'M6 18L18 6M6 6l12 12'); }
+          pill.setAttribute('data-state', 'exclude');
+
+        } else {
+          // exclude -> neutral (gray, no icon)
+          pill.classList.remove('border-red-500', 'text-red-300', 'bg-red-900/20');
+          pill.classList.add('border-gray-600', 'text-gray-300', 'bg-transparent');
+          if (icon) { icon.classList.add('hidden'); }
+          if (path) { path.setAttribute('d', ''); }
+          pill.setAttribute('data-state', 'neutral');
         }
-      }
-      schedulePreview('custom');
-    });
-  }
 
-  var excludeBtns = document.querySelectorAll('.genre-exclude-btn');
-  for (var j = 0; j < excludeBtns.length; j++) {
-    excludeBtns[j].addEventListener('click', function () {
-      var row = this.parentElement;
-      var includeBtn = row.querySelector('.genre-include-btn');
-
-      if (this.classList.contains('active')) {
-        // Deactivate exclude
-        this.classList.remove('active', 'border-red-500', 'bg-red-900/20', 'text-red-300');
-        this.classList.add('border-gray-600', 'text-gray-500');
-      } else {
-        // Activate exclude, deactivate include
-        this.classList.add('active', 'border-red-500', 'bg-red-900/20', 'text-red-300');
-        this.classList.remove('border-gray-600', 'text-gray-500');
-        if (includeBtn) {
-          includeBtn.classList.remove('active', 'border-blue-500', 'bg-blue-900/20', 'text-blue-300');
-          includeBtn.classList.add('border-gray-600', 'text-gray-500');
-        }
-      }
-      schedulePreview('custom');
-    });
+        schedulePreview('custom');
+      };
+    })(pills[i]));
   }
 }
 
