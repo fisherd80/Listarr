@@ -105,55 +105,6 @@
         <div class="flex justify-end pt-2">
           <button type="button" class="next-step-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
                   data-current-step="2" data-panel="preset">
-            Next: Filters
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Step 3: Filters (limit + year range for presets) -->
-  <div class="accordion-section mt-2" data-step="3" data-panel="preset">
-    <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
-         data-step="3" data-panel="preset">
-      <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">3</span>
-        <span class="text-sm font-medium text-gray-400">Filters</span>
-      </div>
-      <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </div>
-    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="3" data-panel="preset">
-      <div class="p-4 space-y-4">
-
-        <!-- Limit -->
-        <div>
-          <label for="preset-limit" class="block text-xs font-medium text-gray-300 mb-1">
-            Max Items to Import
-          </label>
-          <input type="number" id="preset-limit" name="preset_limit" value="20" min="1" max="500"
-                 class="w-32 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
-          <p class="text-xs text-gray-500 mt-1">Maximum number of titles to import from this list.</p>
-        </div>
-
-        <!-- Year range (optional) -->
-        <div>
-          <label class="block text-xs font-medium text-gray-300 mb-1">Year Range (optional)</label>
-          <div class="flex items-center gap-2">
-            <input type="number" id="preset-year-min" name="preset_year_min" placeholder="From"
-                   min="1900" max="2030"
-                   class="w-28 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
-            <span class="text-gray-500 text-sm">to</span>
-            <input type="number" id="preset-year-max" name="preset_year_max" placeholder="To"
-                   min="1900" max="2030"
-                   class="w-28 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
-          </div>
-        </div>
-
-        <div class="flex justify-end pt-2">
-          <button type="button" class="next-step-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
-                  data-current-step="3" data-panel="preset">
             Next: Schedule
           </button>
         </div>
@@ -161,20 +112,20 @@
     </div>
   </div>
 
-  <!-- Step 4: Schedule -->
-  <div class="accordion-section mt-2" data-step="4" data-panel="preset">
+  <!-- Step 3: Schedule -->
+  <div class="accordion-section mt-2" data-step="3" data-panel="preset">
     <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
-         data-step="4" data-panel="preset">
+         data-step="3" data-panel="preset">
       <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">4</span>
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">3</span>
         <span class="text-sm font-medium text-gray-400">Schedule</span>
-        <span class="preset-step4-summary text-xs text-gray-400"></span>
+        <span class="preset-step3-summary text-xs text-gray-400"></span>
       </div>
       <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
       </svg>
     </div>
-    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="4" data-panel="preset">
+    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="3" data-panel="preset">
       <div class="p-4 space-y-4">
 
         <!-- Frequency picker -->
@@ -239,7 +190,7 @@
 
         <div class="flex justify-end pt-2">
           <button type="button" class="next-step-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
-                  data-current-step="4" data-panel="preset">
+                  data-current-step="3" data-panel="preset">
             Next: Review
           </button>
         </div>
@@ -247,19 +198,19 @@
     </div>
   </div>
 
-  <!-- Step 5: Review & Save -->
-  <div class="accordion-section mt-2" data-step="5" data-panel="preset">
+  <!-- Step 4: Review & Save -->
+  <div class="accordion-section mt-2" data-step="4" data-panel="preset">
     <div class="accordion-header flex items-center justify-between bg-gray-700 px-4 py-3 cursor-pointer rounded-t border border-gray-600"
-         data-step="5" data-panel="preset">
+         data-step="4" data-panel="preset">
       <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">5</span>
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-600 text-gray-300 text-xs font-bold flex items-center justify-center">4</span>
         <span class="text-sm font-medium text-gray-400">Review &amp; Save</span>
       </div>
       <svg class="accordion-chevron w-4 h-4 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
       </svg>
     </div>
-    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="5" data-panel="preset">
+    <div class="accordion-body hidden border border-t-0 border-gray-600 bg-gray-800 rounded-b" data-step="4" data-panel="preset">
       <div class="p-4 space-y-4">
 
         <!-- Name input -->

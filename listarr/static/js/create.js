@@ -125,6 +125,7 @@ function initAccordion() {
         e.stopPropagation();
         var currentStep = parseInt(btn.getAttribute('data-current-step'), 10);
         var panel = btn.getAttribute('data-panel');
+        collapseStep(panel, currentStep);
         expandStep(panel, currentStep + 1);
       };
     })(nextBtns[j]));
