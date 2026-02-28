@@ -43,3 +43,42 @@ def format_relative_time(dt):
 
     except (ValueError, TypeError, OverflowError):
         return "unknown"
+
+
+def format_past_time(dt):
+    """
+    Format a datetime as a backward-looking relative time string.
+
+    Args:
+        dt: datetime object (timezone-aware or naive; naive treated as UTC)
+
+    Returns:
+        str or None: "Today", "Yesterday", "N days ago", "unknown", or None if dt is None
+    """
+    if dt is None:
+        return None
+
+    try:
+        now = datetime.now(timezone.utc)
+        # Ensure dt is timezone-aware; treat naive as UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        diff = now - dt
+        total_seconds = diff.total_seconds()
+
+        if total_seconds < 0:
+            # Future timestamp
+            return "unknown"
+
+        days = int(total_seconds / 86400)
+
+        if days == 0:
+            return "Today"
+        elif days == 1:
+            return "Yesterday"
+        else:
+            return f"{days} days ago"
+
+    except (ValueError, TypeError, OverflowError):
+        return "unknown"

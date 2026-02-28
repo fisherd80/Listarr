@@ -41,7 +41,7 @@ from listarr.services.tmdb_cache import (
     get_trending_movies_cached,
     get_trending_tv_cached,
 )
-from listarr.utils.time_utils import format_relative_time
+from listarr.utils.time_utils import format_past_time, format_relative_time
 
 # Preset display metadata - single source of truth for wizard UI text
 PRESET_METADATA = {
@@ -168,6 +168,16 @@ def lists_page():
             list_obj.next_run_formatted = format_relative_time(next_run)
         else:
             list_obj.next_run_formatted = None
+
+    # Enrich each list with last-run display data.
+    # N+1 query pattern is acceptable at <50 list scale (per project requirements Out of Scope note).
+    for list_obj in lists:
+        list_obj.last_run_formatted = format_past_time(list_obj.last_run_at)
+        recent_job = Job.query.filter_by(list_id=list_obj.id).order_by(Job.started_at.desc()).first()
+        if recent_job and recent_job.status == "completed":
+            list_obj.last_run_result = f"{recent_job.items_added or 0} add / {recent_job.items_skipped or 0} skip"
+        else:
+            list_obj.last_run_result = None
 
     form = ListForm()
     return render_template("lists.html", lists=lists, form=form)
