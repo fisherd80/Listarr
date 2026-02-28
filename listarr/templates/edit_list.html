@@ -211,6 +211,14 @@
           {% endif %}
 
         </div>
+
+        <div class="mt-4 pt-4 border-t border-gray-700">
+          <label for="limit" class="block text-xs font-medium text-gray-300 mb-1">List Size</label>
+          <input type="number" id="limit" name="limit"
+                 value="{{ list.limit or 20 }}" min="1" max="500"
+                 class="w-32 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <p class="mt-1 text-xs text-gray-500">Maximum number of titles to import per run.</p>
+        </div>
       </div>
     </div>
 

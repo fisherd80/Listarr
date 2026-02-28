@@ -334,6 +334,15 @@ def edit_list(list_id):
             season_value = form.override_season_folder.data
             list_obj.override_season_folder = int(season_value) if season_value else None
 
+            # Handle limit (list size)
+            limit_str = request.form.get("limit")
+            if limit_str:
+                try:
+                    limit_val = int(limit_str)
+                    list_obj.limit = max(1, min(500, limit_val))
+                except ValueError:
+                    pass  # Keep existing value on invalid input
+
             db.session.commit()
 
             # Update scheduler after saving changes
