@@ -59,9 +59,16 @@ def get_activity():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    result = []
+    for job in pagination.items:
+        job_dict = job.to_dict()
+        list_obj = List.query.get(job.list_id) if job.list_id else None
+        job_dict["target_service"] = list_obj.target_service if list_obj else None
+        result.append(job_dict)
+
     return jsonify(
         {
-            "jobs": [job.to_dict() for job in pagination.items],
+            "jobs": result,
             "total": pagination.total,
             "pages": pagination.pages,
             "current_page": page,
