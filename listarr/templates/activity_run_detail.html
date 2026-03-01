@@ -1,15 +1,38 @@
 {% extends "base.html" %}
-{% block title %}Run Detail{% endblock %}
+{% from "macros/ui.html" import loading_spinner, empty_state %}
+{% block title %}Run Detail - Listarr{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='js/activity_detail.js') }}" defer></script>
+{% endblock %}
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div id="run-id-anchor" data-run-id="{{ run_id }}"></div>
+
   <nav class="text-sm text-gray-400 mb-4">
     <a href="{{ url_for('main.activity_page') }}" class="hover:text-white">Activity</a>
     <span class="mx-1">/</span>
     <span class="text-gray-300">Run Detail</span>
   </nav>
-  <h1 class="text-2xl font-bold text-white mb-6">Run Detail</h1>
-  <div class="bg-gray-800 border border-gray-700 rounded p-8 text-center">
-    <p class="text-gray-400">Coming soon.</p>
+
+  <div class="flex justify-between items-center mb-4">
+    <h1 class="text-xl font-semibold text-gray-100">Run Detail</h1>
+    <div id="detail-rerun-area"></div>
+  </div>
+
+  <div id="detail-loading" class="text-center py-12">
+    {{ loading_spinner("Loading run detail...") }}
+  </div>
+
+  <div id="detail-error-banner"
+       class="hidden mb-4 bg-red-900/30 border border-red-800 rounded p-4 text-red-300 text-sm">
+  </div>
+
+  <div id="detail-summary"
+       class="hidden mb-4 bg-gray-800 border border-gray-700 rounded p-3 text-sm text-gray-300">
+  </div>
+
+  <div id="detail-items"
+       class="hidden bg-gray-800 border border-gray-700 rounded overflow-hidden">
   </div>
 </div>
 {% endblock %}
