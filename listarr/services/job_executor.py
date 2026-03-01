@@ -28,6 +28,7 @@ RETRY_DELAYS = [5, 10, 20]  # seconds
 _executor = None
 _stop_events = {}
 _stop_events_lock = threading.Lock()
+_submit_lock = threading.Lock()  # Prevents TOCTOU race in submit_job check-then-create
 
 
 class ActivityTracker:
@@ -92,27 +93,30 @@ def submit_job(list_id, list_name, app, triggered_by="manual"):
     Raises:
         ValueError: If job already running for this list
     """
-    # Check if already running (database check for persistence)
-    if is_list_running(list_id):
-        raise ValueError(f"Job already running for list {list_id}")
+    # Check if already running and create job record atomically.
+    # _submit_lock prevents TOCTOU: two threads calling submit_job() for the same list
+    # can both pass is_list_running() before either commits the Job record to the database.
+    with _submit_lock:
+        if is_list_running(list_id):
+            raise ValueError(f"Job already running for list {list_id}")
 
-    # Create job record first (within app context)
-    with app.app_context():
-        job = Job(
-            list_id=list_id,
-            list_name=list_name,
-            status="running",
-            started_at=datetime.now(timezone.utc),
-            triggered_by=triggered_by,
-            retry_count=0,
-            items_found=0,
-            items_added=0,
-            items_skipped=0,
-            items_failed=0,
-        )
-        db.session.add(job)
-        db.session.commit()
-        job_id = job.id
+        # Create job record inside the lock so the next caller sees it immediately
+        with app.app_context():
+            job = Job(
+                list_id=list_id,
+                list_name=list_name,
+                status="running",
+                started_at=datetime.now(timezone.utc),
+                triggered_by=triggered_by,
+                retry_count=0,
+                items_found=0,
+                items_added=0,
+                items_skipped=0,
+                items_failed=0,
+            )
+            db.session.add(job)
+            db.session.commit()
+            job_id = job.id
 
     # Create stop event for timeout
     stop_event = threading.Event()
