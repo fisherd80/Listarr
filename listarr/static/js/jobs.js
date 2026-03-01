@@ -5,7 +5,7 @@
 /**
  * State management for jobs page
  */
-const state = {
+var state = {
   currentPage: 1,
   totalPages: 1,
   totalJobs: 0,
@@ -16,7 +16,6 @@ const state = {
   },
   runningJobs: new Set(),
   pollingInterval: null,
-  expandedRows: new Set(),
 };
 
 
@@ -25,11 +24,11 @@ const state = {
  */
 async function loadLists() {
   try {
-    const response = await fetch("/api/lists");
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    var response = await fetch("/api/lists");
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    var data = await response.json();
 
-    const select = document.getElementById("filter-list");
+    var select = document.getElementById("filter-list");
     if (!select) return;
 
     // Clear existing options except "All Lists"
@@ -37,12 +36,13 @@ async function loadLists() {
 
     // Add list options
     if (data.lists && Array.isArray(data.lists)) {
-      data.lists.forEach((list) => {
-        const option = document.createElement("option");
+      for (var i = 0; i < data.lists.length; i++) {
+        var list = data.lists[i];
+        var option = document.createElement("option");
         option.value = list.id;
-        option.textContent = `${list.name} (${list.target_service})`;
+        option.textContent = list.name + " (" + list.target_service + ")";
         select.appendChild(option);
-      });
+      }
     }
   } catch (error) {
     console.error("Error loading lists:", error);
@@ -56,7 +56,7 @@ async function loadJobs() {
   showLoading();
 
   try {
-    const params = new URLSearchParams({
+    var params = new URLSearchParams({
       page: state.currentPage,
       per_page: state.perPage,
     });
@@ -68,9 +68,9 @@ async function loadJobs() {
       params.append("status", state.filters.status);
     }
 
-    const response = await fetch(`/api/activity?${params}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    var response = await fetch("/api/activity?" + params);
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    var data = await response.json();
 
     state.totalPages = data.pages || 1;
     state.totalJobs = data.total || 0;
@@ -78,14 +78,14 @@ async function loadJobs() {
 
     // Track running jobs
     state.runningJobs.clear();
-    data.jobs.forEach((job) => {
-      if (job.status === "running") {
-        state.runningJobs.add(job.id);
+    for (var i = 0; i < data.jobs.length; i++) {
+      if (data.jobs[i].status === "running") {
+        state.runningJobs.add(data.jobs[i].id);
       }
-    });
+    }
 
     renderJobs(data.jobs);
-    updatePagination();
+    renderPaginationButtons();
 
     // Start polling if there are running jobs
     if (state.runningJobs.size > 0) {
@@ -105,120 +105,135 @@ async function loadJobs() {
  * @param {Array} jobs - Array of job objects
  */
 function renderJobs(jobs) {
-  const tbody = document.getElementById("jobs-tbody");
-  const loading = document.getElementById("jobs-loading");
-  const empty = document.getElementById("jobs-empty");
-  const tableContainer = document.getElementById("jobs-table-container");
+  var tbody = document.getElementById("jobs-tbody");
+  var loading = document.getElementById("jobs-loading");
+  var empty = document.getElementById("jobs-empty");
+  var tableContainer = document.getElementById("jobs-table-container");
 
   if (!tbody) return;
 
   // Hide loading
-  loading?.classList.add("hidden");
+  if (loading) loading.classList.add("hidden");
 
   if (!jobs || jobs.length === 0) {
-    empty?.classList.remove("hidden");
-    tableContainer?.classList.add("hidden");
+    if (empty) empty.classList.remove("hidden");
+    if (tableContainer) tableContainer.classList.add("hidden");
     return;
   }
 
-  empty?.classList.add("hidden");
-  tableContainer?.classList.remove("hidden");
+  if (empty) empty.classList.add("hidden");
+  if (tableContainer) tableContainer.classList.remove("hidden");
 
   // Build rows HTML
-  let rowsHtml = "";
-  jobs.forEach((job) => {
-    const isExpanded = state.expandedRows.has(job.id);
-    rowsHtml += renderJobRow(job, isExpanded);
-  });
+  var rowsHtml = "";
+  for (var i = 0; i < jobs.length; i++) {
+    rowsHtml += renderJobRow(jobs[i]);
+  }
 
   tbody.innerHTML = rowsHtml;
 
-  // Attach event listeners to expand buttons
-  tbody.querySelectorAll("[data-expand-job]").forEach((btn) => {
-    btn.addEventListener("click", function () {
-      const jobId = parseInt(this.getAttribute("data-expand-job"));
-      toggleExpand(jobId);
-    });
-  });
-
   // Attach event listeners to rerun buttons
-  tbody.querySelectorAll("[data-rerun-job]").forEach((btn) => {
-    btn.addEventListener("click", function () {
-      const jobId = parseInt(this.getAttribute("data-rerun-job"));
+  var rerunBtns = tbody.querySelectorAll("[data-rerun-job]");
+  for (var j = 0; j < rerunBtns.length; j++) {
+    rerunBtns[j].addEventListener("click", function () {
+      var jobId = parseInt(this.getAttribute("data-rerun-job"));
       rerunJob(jobId, this);
     });
-  });
+  }
+
+  initOverflowMenus();
 }
 
 /**
- * Render a single job row.
+ * Determine display status from raw job status.
+ * Completed jobs with activity show "success"; zero-count completed show "no_change".
  * @param {Object} job - Job object
- * @param {boolean} isExpanded - Whether the row is expanded
+ * @returns {string} Display status key
+ */
+function getDisplayStatus(job) {
+  if (job.status === "completed") {
+    var hasActivity = (job.items_added > 0) || (job.items_skipped > 0) || (job.items_failed > 0);
+    return hasActivity ? "success" : "no_change";
+  }
+  return job.status;
+}
+
+/**
+ * Render compact result summary (N added / N skip format).
+ * @param {Object} job - Job object
+ * @returns {string} Text string for result column
+ */
+function renderResultCompact(job) {
+  if (job.status === "running") {
+    return "-";
+  }
+  var added = job.items_added || 0;
+  var skipped = job.items_skipped || 0;
+  if (added === 0 && skipped === 0 && job.status !== "failed") {
+    return "\u2014";
+  }
+  return added + " added / " + skipped + " skip";
+}
+
+/**
+ * Render overflow [...] actions menu for a job row.
+ * @param {Object} job - Job object
+ * @returns {string} HTML string for actions column
+ */
+function renderOverflowMenu(job) {
+  var menuId = "job-" + job.id;
+  var rerunItem = "";
+  if (job.status === "failed") {
+    rerunItem = '<button data-rerun-job="' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-600">Rerun</button>';
+  }
+  return (
+    '<div class="relative">' +
+      '<button data-overflow-list="' + menuId + '" title="Actions" class="text-gray-400 hover:text-gray-100 focus:outline-none text-lg leading-none px-1">&#x2026;</button>' +
+      '<div data-overflow-menu="' + menuId + '" class="hidden fixed z-50 w-32 bg-gray-700 border border-gray-600 shadow-lg py-1" style="display:none;">' +
+        '<a href="/activity/' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-600">View</a>' +
+        rerunItem +
+      '</div>' +
+    '</div>'
+  );
+}
+
+/**
+ * Render a single job row with 7 columns.
+ * @param {Object} job - Job object
  * @returns {string} HTML string for the row
  */
-function renderJobRow(job, isExpanded) {
-  const expandIcon = isExpanded
-    ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />'
-    : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />';
+function renderJobRow(job) {
+  var displayStatus = getDisplayStatus(job);
+  var statusBadge = renderStatusBadge(displayStatus);
+  var result = renderResultCompact(job);
+  var actions = renderOverflowMenu(job);
+  var targetCell = job.target_service ? generateServiceBadge(job.target_service) : "-";
 
-  const statusBadge = renderStatusBadge(job.status);
-  const results = renderResults(job);
-  const actions = renderActions(job);
-
-  let row = `
-    <tr data-job-row="${job.id}">
-      <td class="px-4 py-4 whitespace-nowrap">
-        <button
-          type="button"
-          data-expand-job="${job.id}"
-          class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
-        >
-          <svg class="w-5 h-5 transition-transform ${isExpanded ? "rotate-90" : ""}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            ${expandIcon}
-          </svg>
-        </button>
-      </td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-        ${escapeHtml(job.list_name || `List #${job.list_id}`)}
-      </td>
-      <td class="px-6 py-4 whitespace-nowrap">
-        ${statusBadge}
-      </td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        ${formatTimestamp(job.started_at, "absolute")}
-      </td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        ${formatDuration(job.duration)}
-      </td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-        ${results}
-      </td>
-      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-        ${actions}
-      </td>
-    </tr>
-  `;
-
-  // Add expanded details row if expanded
-  if (isExpanded) {
-    row += `
-      <tr data-job-details="${job.id}" class="bg-gray-50 dark:bg-gray-900">
-        <td colspan="7" class="px-6 py-4">
-          <div id="job-details-${job.id}" class="text-sm">
-            <div class="text-center py-4">
-              <svg class="animate-spin h-5 w-5 mx-auto text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p class="mt-1 text-gray-500 dark:text-gray-400">Loading details...</p>
-            </div>
-          </div>
-        </td>
-      </tr>
-    `;
-  }
-
-  return row;
+  return (
+    '<tr data-job-row="' + job.id + '">' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">' +
+        escapeHtml(job.list_name || ("List #" + job.list_id)) +
+      '</td>' +
+      '<td class="px-4 py-3 whitespace-nowrap">' +
+        targetCell +
+      '</td>' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">' +
+        formatTimestamp(job.started_at, "absolute") +
+      '</td>' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">' +
+        formatDuration(job.duration) +
+      '</td>' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">' +
+        result +
+      '</td>' +
+      '<td class="px-4 py-3 whitespace-nowrap">' +
+        statusBadge +
+      '</td>' +
+      '<td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">' +
+        actions +
+      '</td>' +
+    '</tr>'
+  );
 }
 
 /**
@@ -229,7 +244,7 @@ function renderJobRow(job, isExpanded) {
  */
 function renderStatusBadge(status) {
   // Color map matches listarr/templates/macros/status.html exactly
-  const statusConfig = {
+  var statusConfig = {
     running: {
       color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       label: "Running",
@@ -250,249 +265,25 @@ function renderStatusBadge(status) {
       label: "Pending",
       icon: "",
     },
+    success: {
+      color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      label: "Success",
+      icon: "",
+    },
+    no_change: {
+      color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+      label: "No Change",
+      icon: "",
+    },
   };
 
-  const config = statusConfig[status] || {
+  var config = statusConfig[status] || {
     color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
     label: status || "Unknown",
     icon: "",
   };
 
-  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}">${config.icon}${escapeHtml(config.label)}</span>`;
-}
-
-/**
- * Render results summary (added/skipped/failed counts).
- * @param {Object} job - Job object
- * @returns {string} HTML string for results
- */
-function renderResults(job) {
-  if (job.status === "running") {
-    return "-";
-  }
-
-  const added = job.items_added || 0;
-  const skipped = job.items_skipped || 0;
-  const failed = job.items_failed || 0;
-
-  if (added === 0 && skipped === 0 && failed === 0) {
-    return "-";
-  }
-
-  const parts = [];
-  if (added > 0) {
-    parts.push(`<span class="text-green-600 dark:text-green-400">${added} added</span>`);
-  }
-  if (skipped > 0) {
-    parts.push(`<span class="text-gray-500 dark:text-gray-400">${skipped} skipped</span>`);
-  }
-  if (failed > 0) {
-    parts.push(`<span class="text-red-600 dark:text-red-400">${failed} failed</span>`);
-  }
-
-  return parts.join(", ");
-}
-
-/**
- * Render actions column (rerun button for failed jobs).
- * @param {Object} job - Job object
- * @returns {string} HTML string for actions
- */
-function renderActions(job) {
-  if (job.status !== "failed") {
-    return "-";
-  }
-
-  return `
-    <button
-      type="button"
-      data-rerun-job="${job.id}"
-      class="text-primary hover:text-indigo-900 dark:hover:text-indigo-300"
-    >
-      Rerun
-    </button>
-  `;
-}
-
-/**
- * Toggle row expansion to show job details.
- * @param {number} jobId - Job ID
- */
-async function toggleExpand(jobId) {
-  if (state.expandedRows.has(jobId)) {
-    state.expandedRows.delete(jobId);
-    // Remove details row
-    const detailsRow = document.querySelector(`[data-job-details="${jobId}"]`);
-    if (detailsRow) {
-      detailsRow.remove();
-    }
-    // Update expand icon
-    const btn = document.querySelector(`[data-expand-job="${jobId}"]`);
-    if (btn) {
-      btn.querySelector("svg").classList.remove("rotate-90");
-      btn.querySelector("svg").innerHTML =
-        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />';
-    }
-  } else {
-    state.expandedRows.add(jobId);
-    // Add details row
-    const jobRow = document.querySelector(`[data-job-row="${jobId}"]`);
-    if (jobRow) {
-      // Update expand icon
-      const btn = document.querySelector(`[data-expand-job="${jobId}"]`);
-      if (btn) {
-        btn.querySelector("svg").classList.add("rotate-90");
-        btn.querySelector("svg").innerHTML =
-          '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />';
-      }
-
-      // Insert details row
-      const detailsRow = document.createElement("tr");
-      detailsRow.setAttribute("data-job-details", jobId);
-      detailsRow.className = "bg-gray-50 dark:bg-gray-900";
-      detailsRow.innerHTML = `
-        <td colspan="7" class="px-6 py-4">
-          <div id="job-details-${jobId}" class="text-sm">
-            <div class="text-center py-4">
-              <svg class="animate-spin h-5 w-5 mx-auto text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p class="mt-1 text-gray-500 dark:text-gray-400">Loading details...</p>
-            </div>
-          </div>
-        </td>
-      `;
-      jobRow.after(detailsRow);
-
-      // Load job details
-      loadJobDetails(jobId);
-    }
-  }
-}
-
-/**
- * Load and render job details with items.
- * @param {number} jobId - Job ID
- */
-async function loadJobDetails(jobId) {
-  const container = document.getElementById(`job-details-${jobId}`);
-  if (!container) return;
-
-  try {
-    const response = await fetch(`/api/activity/${jobId}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const job = await response.json();
-
-    container.innerHTML = renderJobDetails(job);
-  } catch (error) {
-    console.error(`Error loading job details for ${jobId}:`, error);
-    container.innerHTML = `
-      <div class="text-red-500 dark:text-red-400">
-        Failed to load job details
-      </div>
-    `;
-  }
-}
-
-/**
- * Render job details with items table.
- * @param {Object} job - Job object with items
- * @returns {string} HTML string for job details
- */
-function renderJobDetails(job) {
-  let html = '<div class="space-y-4">';
-
-  // Job metadata
-  html += `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-      <div>
-        <span class="text-gray-500 dark:text-gray-400">Triggered By:</span>
-        <span class="ml-1 text-gray-900 dark:text-gray-100">${escapeHtml(job.triggered_by || "manual")}</span>
-      </div>
-      <div>
-        <span class="text-gray-500 dark:text-gray-400">Items Found:</span>
-        <span class="ml-1 text-gray-900 dark:text-gray-100">${job.items_found || 0}</span>
-      </div>
-      <div>
-        <span class="text-gray-500 dark:text-gray-400">Retry Count:</span>
-        <span class="ml-1 text-gray-900 dark:text-gray-100">${job.retry_count || 0}</span>
-      </div>
-      ${
-        job.completed_at
-          ? `
-      <div>
-        <span class="text-gray-500 dark:text-gray-400">Completed:</span>
-        <span class="ml-1 text-gray-900 dark:text-gray-100">${formatTimestamp(job.completed_at, "absolute")}</span>
-      </div>
-      `
-          : ""
-      }
-    </div>
-  `;
-
-  // Error message if failed
-  if (job.status === "failed" && job.error_message) {
-    html += `
-      <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
-        <span class="font-medium text-red-800 dark:text-red-200">Error:</span>
-        <span class="text-red-700 dark:text-red-300">${escapeHtml(job.error_message)}</span>
-      </div>
-    `;
-  }
-
-  // Items table
-  if (job.items && job.items.length > 0) {
-    html += `
-      <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead class="bg-gray-100 dark:bg-gray-800">
-            <tr>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">TMDB ID</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Message</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-    `;
-
-    job.items.forEach((item) => {
-      const itemStatus = item.status || "unknown";
-      let statusClass = "text-gray-500 dark:text-gray-400";
-      if (itemStatus === "added") {
-        statusClass = "text-green-600 dark:text-green-400";
-      } else if (itemStatus === "skipped") {
-        statusClass = "text-yellow-600 dark:text-yellow-400";
-      } else if (itemStatus === "failed") {
-        statusClass = "text-red-600 dark:text-red-400";
-      }
-
-      html += `
-        <tr>
-          <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">${escapeHtml(item.title || "Unknown")}</td>
-          <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${item.tmdb_id || "-"}</td>
-          <td class="px-4 py-2 text-sm ${statusClass} capitalize">${escapeHtml(itemStatus)}</td>
-          <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(item.message || "-")}</td>
-        </tr>
-      `;
-    });
-
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
-  } else if (job.status !== "running") {
-    html += `
-      <div class="text-gray-500 dark:text-gray-400 text-center py-4">
-        No items recorded for this job.
-      </div>
-    `;
-  }
-
-  html += "</div>";
-  return html;
+  return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + config.color + '">' + config.icon + escapeHtml(config.label) + '</span>';
 }
 
 /**
@@ -502,11 +293,11 @@ function renderJobDetails(job) {
  */
 async function rerunJob(jobId, button) {
   button.disabled = true;
-  const originalText = button.textContent;
+  var originalText = button.textContent;
   button.textContent = "Starting...";
 
   try {
-    const response = await fetch(`/api/activity/${jobId}/rerun`, {
+    var response = await fetch("/api/activity/" + jobId + "/rerun", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -515,10 +306,10 @@ async function rerunJob(jobId, button) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP ${response.status}`);
+      var errorData = await response.json().catch(function () { return {}; });
+      throw new Error(errorData.message || "HTTP " + response.status);
     }
-    const data = await response.json();
+    var data = await response.json();
 
     if (response.ok && data.success) {
       showToast("Job restarted successfully", "success");
@@ -539,101 +330,134 @@ async function rerunJob(jobId, button) {
  * Apply filters and reload jobs.
  */
 function applyFilters() {
-  const listSelect = document.getElementById("filter-list");
-  const statusSelect = document.getElementById("filter-status");
+  var listSelect = document.getElementById("filter-list");
+  var statusSelect = document.getElementById("filter-status");
 
-  state.filters.list_id = listSelect?.value || "";
-  state.filters.status = statusSelect?.value || "";
+  state.filters.list_id = listSelect ? listSelect.value : "";
+  state.filters.status = statusSelect ? statusSelect.value : "";
   state.currentPage = 1;
 
   loadJobs();
 }
 
 /**
- * Clear all job history with confirmation.
+ * Navigate to a specific page.
+ * @param {number} n - Target page number
  */
-async function clearAllJobs() {
-  if (!confirm("Are you sure you want to clear all job history? Running jobs will not be affected.")) {
+function goToPage(n) {
+  if (n >= 1 && n <= state.totalPages) {
+    state.currentPage = n;
+    loadJobs();
+  }
+}
+
+/**
+ * Render numbered pagination buttons in div#pagination-buttons.
+ */
+function renderPaginationButtons() {
+  var startEl = document.getElementById("pagination-start");
+  var endEl = document.getElementById("pagination-end");
+  var totalEl = document.getElementById("pagination-total");
+
+  var start = state.totalJobs === 0 ? 0 : (state.currentPage - 1) * state.perPage + 1;
+  var end = Math.min(state.currentPage * state.perPage, state.totalJobs);
+
+  if (startEl) startEl.textContent = start;
+  if (endEl) endEl.textContent = end;
+  if (totalEl) totalEl.textContent = state.totalJobs;
+
+  var container = document.getElementById("pagination-buttons");
+  if (!container) return;
+
+  if (state.totalPages <= 1) {
+    container.innerHTML = "";
     return;
   }
 
-  const button = document.getElementById("clear-all-btn");
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Clearing...";
+  var MAX_VISIBLE = 5;
+  var half = Math.floor(MAX_VISIBLE / 2);
+  var pageStart = Math.max(1, state.currentPage - half);
+  var pageEnd = Math.min(state.totalPages, pageStart + MAX_VISIBLE - 1);
+  if ((pageEnd - pageStart) < MAX_VISIBLE - 1) {
+    pageStart = Math.max(1, pageEnd - MAX_VISIBLE + 1);
   }
 
-  try {
-    const response = await fetch("/api/activity/clear", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-      },
+  var activeClass = "bg-primary text-white border border-gray-600 rounded inline-flex items-center px-2.5 py-1.5 text-xs";
+  var inactiveClass = "text-gray-300 hover:bg-gray-600 border border-gray-600 rounded inline-flex items-center px-2.5 py-1.5 text-xs";
+
+  var html = "";
+
+  // First page button
+  html += '<button data-page="1"' + (state.currentPage === 1 ? ' disabled' : '') + ' class="' + inactiveClass + '">&laquo;</button>';
+  // Prev button
+  html += '<button data-page="' + (state.currentPage - 1) + '"' + (state.currentPage === 1 ? ' disabled' : '') + ' class="' + inactiveClass + '">&lsaquo;</button>';
+
+  // Numbered page buttons
+  for (var p = pageStart; p <= pageEnd; p++) {
+    var cls = (p === state.currentPage) ? activeClass : inactiveClass;
+    html += '<button data-page="' + p + '" class="' + cls + '">' + p + '</button>';
+  }
+
+  // Next button
+  html += '<button data-page="' + (state.currentPage + 1) + '"' + (state.currentPage === state.totalPages ? ' disabled' : '') + ' class="' + inactiveClass + '">&rsaquo;</button>';
+  // Last page button
+  html += '<button data-page="' + state.totalPages + '"' + (state.currentPage === state.totalPages ? ' disabled' : '') + ' class="' + inactiveClass + '">&raquo;</button>';
+
+  container.innerHTML = html;
+
+  // Attach click listeners to enabled page buttons
+  var pageBtns = container.querySelectorAll("button[data-page]:not([disabled])");
+  for (var i = 0; i < pageBtns.length; i++) {
+    pageBtns[i].addEventListener("click", function () {
+      goToPage(parseInt(this.getAttribute("data-page")));
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP ${response.status}`);
-    }
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      showToast(`Cleared ${data.deleted_count} jobs`, "success");
-      loadJobs();
-    } else {
-      throw new Error(data.message || "Failed to clear jobs");
-    }
-  } catch (error) {
-    console.error("Error clearing jobs:", error);
-    showToast(error.message || "Failed to clear jobs", "error");
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.innerHTML = `
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-        Clear All
-      `;
-    }
   }
 }
 
 /**
- * Update pagination controls based on current state.
+ * Close all open overflow menus.
  */
-function updatePagination() {
-  const start = state.totalJobs === 0 ? 0 : (state.currentPage - 1) * state.perPage + 1;
-  const end = Math.min(state.currentPage * state.perPage, state.totalJobs);
-
-  document.getElementById("pagination-start").textContent = start;
-  document.getElementById("pagination-end").textContent = end;
-  document.getElementById("pagination-total").textContent = state.totalJobs;
-  document.getElementById("pagination-current").textContent = state.currentPage;
-  document.getElementById("pagination-pages").textContent = state.totalPages;
-
-  const prevBtn = document.getElementById("pagination-prev");
-  const nextBtn = document.getElementById("pagination-next");
-
-  if (prevBtn) {
-    prevBtn.disabled = state.currentPage <= 1;
-  }
-  if (nextBtn) {
-    nextBtn.disabled = state.currentPage >= state.totalPages;
+function closeAllOverflowMenus() {
+  var menus = document.querySelectorAll("div[data-overflow-menu]");
+  for (var i = 0; i < menus.length; i++) {
+    menus[i].style.display = "none";
   }
 }
 
 /**
- * Change to a different page.
- * @param {number} delta - Page change (+1 for next, -1 for previous)
+ * Initialize overflow menu toggle logic.
+ * Each [...] button toggles its associated dropdown; clicking outside closes all.
  */
-function changePage(delta) {
-  const newPage = state.currentPage + delta;
-  if (newPage >= 1 && newPage <= state.totalPages) {
-    state.currentPage = newPage;
-    loadJobs();
+function initOverflowMenus() {
+  var buttons = document.querySelectorAll("button[data-overflow-list]");
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener("click", function (e) {
+      e.stopPropagation();
+      var listId = this.getAttribute("data-overflow-list");
+      var menu = document.querySelector('div[data-overflow-menu="' + listId + '"]');
+      if (!menu) { return; }
+      var isOpen = menu.style.display === "block";
+      closeAllOverflowMenus();
+      if (!isOpen) {
+        var rect = this.getBoundingClientRect();
+        menu.style.display = "block";
+        var menuW = menu.offsetWidth;
+        var menuH = menu.offsetHeight;
+        var left = rect.right - menuW;
+        if (left < 4) { left = 4; }
+        if (left + menuW > window.innerWidth - 4) { left = window.innerWidth - menuW - 4; }
+        menu.style.left = left + "px";
+        var top = rect.bottom + 4;
+        if (top + menuH > window.innerHeight) {
+          top = rect.top - menuH - 4;
+        }
+        menu.style.top = top + "px";
+      }
+    });
   }
+
+  document.addEventListener("click", closeAllOverflowMenus);
+  window.addEventListener("scroll", closeAllOverflowMenus, true);
 }
 
 /**
@@ -642,7 +466,7 @@ function changePage(delta) {
 function startPolling() {
   if (state.pollingInterval) return; // Already polling
 
-  state.pollingInterval = setInterval(async () => {
+  state.pollingInterval = setInterval(async function () {
     if (document.visibilityState !== "visible") return;
     if (state.runningJobs.size === 0) {
       stopPolling();
@@ -650,15 +474,18 @@ function startPolling() {
     }
 
     try {
-      const response = await fetch("/api/activity/running");
+      var response = await fetch("/api/activity/running");
       if (!response.ok) return;
-      const data = await response.json();
+      var data = await response.json();
 
-      const currentlyRunning = new Set(data.running_jobs.map((j) => j.job_id));
+      var currentlyRunning = new Set();
+      for (var i = 0; i < data.running_jobs.length; i++) {
+        currentlyRunning.add(data.running_jobs[i].job_id);
+      }
 
       // Check if any running jobs have completed
-      let needsReload = false;
-      state.runningJobs.forEach((jobId) => {
+      var needsReload = false;
+      state.runningJobs.forEach(function (jobId) {
         if (!currentlyRunning.has(jobId)) {
           needsReload = true;
         }
@@ -688,18 +515,24 @@ function stopPolling() {
  * Show loading state.
  */
 function showLoading() {
-  document.getElementById("jobs-loading")?.classList.remove("hidden");
-  document.getElementById("jobs-empty")?.classList.add("hidden");
-  document.getElementById("jobs-table-container")?.classList.add("hidden");
+  var loading = document.getElementById("jobs-loading");
+  var empty = document.getElementById("jobs-empty");
+  var tableContainer = document.getElementById("jobs-table-container");
+  if (loading) loading.classList.remove("hidden");
+  if (empty) empty.classList.add("hidden");
+  if (tableContainer) tableContainer.classList.add("hidden");
 }
 
 /**
  * Show empty state.
  */
 function showEmpty() {
-  document.getElementById("jobs-loading")?.classList.add("hidden");
-  document.getElementById("jobs-empty")?.classList.remove("hidden");
-  document.getElementById("jobs-table-container")?.classList.add("hidden");
+  var loading = document.getElementById("jobs-loading");
+  var empty = document.getElementById("jobs-empty");
+  var tableContainer = document.getElementById("jobs-table-container");
+  if (loading) loading.classList.add("hidden");
+  if (empty) empty.classList.remove("hidden");
+  if (tableContainer) tableContainer.classList.add("hidden");
 }
 
 /**
@@ -712,15 +545,11 @@ function initJobsPage() {
   // Load initial jobs
   loadJobs();
 
-  // Attach event listeners
-  document.getElementById("apply-filters-btn")?.addEventListener("click", applyFilters);
-  document.getElementById("clear-all-btn")?.addEventListener("click", clearAllJobs);
-  document.getElementById("pagination-prev")?.addEventListener("click", () => changePage(-1));
-  document.getElementById("pagination-next")?.addEventListener("click", () => changePage(1));
-
   // Auto-apply filters on dropdown change
-  document.getElementById("filter-list")?.addEventListener("change", applyFilters);
-  document.getElementById("filter-status")?.addEventListener("change", applyFilters);
+  var filterList = document.getElementById("filter-list");
+  var filterStatus = document.getElementById("filter-status");
+  if (filterList) filterList.addEventListener("change", applyFilters);
+  if (filterStatus) filterStatus.addEventListener("change", applyFilters);
 }
 
 // Initialize when DOM is ready
@@ -730,7 +559,7 @@ document.addEventListener("DOMContentLoaded", initJobsPage);
 window.addEventListener("beforeunload", stopPolling);
 
 // Pause/resume polling on tab visibility change
-document.addEventListener("visibilitychange", () => {
+document.addEventListener("visibilitychange", function () {
   if (document.hidden) {
     stopPolling();
   } else if (state.runningJobs.size > 0) {
