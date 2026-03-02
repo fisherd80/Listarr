@@ -1,9 +1,23 @@
+from sqlalchemy import Index
+
 from listarr import db
 from listarr.models.custom_types import TZDateTime
 
 
 class Job(db.Model):
     __tablename__ = "jobs"
+
+    # Partial unique index: at most one row with status='running' per list_id.
+    # SQLite enforces this atomically across processes, preventing the cross-process
+    # TOCTOU race that threading.Lock() cannot guard against.
+    __table_args__ = (
+        Index(
+            "ix_jobs_one_running_per_list",
+            "list_id",
+            unique=True,
+            sqlite_where=db.text("status = 'running'"),
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     list_id = db.Column(db.Integer, db.ForeignKey("lists.id"), index=True)

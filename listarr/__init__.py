@@ -186,6 +186,12 @@ def create_app(test_config=None):
         # Create tables if they don't exist
         db.create_all()
 
+        # Ensure cross-process duplicate-job guard index exists on existing databases.
+        # db.create_all() only creates tables/indexes for new databases; it does not
+        # add new indexes to tables that already exist. This migration call is
+        # idempotent (IF NOT EXISTS) and safe to run on every startup.
+        _ensure_unique_running_job_index(app)
+
         # Recover interrupted jobs
         recover_interrupted_jobs(app)
 
@@ -220,6 +226,29 @@ def unauthorized():
     # For page requests, store next URL and redirect to login
     session["next"] = request.url
     return redirect(url_for("main.login_page"))
+
+
+def _ensure_unique_running_job_index(app):
+    """
+    Create the cross-process duplicate-job guard index on existing databases.
+
+    db.create_all() only creates indexes declared in __table_args__ for brand-new
+    tables. On an already-existing 'jobs' table the index must be applied via DDL.
+    This function is idempotent: IF NOT EXISTS means it is safe to call on every
+    startup whether the index already exists or not.
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+
+    ddl = text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_jobs_one_running_per_list ON jobs (list_id) WHERE status = 'running'"
+    )
+    try:
+        with app.app_context():
+            db.session.execute(ddl)
+            db.session.commit()
+    except OperationalError as e:
+        app.logger.warning(f"Could not create unique running-job index: {e}")
 
 
 def recover_interrupted_jobs(app):

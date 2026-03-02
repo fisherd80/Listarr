@@ -10,6 +10,8 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+from sqlalchemy.exc import IntegrityError
+
 from listarr import db
 from listarr.models.jobs_model import Job, JobItem
 from listarr.models.lists_model import List
@@ -94,13 +96,22 @@ def submit_job(list_id, list_name, app, triggered_by="manual"):
         ValueError: If job already running for this list
     """
     # Check if already running and create job record atomically.
-    # _submit_lock prevents TOCTOU: two threads calling submit_job() for the same list
-    # can both pass is_list_running() before either commits the Job record to the database.
+    # Two-layer guard:
+    #   1. _submit_lock (threading.Lock): fast in-process TOCTOU guard for threads
+    #      in the same OS process. Avoids redundant DB round-trips when two threads
+    #      race inside the same worker.
+    #   2. Unique partial index ix_jobs_one_running_per_list (SQLite): cross-process
+    #      guard. The database enforces "at most one running row per list_id" at the
+    #      storage level, so even two separate OS processes (e.g. Flask debug reloader)
+    #      cannot both commit a running job for the same list. If the second INSERT
+    #      races past the in-process lock it will hit an IntegrityError on commit,
+    #      which we catch and convert to ValueError here.
     with _submit_lock:
         if is_list_running(list_id):
             raise ValueError(f"Job already running for list {list_id}")
 
-        # Create job record inside the lock so the next caller sees it immediately
+        # Create job record inside the lock so the next caller sees it immediately.
+        # The DB-level unique partial index is the definitive cross-process guard.
         with app.app_context():
             job = Job(
                 list_id=list_id,
@@ -115,7 +126,11 @@ def submit_job(list_id, list_name, app, triggered_by="manual"):
                 items_failed=0,
             )
             db.session.add(job)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                raise ValueError(f"Job already running for list {list_id}")
             job_id = job.id
 
     # Create stop event for timeout
