@@ -59,10 +59,10 @@ function switchTab(tab) {
     panelPresets.classList.remove('hidden');
     panelCustom.classList.add('hidden');
 
-    btnPresets.classList.add('border-blue-500', 'text-white');
+    btnPresets.classList.add('border-primary', 'text-white');
     btnPresets.classList.remove('border-transparent', 'text-gray-400');
     btnCustom.classList.add('border-transparent', 'text-gray-400');
-    btnCustom.classList.remove('border-blue-500', 'text-white');
+    btnCustom.classList.remove('border-primary', 'text-white');
 
     // Reset custom panel to step 1
     resetPanelToStep('custom', 1);
@@ -70,10 +70,10 @@ function switchTab(tab) {
     panelCustom.classList.remove('hidden');
     panelPresets.classList.add('hidden');
 
-    btnCustom.classList.add('border-blue-500', 'text-white');
+    btnCustom.classList.add('border-primary', 'text-white');
     btnCustom.classList.remove('border-transparent', 'text-gray-400');
     btnPresets.classList.add('border-transparent', 'text-gray-400');
-    btnPresets.classList.remove('border-blue-500', 'text-white');
+    btnPresets.classList.remove('border-primary', 'text-white');
 
     // Reset preset panel to step 1
     resetPanelToStep('preset', 1);
@@ -218,11 +218,11 @@ function updateStepBadges(panelName) {
 
     if (badge) {
       if (expanded) {
-        badge.className = badge.className.replace('bg-gray-600 text-gray-300', 'bg-blue-600 text-white');
+        badge.className = badge.className.replace('bg-gray-600 text-gray-300', 'bg-primary text-white');
         badge.classList.remove('bg-gray-600', 'text-gray-300');
-        badge.classList.add('bg-blue-600', 'text-white');
+        badge.classList.add('bg-primary', 'text-white');
       } else {
-        badge.classList.remove('bg-blue-600', 'text-white');
+        badge.classList.remove('bg-primary', 'text-white');
         badge.classList.add('bg-gray-600', 'text-gray-300');
       }
     }
@@ -271,7 +271,7 @@ function selectPresetCard(card) {
   // Update visual selection: clear all cards, highlight selected
   var allCards = document.querySelectorAll('.preset-card');
   for (var i = 0; i < allCards.length; i++) {
-    allCards[i].classList.remove('border-amber-500', 'border-blue-500', 'bg-amber-900/30', 'bg-blue-900/30');
+    allCards[i].classList.remove('border-amber-500', 'border-primary', 'bg-amber-900/30', 'bg-primary/10');
     allCards[i].classList.add('border-gray-600');
   }
 
@@ -280,7 +280,7 @@ function selectPresetCard(card) {
     card.classList.add('border-amber-500', 'bg-amber-900/30');
   } else {
     card.classList.remove('border-gray-600');
-    card.classList.add('border-blue-500', 'bg-blue-900/30');
+    card.classList.add('border-primary', 'bg-primary/10');
   }
 
   // Update step 1 summary
@@ -296,7 +296,7 @@ function selectPresetCard(card) {
   if (serviceDisplay) {
     var serviceLabel = service === 'radarr' ? 'Radarr (Movies)' : 'Sonarr (TV Shows)';
     serviceDisplay.textContent = serviceLabel;
-    serviceDisplay.className = service === 'radarr' ? 'text-sm text-amber-400 font-medium' : 'text-sm text-blue-400 font-medium';
+    serviceDisplay.className = service === 'radarr' ? 'text-sm text-amber-400 font-medium' : 'text-sm text-primary font-medium';
   }
 
   // Auto-populate list name
@@ -348,14 +348,14 @@ function selectCustomService(service) {
     var btn = btns[i];
     var btnService = btn.getAttribute('data-service');
     btn.classList.remove('border-amber-500', 'bg-amber-900/20', 'text-amber-300',
-                         'border-blue-500', 'bg-blue-900/20', 'text-blue-300',
+                         'border-primary', 'bg-primary/10', 'text-primary',
                          'border-gray-600', 'text-gray-400');
 
     if (btnService === service) {
       if (service === 'radarr') {
         btn.classList.add('border-amber-500', 'bg-amber-900/20', 'text-amber-300');
       } else {
-        btn.classList.add('border-blue-500', 'bg-blue-900/20', 'text-blue-300');
+        btn.classList.add('border-primary', 'bg-primary/10', 'text-primary');
       }
     } else {
       btn.classList.add('border-gray-600', 'text-gray-400');
@@ -721,7 +721,7 @@ function loadImportDefaults(service, panelName) {
     // Quality profile
     html += '<div>';
     html += '<label for="' + prefix + '-quality" class="block text-xs font-medium text-gray-300 mb-1">Quality Profile</label>';
-    html += '<select id="' + prefix + '-quality" class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">';
+    html += '<select id="' + prefix + '-quality" class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">';
     for (var i = 0; i < profiles.length; i++) {
       var p = profiles[i];
       var sel = (defaults.quality_profile_id && defaults.quality_profile_id === p.id) ? ' selected' : '';
@@ -735,7 +735,7 @@ function loadImportDefaults(service, panelName) {
     // Root folder
     html += '<div>';
     html += '<label for="' + prefix + '-folder" class="block text-xs font-medium text-gray-300 mb-1">Root Folder</label>';
-    html += '<select id="' + prefix + '-folder" class="w-full text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">';
+    html += '<select id="' + prefix + '-folder" class="w-full text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">';
     for (var j = 0; j < folders.length; j++) {
       var f = folders[j];
       var fSel = (defaults.root_folder && defaults.root_folder === f.path) ? ' selected' : '';
@@ -750,7 +750,7 @@ function loadImportDefaults(service, panelName) {
     html += '<div>';
     html += '<label for="' + prefix + '-tag" class="block text-xs font-medium text-gray-300 mb-1">Tag (optional)</label>';
     html += '<input type="text" id="' + prefix + '-tag" list="' + prefix + '-tag-list" placeholder="None"';
-    html += ' class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full">';
+    html += ' class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary w-full">';
     html += '<datalist id="' + prefix + '-tag-list">';
     for (var k = 0; k < tags.length; k++) {
       var t = tags[k];
@@ -763,14 +763,14 @@ function loadImportDefaults(service, panelName) {
     // Monitored checkbox
     var monitoredChecked = (defaults.monitored !== false) ? ' checked' : '';
     html += '<div class="flex items-center gap-3">';
-    html += '<input type="checkbox" id="' + prefix + '-monitored" ' + monitoredChecked + ' class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500">';
+    html += '<input type="checkbox" id="' + prefix + '-monitored" ' + monitoredChecked + ' class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary focus:ring-primary">';
     html += '<label for="' + prefix + '-monitored" class="text-sm text-gray-300">Monitor items</label>';
     html += '</div>';
 
     // Search on add checkbox
     var searchChecked = (defaults.search_on_add !== false) ? ' checked' : '';
     html += '<div class="flex items-center gap-3">';
-    html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500">';
+    html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary focus:ring-primary">';
     html += '<label for="' + prefix + '-search-on-add" class="text-sm text-gray-300">Search on add</label>';
     html += '</div>';
 

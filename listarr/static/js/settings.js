@@ -54,7 +54,7 @@ function initSettingsTabs() {
     tab.addEventListener('click', function () {
       // Deactivate all tabs
       tabs.forEach(function (t) {
-        t.classList.remove('border-blue-500', 'text-white');
+        t.classList.remove('border-primary', 'text-white');
         t.classList.add('border-transparent', 'text-gray-400');
       });
       // Hide all panels
@@ -62,7 +62,7 @@ function initSettingsTabs() {
         p.classList.add('hidden');
       });
       // Activate clicked tab
-      tab.classList.add('border-blue-500', 'text-white');
+      tab.classList.add('border-primary', 'text-white');
       tab.classList.remove('border-transparent', 'text-gray-400');
       // Show matching panel
       var panelId = 'tab-' + tab.dataset.tab;
@@ -92,7 +92,7 @@ function initServiceTabs() {
     tab.addEventListener('click', function () {
       // Deactivate all service tabs
       tabs.forEach(function (t) {
-        t.classList.remove('border-blue-500', 'text-white');
+        t.classList.remove('border-primary', 'text-white');
         t.classList.add('border-transparent', 'text-gray-400');
       });
       // Hide all service panels
@@ -100,7 +100,7 @@ function initServiceTabs() {
         p.classList.add('hidden');
       });
       // Activate clicked tab
-      tab.classList.add('border-blue-500', 'text-white');
+      tab.classList.add('border-primary', 'text-white');
       tab.classList.remove('border-transparent', 'text-gray-400');
       // Show matching panel
       var service = tab.dataset.service;
