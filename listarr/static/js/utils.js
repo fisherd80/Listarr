@@ -172,7 +172,7 @@ function generateServiceBadge(service) {
   const isRadarr = service.toLowerCase() === "radarr";
   const colorClass = isRadarr
     ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-    : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+    : "bg-primary/10 text-primary";
   return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${capitalize(service)}</span>`;
 }
 

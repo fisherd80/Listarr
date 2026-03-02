@@ -142,7 +142,7 @@
 
     var link = document.createElement('a');
     link.href = '#';
-    link.className = 'text-blue-400 text-xs reason-expand-link';
+    link.className = 'text-primary text-xs reason-expand-link';
     link.textContent = 'more';
     link.setAttribute('data-full', message);
     wrapper.appendChild(link);
