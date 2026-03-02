@@ -404,7 +404,7 @@ function updateGenreCheckboxes() {
             </div>
         </div>
         <button type="button" id="genre-show-more-btn"
-            class="mt-2 text-sm text-primary hover:text-indigo-700 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+            class="mt-2 text-sm text-primary hover:text-primary-hover font-medium inline-flex items-center">
             <span>${wizardState.genresExpanded ? 'Show less' : 'Show more'}</span>
             <svg class="w-4 h-4 ml-1 transform ${wizardState.genresExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -1112,7 +1112,7 @@ function updateImportSettingsServiceBadge() {
             Radarr
         `;
     } else {
-        badge.className = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+        badge.className = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary";
         badge.innerHTML = `
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
