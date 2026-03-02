@@ -8,7 +8,7 @@
 
 {% block content %}
 
-<div class="space-y-6">
+<div class="space-y-4">
   <!-- Page Header -->
   <div class="flex justify-between items-center">
     <div>
@@ -22,7 +22,7 @@
   </div>
 
   <!-- Filters Section -->
-  <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+  <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded p-3">
     <div class="flex flex-wrap items-end gap-4">
       <!-- List Filter -->
       <div class="flex-1 min-w-[200px]">
@@ -31,7 +31,7 @@
         </label>
         <select
           id="filter-list"
-          class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary focus:ring-primary text-sm py-2"
+          class="block w-full rounded border-gray-300 dark:border-input-border bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:border-primary focus:ring-primary text-sm py-2"
         >
           <option value="">All Lists</option>
           <!-- Populated by JavaScript -->
@@ -45,7 +45,7 @@
         </label>
         <select
           id="filter-status"
-          class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary focus:ring-primary text-sm py-2"
+          class="block w-full rounded border-gray-300 dark:border-input-border bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:border-primary focus:ring-primary text-sm py-2"
         >
           <option value="">All Statuses</option>
           <option value="running">Running</option>
@@ -57,7 +57,7 @@
   </div>
 
   <!-- Jobs Table -->
-  <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+  <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded overflow-hidden">
     <!-- Loading State -->
     <div id="jobs-loading" class="text-center py-12">
       {{ loading_spinner('Loading activity...') }}
@@ -71,8 +71,8 @@
     <!-- Jobs Table Content -->
     <div id="jobs-table-container" class="hidden">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead class="bg-gray-50 dark:bg-gray-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-border-subtle">
+          <thead class="bg-bg-table-head dark:bg-bg-table-head">
             <tr>
               <th
                 scope="col"
@@ -118,14 +118,14 @@
               </th>
             </tr>
           </thead>
-          <tbody id="jobs-tbody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody id="jobs-tbody" class="bg-bg-panel dark:bg-bg-panel divide-y divide-gray-200 dark:divide-border-subtle">
             <!-- Populated by JavaScript -->
           </tbody>
         </table>
       </div>
 
       <!-- Pagination -->
-      <div id="pagination-container" class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+      <div id="pagination-container" class="px-6 py-4 border-t border-gray-200 dark:border-border-subtle">
         <div class="flex items-center justify-between">
           <div class="text-sm text-gray-500 dark:text-gray-400">
             Showing <span id="pagination-start">0</span> to <span id="pagination-end">0</span> of <span id="pagination-total">0</span> jobs
