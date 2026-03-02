@@ -16,7 +16,16 @@
 
   <div class="flex justify-between items-center mb-4">
     <h1 class="text-xl font-semibold text-gray-100">Run Detail</h1>
-    <div id="detail-rerun-area"></div>
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('main.activity_page') }}"
+         class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400 hover:text-white border border-gray-600 rounded-md hover:border-gray-400 transition-colors">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to Activity
+      </a>
+      <div id="detail-rerun-area"></div>
+    </div>
   </div>
 
   <div id="detail-loading" class="text-center py-12">
