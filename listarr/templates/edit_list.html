@@ -33,7 +33,7 @@
       Preset
     </span>
     {% else %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-table-head dark:bg-bg-table-head text-gray-600 dark:text-text-muted border border-gray-300 dark:border-border-subtle">
       Custom
     </span>
     {% endif %}
@@ -42,7 +42,7 @@
       Radarr
     </span>
     {% else %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900/40 text-blue-400">
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
       Sonarr
     </span>
     {% endif %}
@@ -54,8 +54,8 @@
     {{ form.hidden_tag() }}
 
     <!-- Section 1: General -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-700">
+    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">General</p>
       </div>
       <div class="p-4 space-y-4">
@@ -63,7 +63,7 @@
         <!-- Name -->
         <div>
           <label for="name" class="block text-sm font-medium text-gray-300 mb-1">List Name</label>
-          {{ form.name(class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500", id="name") }}
+          {{ form.name(class="w-full px-3 py-2 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary", id="name") }}
           {% if form.name.errors %}
           <p class="mt-1 text-xs text-red-400">{{ form.name.errors[0] }}</p>
           {% endif %}
@@ -71,7 +71,7 @@
 
         <!-- Active toggle -->
         <div class="flex items-center gap-3">
-          {{ form.is_active(class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500", id="is_active") }}
+          {{ form.is_active(class="w-4 h-4 rounded border-gray-400 dark:border-input-border bg-white dark:bg-input-bg text-primary focus:ring-primary", id="is_active") }}
           <label for="is_active" class="text-sm text-gray-300">Active (run on schedule)</label>
         </div>
 
@@ -79,8 +79,8 @@
     </div>
 
     <!-- Section 2: Source Filters (read-only) -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-700">
+    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Source Filters</p>
       </div>
       <div class="p-4">
@@ -153,8 +153,8 @@
     </div>
 
     <!-- Section 3: Import Settings -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-700">
+    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Import Settings</p>
       </div>
       <div class="p-4">
@@ -165,13 +165,13 @@
           <!-- Quality Profile -->
           <div>
             <label for="override_quality_profile" class="block text-xs font-medium text-gray-300 mb-1">Quality Profile</label>
-            {{ form.override_quality_profile(class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500", id="override_quality_profile") }}
+            {{ form.override_quality_profile(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_quality_profile") }}
           </div>
 
           <!-- Root Folder -->
           <div>
             <label for="override_root_folder" class="block text-xs font-medium text-gray-300 mb-1">Root Folder</label>
-            {{ form.override_root_folder(class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500", id="override_root_folder") }}
+            {{ form.override_root_folder(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_root_folder") }}
           </div>
 
           <!-- Tag -->
@@ -181,7 +181,7 @@
                    value="{{ form.override_tag.data or '' }}"
                    list="edit-tag-list"
                    placeholder="Use Default"
-                   class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                   class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary">
             <datalist id="edit-tag-list">
               {% for tag in tags %}
               <option value="{{ tag.label }}">
@@ -193,38 +193,38 @@
           <!-- Monitored -->
           <div>
             <label for="override_monitored" class="block text-xs font-medium text-gray-300 mb-1">Monitored</label>
-            {{ form.override_monitored(class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500", id="override_monitored") }}
+            {{ form.override_monitored(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_monitored") }}
           </div>
 
           <!-- Search on Add -->
           <div>
             <label for="override_search_on_add" class="block text-xs font-medium text-gray-300 mb-1">Search on Add</label>
-            {{ form.override_search_on_add(class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500", id="override_search_on_add") }}
+            {{ form.override_search_on_add(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_search_on_add") }}
           </div>
 
           <!-- Season Folder (Sonarr only) -->
           {% if service_type == 'SONARR' %}
           <div>
             <label for="override_season_folder" class="block text-xs font-medium text-gray-300 mb-1">Season Folder</label>
-            {{ form.override_season_folder(class="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500", id="override_season_folder") }}
+            {{ form.override_season_folder(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_season_folder") }}
           </div>
           {% endif %}
 
         </div>
 
-        <div class="mt-4 pt-4 border-t border-gray-700">
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-border-subtle">
           <label for="limit" class="block text-xs font-medium text-gray-300 mb-1">List Size</label>
           <input type="number" id="limit" name="limit"
                  value="{{ list.limit or 20 }}" min="1" max="500"
-                 class="w-32 text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                 class="w-32 text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
           <p class="mt-1 text-xs text-gray-500">Maximum number of titles to import per run.</p>
         </div>
       </div>
     </div>
 
     <!-- Section 4: Schedule -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-700">
+    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Schedule</p>
       </div>
       <div class="p-4 space-y-4">
@@ -236,7 +236,7 @@
         <div>
           <label for="edit-freq" class="block text-xs font-medium text-gray-300 mb-1">Frequency</label>
           <select id="edit-freq"
-                  class="cron-freq-select text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  class="cron-freq-select text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   data-panel="edit">
             <option value="manual">Manual (run on demand only)</option>
             <option value="hourly">Hourly</option>
@@ -250,7 +250,7 @@
         <div id="edit-time-row" class="hidden flex items-center gap-3">
           <label for="edit-time" class="text-xs font-medium text-gray-300 whitespace-nowrap">At Hour (UTC)</label>
           <select id="edit-time"
-                  class="cron-time-select text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  class="cron-time-select text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   data-panel="edit">
             {% for h in range(24) %}
             <option value="{{ '%02d'|format(h) }}">{{ '%02d:00'|format(h) }} UTC</option>
@@ -262,7 +262,7 @@
         <div id="edit-day-row" class="hidden flex items-center gap-3">
           <label for="edit-day" class="text-xs font-medium text-gray-300 whitespace-nowrap">On Day</label>
           <select id="edit-day"
-                  class="cron-day-select text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  class="cron-day-select text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   data-panel="edit">
             <option value="0">Sunday</option>
             <option value="1">Monday</option>
@@ -277,7 +277,7 @@
         <!-- Advanced toggle -->
         <div>
           <button type="button" id="edit-advanced-toggle"
-                  class="text-xs text-blue-400 hover:text-blue-300 underline focus:outline-none"
+                  class="text-xs text-primary hover:text-primary-hover underline focus:outline-none"
                   data-panel="edit">
             Advanced: Enter raw cron expression
           </button>
@@ -287,7 +287,7 @@
         <div id="edit-cron-advanced" class="hidden space-y-2">
           <label for="edit-cron-raw" class="block text-xs font-medium text-gray-300">Cron Expression</label>
           <input type="text" id="edit-cron-raw" placeholder="0 0 * * *"
-                 class="cron-raw-input w-full text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                 class="cron-raw-input w-full text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                  data-panel="edit">
           <div id="edit-cron-description" class="text-xs text-gray-400"></div>
         </div>
@@ -298,11 +298,11 @@
     <!-- Section 5: Save -->
     <div class="flex items-center justify-end gap-3 pt-2">
       <a href="{{ url_for('main.lists_page') }}"
-         class="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 hover:text-white transition-colors focus:outline-none">
+         class="px-4 py-2 text-sm font-medium text-gray-300 dark:text-text-base bg-gray-100 dark:bg-input-bg border border-gray-300 dark:border-input-border rounded hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white transition-colors focus:outline-none">
         Cancel
       </a>
       <button type="submit"
-              class="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors focus:outline-none">
+              class="px-5 py-2 text-sm font-medium text-white bg-primary rounded hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
         Save Changes
       </button>
     </div>
