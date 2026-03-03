@@ -10,18 +10,18 @@
 
       <!-- Step 1: Service Selection -->
       <div class="accordion-section" data-step="1" data-panel="custom">
-        <div class="accordion-header flex items-center justify-between bg-bg-table-head dark:bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-gray-200 dark:border-border-subtle"
+        <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
              data-step="1" data-panel="custom">
           <div class="flex items-center gap-3">
             <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
-            <span class="text-sm font-medium text-text-heading dark:text-text-heading">Service</span>
-            <span class="custom-step1-summary text-xs text-text-muted dark:text-text-muted"></span>
+            <span class="text-sm font-medium text-text-heading">Service</span>
+            <span class="custom-step1-summary text-xs text-text-muted"></span>
           </div>
-          <svg class="accordion-chevron w-4 h-4 text-text-muted dark:text-text-muted transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="accordion-chevron w-4 h-4 text-text-muted transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-        <div class="accordion-body border border-t-0 border-gray-200 dark:border-border-subtle bg-bg-panel dark:bg-bg-panel rounded-b" data-step="1" data-panel="custom">
+        <div class="accordion-body border border-t-0 border-border-subtle bg-bg-panel rounded-b" data-step="1" data-panel="custom">
           <div class="p-4">
             <div class="flex gap-3">
               <button type="button"
@@ -35,7 +35,7 @@
                 </div>
               </button>
               <button type="button"
-                      class="custom-service-btn flex-1 py-3 px-4 border-2 rounded text-sm font-medium transition-colors focus:outline-none border-gray-300 dark:border-border-subtle text-text-muted dark:text-text-muted hover:border-primary hover:text-primary"
+                      class="custom-service-btn flex-1 py-3 px-4 border-2 rounded text-sm font-medium transition-colors focus:outline-none border-border-subtle text-text-muted hover:border-primary hover:text-primary"
                       data-service="sonarr">
                 <div class="flex items-center justify-center gap-2">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,29 +59,29 @@
 
       <!-- Step 2: Filters -->
       <div class="accordion-section" data-step="2" data-panel="custom">
-        <div class="accordion-header flex items-center justify-between bg-bg-table-head dark:bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-gray-200 dark:border-border-subtle"
+        <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
              data-step="2" data-panel="custom">
           <div class="flex items-center gap-3">
-            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center">2</span>
-            <span class="text-sm font-medium text-text-muted dark:text-text-muted">Filters</span>
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">2</span>
+            <span class="text-sm font-medium text-text-muted">Filters</span>
           </div>
-          <svg class="accordion-chevron w-4 h-4 text-text-muted dark:text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="accordion-chevron w-4 h-4 text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-        <div class="accordion-body hidden border border-t-0 border-gray-200 dark:border-border-subtle bg-bg-panel dark:bg-bg-panel rounded-b" data-step="2" data-panel="custom">
+        <div class="accordion-body hidden border border-t-0 border-border-subtle bg-bg-panel rounded-b" data-step="2" data-panel="custom">
           <div class="p-4 space-y-4">
 
             <!-- Genres -->
             <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Genres</label>
-              <p class="text-xs text-text-muted dark:text-text-muted mb-2">Click to include, click again to exclude, click again to clear.</p>
+              <label class="block text-xs font-medium text-text-base mb-2">Genres</label>
+              <p class="text-xs text-text-muted mb-2">Click to include, click again to exclude, click again to clear.</p>
 
               <!-- Movie genres (shown for radarr) -->
               <div id="custom-movie-genres" class="flex flex-wrap gap-2">
                 {% for genre in movie_genres %}
                 <button type="button"
-                        class="genre-pill inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border border-gray-300 dark:border-border-subtle text-gray-700 dark:text-gray-300 bg-transparent transition-colors focus:outline-none"
+                        class="genre-pill inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border border-border-subtle text-text-base bg-transparent transition-colors focus:outline-none"
                         data-genre-id="{{ genre.id }}" data-service="radarr" data-state="neutral">
                   <svg class="genre-pill-icon w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="" />
@@ -95,7 +95,7 @@
               <div id="custom-tv-genres" class="hidden flex flex-wrap gap-2">
                 {% for genre in tv_genres %}
                 <button type="button"
-                        class="genre-pill inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border border-gray-300 dark:border-border-subtle text-gray-700 dark:text-gray-300 bg-transparent transition-colors focus:outline-none"
+                        class="genre-pill inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border border-border-subtle text-text-base bg-transparent transition-colors focus:outline-none"
                         data-genre-id="{{ genre.id }}" data-service="sonarr" data-state="neutral">
                   <svg class="genre-pill-icon w-3.5 h-3.5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="" />
@@ -108,9 +108,9 @@
 
             <!-- Language -->
             <div>
-              <label for="custom-language" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Original Language</label>
+              <label for="custom-language" class="block text-xs font-medium text-text-base mb-1">Original Language</label>
               <select id="custom-language"
-                      class="text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+                      class="text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="">Any language</option>
                 <option value="en">English</option>
                 <option value="fr">French</option>
@@ -129,31 +129,31 @@
 
             <!-- Year range -->
             <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Year Range</label>
+              <label class="block text-xs font-medium text-text-base mb-1">Year Range</label>
               <div class="flex items-center gap-2">
                 <input type="number" id="custom-year-min" placeholder="From" min="1900" max="2030"
-                       class="w-28 text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-                <span class="text-text-muted dark:text-text-muted text-sm">to</span>
+                       class="w-28 text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+                <span class="text-text-muted text-sm">to</span>
                 <input type="number" id="custom-year-max" placeholder="To" min="1900" max="2030"
-                       class="w-28 text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+                       class="w-28 text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
               </div>
             </div>
 
             <!-- Rating minimum -->
             <div>
-              <label for="custom-rating-min" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Minimum Rating</label>
+              <label for="custom-rating-min" class="block text-xs font-medium text-text-base mb-1">Minimum Rating</label>
               <div class="flex items-center gap-2">
                 <input type="number" id="custom-rating-min" placeholder="0.0" min="0" max="10" step="0.5"
-                       class="w-24 text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-                <span class="text-xs text-text-muted dark:text-text-muted">/ 10</span>
+                       class="w-24 text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+                <span class="text-xs text-text-muted">/ 10</span>
               </div>
             </div>
 
             <!-- Limit -->
             <div>
-              <label for="custom-limit" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Max Items to Import</label>
+              <label for="custom-limit" class="block text-xs font-medium text-text-base mb-1">Max Items to Import</label>
               <input type="number" id="custom-limit" value="20" min="1" max="500"
-                     class="w-32 text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+                     class="w-32 text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
             </div>
 
             <div class="flex justify-end pt-2">
@@ -168,21 +168,21 @@
 
       <!-- Step 3: Import Settings -->
       <div class="accordion-section" data-step="3" data-panel="custom">
-        <div class="accordion-header flex items-center justify-between bg-bg-table-head dark:bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-gray-200 dark:border-border-subtle"
+        <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
              data-step="3" data-panel="custom">
           <div class="flex items-center gap-3">
-            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center">3</span>
-            <span class="text-sm font-medium text-text-muted dark:text-text-muted">Import Settings</span>
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">3</span>
+            <span class="text-sm font-medium text-text-muted">Import Settings</span>
           </div>
-          <svg class="accordion-chevron w-4 h-4 text-text-muted dark:text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="accordion-chevron w-4 h-4 text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-        <div class="accordion-body hidden border border-t-0 border-gray-200 dark:border-border-subtle bg-bg-panel dark:bg-bg-panel rounded-b" data-step="3" data-panel="custom">
+        <div class="accordion-body hidden border border-t-0 border-border-subtle bg-bg-panel rounded-b" data-step="3" data-panel="custom">
           <div class="p-4 space-y-4">
 
             <div id="custom-import-settings">
-              <div class="text-sm text-text-muted dark:text-text-muted italic">Select a service above to load import settings.</div>
+              <div class="text-sm text-text-muted italic">Select a service above to load import settings.</div>
             </div>
 
             <div class="flex justify-end pt-2">
@@ -197,24 +197,24 @@
 
       <!-- Step 4: Schedule -->
       <div class="accordion-section" data-step="4" data-panel="custom">
-        <div class="accordion-header flex items-center justify-between bg-bg-table-head dark:bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-gray-200 dark:border-border-subtle"
+        <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
              data-step="4" data-panel="custom">
           <div class="flex items-center gap-3">
-            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center">4</span>
-            <span class="text-sm font-medium text-text-muted dark:text-text-muted">Schedule</span>
-            <span class="custom-step4-summary text-xs text-text-muted dark:text-text-muted"></span>
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">4</span>
+            <span class="text-sm font-medium text-text-muted">Schedule</span>
+            <span class="custom-step4-summary text-xs text-text-muted"></span>
           </div>
-          <svg class="accordion-chevron w-4 h-4 text-text-muted dark:text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="accordion-chevron w-4 h-4 text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-        <div class="accordion-body hidden border border-t-0 border-gray-200 dark:border-border-subtle bg-bg-panel dark:bg-bg-panel rounded-b" data-step="4" data-panel="custom">
+        <div class="accordion-body hidden border border-t-0 border-border-subtle bg-bg-panel rounded-b" data-step="4" data-panel="custom">
           <div class="p-4 space-y-4">
 
             <!-- Frequency picker -->
             <div>
-              <label for="custom-freq" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Frequency</label>
-              <select id="custom-freq" class="cron-freq-select text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              <label for="custom-freq" class="block text-xs font-medium text-text-base mb-1">Frequency</label>
+              <select id="custom-freq" class="cron-freq-select text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                       data-panel="custom">
                 <option value="manual">Manual (run on demand only)</option>
                 <option value="hourly">Hourly</option>
@@ -226,8 +226,8 @@
 
             <!-- Time picker (shown for daily/weekly) -->
             <div id="custom-time-row" class="flex items-center gap-3">
-              <label for="custom-time" class="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">At Hour (UTC)</label>
-              <select id="custom-time" class="cron-time-select text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              <label for="custom-time" class="text-xs font-medium text-text-base whitespace-nowrap">At Hour (UTC)</label>
+              <select id="custom-time" class="cron-time-select text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                       data-panel="custom">
                 {% for h in range(24) %}
                 <option value="{{ '%02d'|format(h) }}" {% if h == 0 %}selected{% endif %}>{{ '%02d:00'|format(h) }} UTC</option>
@@ -237,8 +237,8 @@
 
             <!-- Day picker (shown for weekly) -->
             <div id="custom-day-row" class="hidden flex items-center gap-3">
-              <label for="custom-day" class="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">On Day</label>
-              <select id="custom-day" class="cron-day-select text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              <label for="custom-day" class="text-xs font-medium text-text-base whitespace-nowrap">On Day</label>
+              <select id="custom-day" class="cron-day-select text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                       data-panel="custom">
                 <option value="0">Sunday</option>
                 <option value="1">Monday</option>
@@ -261,11 +261,11 @@
 
             <!-- Raw cron input (hidden until advanced) -->
             <div id="custom-cron-advanced" class="hidden space-y-2">
-              <label for="custom-cron-raw" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Cron Expression</label>
+              <label for="custom-cron-raw" class="block text-xs font-medium text-text-base">Cron Expression</label>
               <input type="text" id="custom-cron-raw" placeholder="0 0 * * *"
-                     class="cron-raw-input w-full text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                     class="cron-raw-input w-full text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                      data-panel="custom">
-              <div id="custom-cron-description" class="text-xs text-text-muted dark:text-text-muted"></div>
+              <div id="custom-cron-description" class="text-xs text-text-muted"></div>
             </div>
 
             <!-- Hidden cron value storage -->
@@ -283,31 +283,31 @@
 
       <!-- Step 5: Review & Save -->
       <div class="accordion-section" data-step="5" data-panel="custom">
-        <div class="accordion-header flex items-center justify-between bg-bg-table-head dark:bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-gray-200 dark:border-border-subtle"
+        <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
              data-step="5" data-panel="custom">
           <div class="flex items-center gap-3">
-            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-bold flex items-center justify-center">5</span>
-            <span class="text-sm font-medium text-text-muted dark:text-text-muted">Review &amp; Save</span>
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">5</span>
+            <span class="text-sm font-medium text-text-muted">Review &amp; Save</span>
           </div>
-          <svg class="accordion-chevron w-4 h-4 text-text-muted dark:text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="accordion-chevron w-4 h-4 text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-        <div class="accordion-body hidden border border-t-0 border-gray-200 dark:border-border-subtle bg-bg-panel dark:bg-bg-panel rounded-b" data-step="5" data-panel="custom">
+        <div class="accordion-body hidden border border-t-0 border-border-subtle bg-bg-panel rounded-b" data-step="5" data-panel="custom">
           <div class="p-4 space-y-4">
 
             <!-- Name input -->
             <div>
-              <label for="custom-list-name" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">List Name</label>
+              <label for="custom-list-name" class="block text-xs font-medium text-text-base mb-1">List Name</label>
               <input type="text" id="custom-list-name" name="custom_list_name" placeholder="e.g. My Action Movies"
-                     class="w-full text-sm bg-white dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+                     class="w-full text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
             </div>
 
             <!-- Active toggle -->
             <div class="flex items-center gap-3">
               <input type="checkbox" id="custom-is-active" name="custom_is_active" checked
-                     class="w-4 h-4 rounded border-gray-400 dark:border-gray-500 bg-white dark:bg-input-bg text-primary focus:ring-primary">
-              <label for="custom-is-active" class="text-sm text-gray-700 dark:text-gray-300">Enable schedule (run automatically)</label>
+                     class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary">
+              <label for="custom-is-active" class="text-sm text-text-base">Enable schedule (run automatically)</label>
             </div>
 
             <!-- Error message area -->
@@ -328,13 +328,13 @@
 
     <!-- Right column: live preview -->
     <div class="lg:w-72 xl:w-80 flex-shrink-0">
-      <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded sticky top-4">
-        <div class="px-4 py-3 border-b border-gray-200 dark:border-border-subtle flex items-center justify-between">
-          <h3 class="text-sm font-medium text-text-heading dark:text-text-heading">Preview</h3>
-          <span id="custom-preview-count" class="text-xs text-text-muted dark:text-text-muted"></span>
+      <div class="bg-bg-panel border border-border-subtle rounded sticky top-4">
+        <div class="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+          <h3 class="text-sm font-medium text-text-heading">Preview</h3>
+          <span id="custom-preview-count" class="text-xs text-text-muted"></span>
         </div>
         <div id="custom-preview-panel" class="p-3 min-h-48 max-h-96 overflow-y-auto">
-          <div class="text-sm text-text-muted dark:text-text-muted italic text-center py-8">
+          <div class="text-sm text-text-muted italic text-center py-8">
             Select filters to see a preview.
           </div>
         </div>

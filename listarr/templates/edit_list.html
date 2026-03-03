@@ -10,15 +10,15 @@
   <!-- Page Header -->
   <div class="flex items-center justify-between">
     <div>
-      <nav class="text-sm text-gray-400 mb-1">
-        <a href="{{ url_for('main.lists_page') }}" class="hover:text-white">Lists</a>
+      <nav class="text-sm text-text-muted mb-1">
+        <a href="{{ url_for('main.lists_page') }}" class="hover:text-text-base">Lists</a>
         <span class="mx-1">/</span>
-        <span class="text-gray-300">Edit</span>
+        <span class="text-text-base">Edit</span>
       </nav>
-      <h1 class="text-2xl font-semibold text-gray-100">Edit List</h1>
+      <h1 class="text-2xl font-semibold text-text-heading">Edit List</h1>
     </div>
     <a href="{{ url_for('main.lists_page') }}"
-       class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400 hover:text-white border border-gray-600 rounded-md hover:border-gray-400 transition-colors">
+       class="inline-flex items-center px-3 py-1.5 text-sm text-text-muted hover:text-text-base border border-border-subtle rounded hover:border-input-border transition-colors">
       <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
       </svg>
@@ -33,7 +33,7 @@
       Preset
     </span>
     {% else %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-table-head dark:bg-bg-table-head text-gray-600 dark:text-text-muted border border-gray-300 dark:border-border-subtle">
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-table-head text-text-muted border border-border-subtle">
       Custom
     </span>
     {% endif %}
@@ -46,7 +46,7 @@
       Sonarr
     </span>
     {% endif %}
-    <span class="text-xs text-gray-500">List type and target service are locked after creation.</span>
+    <span class="text-xs text-text-muted">List type and target service are locked after creation.</span>
   </div>
 
   <!-- Edit Form -->
@@ -54,16 +54,16 @@
     {{ form.hidden_tag() }}
 
     <!-- Section 1: General -->
-    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">General</p>
+    <div class="bg-bg-panel border border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-border-subtle">
+        <p class="text-xs font-semibold text-text-muted uppercase tracking-wider">General</p>
       </div>
       <div class="p-4 space-y-4">
 
         <!-- Name -->
         <div>
-          <label for="name" class="block text-sm font-medium text-gray-300 mb-1">List Name</label>
-          {{ form.name(class="w-full px-3 py-2 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary", id="name") }}
+          <label for="name" class="block text-sm font-medium text-text-base mb-1">List Name</label>
+          {{ form.name(class="w-full px-3 py-2 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary", id="name") }}
           {% if form.name.errors %}
           <p class="mt-1 text-xs text-red-400">{{ form.name.errors[0] }}</p>
           {% endif %}
@@ -71,27 +71,27 @@
 
         <!-- Active toggle -->
         <div class="flex items-center gap-3">
-          {{ form.is_active(class="w-4 h-4 rounded border-gray-400 dark:border-input-border bg-white dark:bg-input-bg text-primary focus:ring-primary", id="is_active") }}
-          <label for="is_active" class="text-sm text-gray-300">Active (run on schedule)</label>
+          {{ form.is_active(class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary", id="is_active") }}
+          <label for="is_active" class="text-sm text-text-base">Active (run on schedule)</label>
         </div>
 
       </div>
     </div>
 
     <!-- Section 2: Source Filters (read-only) -->
-    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Source Filters</p>
+    <div class="bg-bg-panel border border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-border-subtle">
+        <p class="text-xs font-semibold text-text-muted uppercase tracking-wider">Source Filters</p>
       </div>
       <div class="p-4">
-        <p class="text-xs text-gray-500 mb-3">Source type and filters are set during creation and cannot be changed.</p>
+        <p class="text-xs text-text-muted mb-3">Source type and filters are set during creation and cannot be changed.</p>
 
         {% set filters = list.filters_json if list.filters_json else {} %}
 
         {% if list.tmdb_list_type and list.tmdb_list_type != 'discovery' %}
         <!-- Preset type -->
-        <div class="flex items-center gap-2 text-sm text-gray-300">
-          <span class="text-gray-500 text-xs uppercase tracking-wide">Type:</span>
+        <div class="flex items-center gap-2 text-sm text-text-base">
+          <span class="text-text-muted text-xs uppercase tracking-wide">Type:</span>
           <span>{{ list.tmdb_list_type.replace('_', ' ').title() }}</span>
         </div>
         {% else %}
@@ -100,29 +100,29 @@
 
           {% if filters.get('genres_include') %}
           <div class="flex gap-2 text-sm">
-            <span class="text-gray-500 text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Include Genres:</span>
-            <span class="text-gray-300">{{ filters.get('genres_include') | join(', ') }}</span>
+            <span class="text-text-muted text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Include Genres:</span>
+            <span class="text-text-base">{{ filters.get('genres_include') | join(', ') }}</span>
           </div>
           {% endif %}
 
           {% if filters.get('genres_exclude') %}
           <div class="flex gap-2 text-sm">
-            <span class="text-gray-500 text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Exclude Genres:</span>
-            <span class="text-gray-300">{{ filters.get('genres_exclude') | join(', ') }}</span>
+            <span class="text-text-muted text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Exclude Genres:</span>
+            <span class="text-text-base">{{ filters.get('genres_exclude') | join(', ') }}</span>
           </div>
           {% endif %}
 
           {% if filters.get('language') %}
           <div class="flex gap-2 text-sm">
-            <span class="text-gray-500 text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Language:</span>
-            <span class="text-gray-300">{{ filters.get('language') }}</span>
+            <span class="text-text-muted text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Language:</span>
+            <span class="text-text-base">{{ filters.get('language') }}</span>
           </div>
           {% endif %}
 
           {% if filters.get('year_min') or filters.get('year_max') %}
           <div class="flex gap-2 text-sm">
-            <span class="text-gray-500 text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Year Range:</span>
-            <span class="text-gray-300">
+            <span class="text-text-muted text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Year Range:</span>
+            <span class="text-text-base">
               {{ filters.get('year_min', '—') }} – {{ filters.get('year_max', '—') }}
             </span>
           </div>
@@ -130,13 +130,13 @@
 
           {% if filters.get('rating_min') %}
           <div class="flex gap-2 text-sm">
-            <span class="text-gray-500 text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Min Rating:</span>
-            <span class="text-gray-300">{{ filters.get('rating_min') }}</span>
+            <span class="text-text-muted text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Min Rating:</span>
+            <span class="text-text-base">{{ filters.get('rating_min') }}</span>
           </div>
           {% endif %}
 
           {% if not filters.get('genres_include') and not filters.get('genres_exclude') and not filters.get('language') and not filters.get('year_min') and not filters.get('year_max') and not filters.get('rating_min') %}
-          <div class="text-sm text-gray-500 italic">No filters applied — all available titles.</div>
+          <div class="text-sm text-text-muted italic">No filters applied — all available titles.</div>
           {% endif %}
 
         </div>
@@ -144,8 +144,8 @@
 
         {% if list.limit %}
         <div class="flex gap-2 text-sm mt-2">
-          <span class="text-gray-500 text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Limit:</span>
-          <span class="text-gray-300">{{ list.limit }} titles</span>
+          <span class="text-text-muted text-xs uppercase tracking-wide whitespace-nowrap pt-0.5">Limit:</span>
+          <span class="text-text-base">{{ list.limit }} titles</span>
         </div>
         {% endif %}
 
@@ -153,79 +153,79 @@
     </div>
 
     <!-- Section 3: Import Settings -->
-    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Import Settings</p>
+    <div class="bg-bg-panel border border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-border-subtle">
+        <p class="text-xs font-semibold text-text-muted uppercase tracking-wider">Import Settings</p>
       </div>
       <div class="p-4">
-        <p class="text-xs text-gray-500 mb-4">Override the default import settings for this list. Leave as "Use Default" to use your global settings.</p>
+        <p class="text-xs text-text-muted mb-4">Override the default import settings for this list. Leave as "Use Default" to use your global settings.</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           <!-- Quality Profile -->
           <div>
-            <label for="override_quality_profile" class="block text-xs font-medium text-gray-300 mb-1">Quality Profile</label>
-            {{ form.override_quality_profile(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_quality_profile") }}
+            <label for="override_quality_profile" class="block text-xs font-medium text-text-base mb-1">Quality Profile</label>
+            {{ form.override_quality_profile(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_quality_profile") }}
           </div>
 
           <!-- Root Folder -->
           <div>
-            <label for="override_root_folder" class="block text-xs font-medium text-gray-300 mb-1">Root Folder</label>
-            {{ form.override_root_folder(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_root_folder") }}
+            <label for="override_root_folder" class="block text-xs font-medium text-text-base mb-1">Root Folder</label>
+            {{ form.override_root_folder(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_root_folder") }}
           </div>
 
           <!-- Tag -->
           <div>
-            <label for="override_tag" class="block text-xs font-medium text-gray-300 mb-1">Tag</label>
+            <label for="override_tag" class="block text-xs font-medium text-text-base mb-1">Tag</label>
             <input type="text" id="override_tag" name="override_tag"
                    value="{{ form.override_tag.data or '' }}"
                    list="edit-tag-list"
                    placeholder="Use Default"
-                   class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary">
+                   class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-primary">
             <datalist id="edit-tag-list">
               {% for tag in tags %}
               <option value="{{ tag.label }}">
               {% endfor %}
             </datalist>
-            <p class="mt-1 text-xs text-gray-500">Created automatically if it doesn't exist. Letters, numbers, hyphens.</p>
+            <p class="mt-1 text-xs text-text-muted">Created automatically if it doesn't exist. Letters, numbers, hyphens.</p>
           </div>
 
           <!-- Monitored -->
           <div>
-            <label for="override_monitored" class="block text-xs font-medium text-gray-300 mb-1">Monitored</label>
-            {{ form.override_monitored(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_monitored") }}
+            <label for="override_monitored" class="block text-xs font-medium text-text-base mb-1">Monitored</label>
+            {{ form.override_monitored(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_monitored") }}
           </div>
 
           <!-- Search on Add -->
           <div>
-            <label for="override_search_on_add" class="block text-xs font-medium text-gray-300 mb-1">Search on Add</label>
-            {{ form.override_search_on_add(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_search_on_add") }}
+            <label for="override_search_on_add" class="block text-xs font-medium text-text-base mb-1">Search on Add</label>
+            {{ form.override_search_on_add(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_search_on_add") }}
           </div>
 
           <!-- Season Folder (Sonarr only) -->
           {% if service_type == 'SONARR' %}
           <div>
-            <label for="override_season_folder" class="block text-xs font-medium text-gray-300 mb-1">Season Folder</label>
-            {{ form.override_season_folder(class="w-full px-3 py-1.5 bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border rounded text-gray-900 dark:text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_season_folder") }}
+            <label for="override_season_folder" class="block text-xs font-medium text-text-base mb-1">Season Folder</label>
+            {{ form.override_season_folder(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_season_folder") }}
           </div>
           {% endif %}
 
         </div>
 
-        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-border-subtle">
-          <label for="limit" class="block text-xs font-medium text-gray-300 mb-1">List Size</label>
+        <div class="mt-4 pt-4 border-t border-border-subtle">
+          <label for="limit" class="block text-xs font-medium text-text-base mb-1">List Size</label>
           <input type="number" id="limit" name="limit"
                  value="{{ list.limit or 20 }}" min="1" max="500"
-                 class="w-32 text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-          <p class="mt-1 text-xs text-gray-500">Maximum number of titles to import per run.</p>
+                 class="w-32 text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
+          <p class="mt-1 text-xs text-text-muted">Maximum number of titles to import per run.</p>
         </div>
       </div>
     </div>
 
     <!-- Section 4: Schedule -->
-    <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded mb-4">
-      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-border-subtle">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Schedule</p>
+    <div class="bg-bg-panel border border-border-subtle rounded mb-4">
+      <div class="px-4 py-2.5 border-b border-border-subtle">
+        <p class="text-xs font-semibold text-text-muted uppercase tracking-wider">Schedule</p>
       </div>
       <div class="p-4 space-y-4">
 
@@ -234,9 +234,9 @@
 
         <!-- Frequency picker -->
         <div>
-          <label for="edit-freq" class="block text-xs font-medium text-gray-300 mb-1">Frequency</label>
+          <label for="edit-freq" class="block text-xs font-medium text-text-base mb-1">Frequency</label>
           <select id="edit-freq"
-                  class="cron-freq-select text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                  class="cron-freq-select text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   data-panel="edit">
             <option value="manual">Manual (run on demand only)</option>
             <option value="hourly">Hourly</option>
@@ -248,9 +248,9 @@
 
         <!-- Time picker (shown for daily/weekly) -->
         <div id="edit-time-row" class="hidden flex items-center gap-3">
-          <label for="edit-time" class="text-xs font-medium text-gray-300 whitespace-nowrap">At Hour (UTC)</label>
+          <label for="edit-time" class="text-xs font-medium text-text-base whitespace-nowrap">At Hour (UTC)</label>
           <select id="edit-time"
-                  class="cron-time-select text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                  class="cron-time-select text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   data-panel="edit">
             {% for h in range(24) %}
             <option value="{{ '%02d'|format(h) }}">{{ '%02d:00'|format(h) }} UTC</option>
@@ -260,9 +260,9 @@
 
         <!-- Day picker (shown for weekly) -->
         <div id="edit-day-row" class="hidden flex items-center gap-3">
-          <label for="edit-day" class="text-xs font-medium text-gray-300 whitespace-nowrap">On Day</label>
+          <label for="edit-day" class="text-xs font-medium text-text-base whitespace-nowrap">On Day</label>
           <select id="edit-day"
-                  class="cron-day-select text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                  class="cron-day-select text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   data-panel="edit">
             <option value="0">Sunday</option>
             <option value="1">Monday</option>
@@ -285,11 +285,11 @@
 
         <!-- Raw cron input (hidden until advanced) -->
         <div id="edit-cron-advanced" class="hidden space-y-2">
-          <label for="edit-cron-raw" class="block text-xs font-medium text-gray-300">Cron Expression</label>
+          <label for="edit-cron-raw" class="block text-xs font-medium text-text-base">Cron Expression</label>
           <input type="text" id="edit-cron-raw" placeholder="0 0 * * *"
-                 class="cron-raw-input w-full text-sm bg-input-bg dark:bg-input-bg border border-gray-300 dark:border-input-border text-gray-900 dark:text-text-base rounded px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                 class="cron-raw-input w-full text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                  data-panel="edit">
-          <div id="edit-cron-description" class="text-xs text-gray-400"></div>
+          <div id="edit-cron-description" class="text-xs text-text-muted"></div>
         </div>
 
       </div>
@@ -298,7 +298,7 @@
     <!-- Section 5: Save -->
     <div class="flex items-center justify-end gap-3 pt-2">
       <a href="{{ url_for('main.lists_page') }}"
-         class="px-4 py-2 text-sm font-medium text-gray-300 dark:text-text-base bg-gray-100 dark:bg-input-bg border border-gray-300 dark:border-input-border rounded hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white transition-colors focus:outline-none">
+         class="px-4 py-2 text-sm font-medium bg-btn-secondary-bg text-btn-secondary-text hover:bg-btn-secondary-hover border border-border-subtle rounded transition-colors focus:outline-none">
         Cancel
       </a>
       <button type="submit"
