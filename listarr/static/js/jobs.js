@@ -188,8 +188,8 @@ function renderOverflowMenu(job) {
   }
   return (
     '<div class="relative">' +
-      '<button data-overflow-list="' + menuId + '" title="Actions" class="text-gray-400 hover:text-gray-100 focus:outline-none text-lg leading-none px-1">&#x2026;</button>' +
-      '<div data-overflow-menu="' + menuId + '" class="hidden fixed z-50 w-32 bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle py-1" style="display:none;">' +
+      '<button data-overflow-list="' + menuId + '" title="Actions" class="text-text-muted dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 focus:outline-none text-lg leading-none px-1">&#x2026;</button>' +
+      '<div data-overflow-menu="' + menuId + '" class="hidden fixed z-50 w-32 bg-bg-panel dark:bg-bg-panel border border-gray-300 dark:border-border-subtle py-1" style="display:none;">' +
         '<a href="/activity/' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-text-base dark:text-gray-300 hover:bg-bg-table-head dark:hover:bg-bg-table-head">View</a>' +
         rerunItem +
       '</div>' +
