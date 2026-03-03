@@ -8,17 +8,17 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
   <div id="run-id-anchor" data-run-id="{{ run_id }}"></div>
 
-  <nav class="text-sm text-gray-400 mb-4">
+  <nav class="text-sm text-text-muted mb-4">
     <a href="{{ url_for('main.activity_page') }}" class="hover:text-white">Activity</a>
     <span class="mx-1">/</span>
-    <span class="text-gray-300">Run Detail</span>
+    <span class="text-text-muted">Run Detail</span>
   </nav>
 
   <div class="flex justify-between items-center mb-4">
-    <h1 class="text-xl font-semibold text-gray-100">Run Detail</h1>
+    <h1 class="text-xl font-semibold text-text-heading">Run Detail</h1>
     <div class="flex items-center gap-3">
       <a href="{{ url_for('main.activity_page') }}"
-         class="inline-flex items-center px-3 py-1.5 text-sm text-gray-400 hover:text-white border border-gray-600 rounded-md hover:border-gray-400 transition-colors">
+         class="inline-flex items-center px-3 py-1.5 text-sm text-text-muted hover:text-white border border-gray-600 rounded-md hover:border-gray-400 transition-colors">
         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
@@ -37,11 +37,11 @@
   </div>
 
   <div id="detail-summary"
-       class="hidden mb-4 bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded p-3 text-sm text-gray-300 dark:text-text-base">
+       class="hidden mb-4 bg-bg-panel border border-border-subtle rounded p-3 text-sm text-text-base">
   </div>
 
   <div id="detail-items"
-       class="hidden bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded overflow-hidden">
+       class="hidden bg-bg-panel border border-border-subtle rounded overflow-hidden">
   </div>
 </div>
 {% endblock %}
