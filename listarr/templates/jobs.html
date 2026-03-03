@@ -12,26 +12,26 @@
   <!-- Page Header -->
   <div class="flex justify-between items-center">
     <div>
-      <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+      <h1 class="text-2xl font-semibold text-text-heading">
         Activity
       </h1>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      <p class="mt-1 text-sm text-text-muted">
         View import run history across all lists.
       </p>
     </div>
   </div>
 
   <!-- Filters Section -->
-  <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded p-3">
+  <div class="bg-bg-panel border border-border-subtle rounded p-3">
     <div class="flex flex-wrap items-end gap-4">
       <!-- List Filter -->
       <div class="flex-1 min-w-[200px]">
-        <label for="filter-list" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label for="filter-list" class="block text-sm font-medium text-text-base mb-1">
           List
         </label>
         <select
           id="filter-list"
-          class="block w-full rounded border border-gray-300 dark:border-input-border bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:border-primary focus:ring-primary text-sm py-2"
+          class="block w-full rounded border border-input-border bg-input-bg text-text-base focus:border-primary focus:ring-primary text-sm py-2"
         >
           <option value="">All Lists</option>
           <!-- Populated by JavaScript -->
@@ -40,12 +40,12 @@
 
       <!-- Status Filter -->
       <div class="flex-1 min-w-[150px]">
-        <label for="filter-status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label for="filter-status" class="block text-sm font-medium text-text-base mb-1">
           Status
         </label>
         <select
           id="filter-status"
-          class="block w-full rounded border border-gray-300 dark:border-input-border bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:border-primary focus:ring-primary text-sm py-2"
+          class="block w-full rounded border border-input-border bg-input-bg text-text-base focus:border-primary focus:ring-primary text-sm py-2"
         >
           <option value="">All Statuses</option>
           <option value="running">Running</option>
@@ -57,7 +57,7 @@
   </div>
 
   <!-- Jobs Table -->
-  <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded overflow-hidden">
+  <div class="bg-bg-panel border border-border-subtle rounded overflow-hidden">
     <!-- Loading State -->
     <div id="jobs-loading" class="text-center py-12">
       {{ loading_spinner('Loading activity...') }}
@@ -71,63 +71,63 @@
     <!-- Jobs Table Content -->
     <div id="jobs-table-container" class="hidden">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-border-subtle">
+        <table class="min-w-full divide-y divide-border-subtle">
           <thead class="bg-bg-table-head dark:bg-bg-table-head">
             <tr>
               <th
                 scope="col"
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 List Name
               </th>
               <th
                 scope="col"
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 Target
               </th>
               <th
                 scope="col"
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 Started
               </th>
               <th
                 scope="col"
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 Duration
               </th>
               <th
                 scope="col"
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 Result
               </th>
               <th
                 scope="col"
-                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 Status
               </th>
               <th
                 scope="col"
-                class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                class="px-4 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider"
               >
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody id="jobs-tbody" class="bg-bg-panel dark:bg-bg-panel divide-y divide-gray-200 dark:divide-border-subtle">
+          <tbody id="jobs-tbody" class="bg-bg-panel divide-y divide-border-subtle">
             <!-- Populated by JavaScript -->
           </tbody>
         </table>
       </div>
 
       <!-- Pagination -->
-      <div id="pagination-container" class="px-6 py-4 border-t border-gray-200 dark:border-border-subtle">
+      <div id="pagination-container" class="px-6 py-4 border-t border-border-subtle">
         <div class="flex items-center justify-between">
-          <div class="text-sm text-gray-500 dark:text-gray-400">
+          <div class="text-sm text-text-muted">
             Showing <span id="pagination-start">0</span> to <span id="pagination-end">0</span> of <span id="pagination-total">0</span> jobs
           </div>
           <!-- Rendered by renderPaginationButtons() in jobs.js -->
