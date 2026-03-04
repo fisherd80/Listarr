@@ -27,16 +27,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
   </head>
 
-  <body class="bg-bg-base dark:bg-bg-base text-text-base dark:text-text-base">
+  <body class="bg-bg-base text-text-base">
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div class="max-w-md w-full">
         <!-- Card -->
-        <div class="bg-bg-panel dark:bg-bg-panel border border-gray-200 dark:border-border-subtle rounded px-8 py-10">
+        <div class="bg-bg-panel border border-border-subtle rounded px-8 py-10">
           <!-- Logo / Brand -->
           <div class="text-center mb-8">
             <img src="{{ url_for('static', filename='logo-icon.png') }}" alt="Listarr" class="h-16 w-16 mx-auto mb-3" />
             <h1 class="text-3xl font-bold text-primary">Listarr</h1>
-            <p class="mt-2 text-sm text-text-muted dark:text-text-muted">
+            <p class="mt-2 text-sm text-text-muted">
               Media Discovery &amp; List Management
             </p>
             <p class="mt-4 text-lg font-medium">
@@ -53,10 +53,10 @@
               <label for="username" class="block text-sm font-medium mb-2">
                 Username
               </label>
-              {{ form.username(class="w-full px-3 py-2 border border-gray-300 dark:border-input-border rounded bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="username") }}
+              {{ form.username(class="w-full px-3 py-2 border border-input-border rounded bg-input-bg text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="username") }}
               {% if form.username.errors %}
                 {% for error in form.username.errors %}
-                  <p class="text-red-500 text-xs mt-1">{{ error }}</p>
+                  <p class="text-error text-xs mt-1">{{ error }}</p>
                 {% endfor %}
               {% endif %}
             </div>
@@ -67,11 +67,11 @@
                 Password
               </label>
               <div class="relative">
-                {{ form.password(class="w-full px-3 py-2 border border-gray-300 dark:border-input-border rounded bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="password") }}
+                {{ form.password(class="w-full px-3 py-2 border border-input-border rounded bg-input-bg text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="password") }}
                 <button
                   type="button"
                   onclick="togglePasswordVisibility('password', 'password-eye')"
-                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted dark:text-text-muted hover:text-text-heading dark:hover:text-text-heading"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-heading"
                 >
                   <svg id="password-eye" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -81,7 +81,7 @@
               </div>
               {% if form.password.errors %}
                 {% for error in form.password.errors %}
-                  <p class="text-red-500 text-xs mt-1">{{ error }}</p>
+                  <p class="text-error text-xs mt-1">{{ error }}</p>
                 {% endfor %}
               {% endif %}
             </div>
@@ -92,11 +92,11 @@
                 Confirm Password
               </label>
               <div class="relative">
-                {{ form.password_confirm(class="w-full px-3 py-2 border border-gray-300 dark:border-input-border rounded bg-white dark:bg-input-bg text-gray-900 dark:text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="password_confirm") }}
+                {{ form.password_confirm(class="w-full px-3 py-2 border border-input-border rounded bg-input-bg text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="password_confirm") }}
                 <button
                   type="button"
                   onclick="togglePasswordVisibility('password_confirm', 'password-confirm-eye')"
-                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted dark:text-text-muted hover:text-text-heading dark:hover:text-text-heading"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-heading"
                 >
                   <svg id="password-confirm-eye" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -106,7 +106,7 @@
               </div>
               {% if form.password_confirm.errors %}
                 {% for error in form.password_confirm.errors %}
-                  <p class="text-red-500 text-xs mt-1">{{ error }}</p>
+                  <p class="text-error text-xs mt-1">{{ error }}</p>
                 {% endfor %}
               {% endif %}
             </div>
