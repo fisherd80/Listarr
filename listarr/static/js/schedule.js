@@ -119,7 +119,7 @@ async function refreshScheduleStatus() {
           if (list.next_run) {
             timeSpan.textContent = formatTimestamp(list.next_run);
           } else if (list.has_schedule && data.paused) {
-            timeSpan.className = "text-gray-400 dark:text-gray-500";
+            timeSpan.className = "text-text-muted";
             timeSpan.textContent = "Paused";
           } else {
             timeSpan.textContent = "-";

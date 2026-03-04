@@ -184,13 +184,13 @@ function renderOverflowMenu(job) {
   var menuId = "job-" + job.id;
   var rerunItem = "";
   if (job.status === "failed") {
-    rerunItem = '<button data-rerun-job="' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-text-base dark:text-gray-300 hover:bg-bg-table-head dark:hover:bg-bg-table-head">Rerun</button>';
+    rerunItem = '<button data-rerun-job="' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-text-base hover:bg-bg-table-head">Rerun</button>';
   }
   return (
     '<div class="relative">' +
-      '<button data-overflow-list="' + menuId + '" title="Actions" class="text-text-muted dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 focus:outline-none text-lg leading-none px-1">&#x2026;</button>' +
-      '<div data-overflow-menu="' + menuId + '" class="hidden fixed z-50 w-32 bg-bg-panel dark:bg-bg-panel border border-gray-300 dark:border-border-subtle py-1" style="display:none;">' +
-        '<a href="/activity/' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-text-base dark:text-gray-300 hover:bg-bg-table-head dark:hover:bg-bg-table-head">View</a>' +
+      '<button data-overflow-list="' + menuId + '" title="Actions" class="text-text-muted hover:text-text-heading focus:outline-none text-lg leading-none px-1">&#x2026;</button>' +
+      '<div data-overflow-menu="' + menuId + '" class="hidden fixed z-50 w-32 bg-bg-panel border border-border-subtle py-1" style="display:none;">' +
+        '<a href="/activity/' + job.id + '" class="block w-full text-left px-3 py-1.5 text-sm text-text-base hover:bg-bg-table-head">View</a>' +
         rerunItem +
       '</div>' +
     '</div>'
@@ -211,19 +211,19 @@ function renderJobRow(job) {
 
   return (
     '<tr data-job-row="' + job.id + '">' +
-      '<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-text-heading">' +
         escapeHtml(job.list_name || ("List #" + job.list_id)) +
       '</td>' +
       '<td class="px-4 py-3 whitespace-nowrap">' +
         targetCell +
       '</td>' +
-      '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">' +
         formatTimestamp(job.started_at, "absolute") +
       '</td>' +
-      '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">' +
         formatDuration(job.duration) +
       '</td>' +
-      '<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">' +
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">' +
         result +
       '</td>' +
       '<td class="px-4 py-3 whitespace-nowrap">' +
@@ -271,14 +271,14 @@ function renderStatusBadge(status) {
       icon: "",
     },
     no_change: {
-      color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+      color: "bg-bg-elevated text-text-base",
       label: "No Change",
       icon: "",
     },
   };
 
   var config = statusConfig[status] || {
-    color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+    color: "bg-bg-elevated text-text-base",
     label: status || "Unknown",
     icon: "",
   };
@@ -382,8 +382,8 @@ function renderPaginationButtons() {
     pageStart = Math.max(1, pageEnd - MAX_VISIBLE + 1);
   }
 
-  var activeClass = "bg-primary text-white border border-gray-600 rounded inline-flex items-center px-2.5 py-1.5 text-xs";
-  var inactiveClass = "text-gray-300 hover:bg-gray-600 border border-gray-600 rounded inline-flex items-center px-2.5 py-1.5 text-xs";
+  var activeClass = "bg-primary text-white border border-border-subtle rounded inline-flex items-center px-2.5 py-1.5 text-xs";
+  var inactiveClass = "text-text-muted hover:bg-bg-hover border border-border-subtle rounded inline-flex items-center px-2.5 py-1.5 text-xs";
 
   var html = "";
 

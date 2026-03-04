@@ -278,12 +278,12 @@ function selectType(service) {
     typeCards.forEach(card => {
         if (card.dataset.service === service) {
             // Selected state
-            card.classList.remove("border-gray-200", "dark:border-gray-600");
-            card.classList.add("border-primary", "bg-primary/5", "dark:bg-primary/10");
+            card.classList.remove("border-border-subtle");
+            card.classList.add("border-primary", "bg-primary/5");
         } else {
             // Unselected state
-            card.classList.remove("border-primary", "bg-primary/5", "dark:bg-primary/10");
-            card.classList.add("border-gray-200", "dark:border-gray-600");
+            card.classList.remove("border-primary", "bg-primary/5");
+            card.classList.add("border-border-subtle");
         }
     });
 
@@ -377,7 +377,7 @@ function updateGenreCheckboxes() {
                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
             </svg>`;
         } else {
-            bgClass = "bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300";
+            bgClass = "bg-bg-elevated border-border-subtle text-text-base";
             iconHtml = "";
         }
 
@@ -647,10 +647,10 @@ function renderPreviewItems(items) {
     if (!resultsEl) return;
 
     resultsEl.innerHTML = items.map(item => `
-        <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+        <div class="flex items-center justify-between p-3 bg-bg-panel rounded-lg border border-border-subtle">
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">${escapeHtml(item.title)}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
+                <p class="text-sm font-medium text-text-heading truncate">${escapeHtml(item.title)}</p>
+                <p class="text-xs text-text-muted">
                     ${item.year ? item.year : "Unknown year"}
                 </p>
             </div>
@@ -659,7 +659,7 @@ function renderPreviewItems(items) {
                 <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
-                <span class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300">${item.rating}</span>
+                <span class="ml-1 text-sm font-medium text-text-base">${item.rating}</span>
             </div>
             ` : ""}
         </div>
@@ -921,21 +921,21 @@ function updateStepperUI() {
             // Current step - filled primary color
             indicator.className = "flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-medium";
             indicator.textContent = i;
-            label.className = "ml-2 text-sm font-medium text-gray-900 dark:text-gray-100";
+            label.className = "ml-2 text-sm font-medium text-text-heading";
 
             // Connector after current step is gray
             if (connector) {
-                connector.className = "flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600";
+                connector.className = "flex-1 h-0.5 mx-4 bg-border-subtle";
             }
         } else {
             // Future step - gray outline
-            indicator.className = "flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium";
+            indicator.className = "flex items-center justify-center w-8 h-8 rounded-full bg-bg-elevated text-text-muted text-sm font-medium";
             indicator.textContent = i;
-            label.className = "ml-2 text-sm font-medium text-gray-500 dark:text-gray-400";
+            label.className = "ml-2 text-sm font-medium text-text-muted";
 
             // Connector after future step is gray
             if (connector) {
-                connector.className = "flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600";
+                connector.className = "flex-1 h-0.5 mx-4 bg-border-subtle";
             }
         }
     }

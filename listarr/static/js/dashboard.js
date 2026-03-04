@@ -112,7 +112,7 @@ function getStatusColorClass(status) {
       return "text-yellow-600 dark:text-yellow-400";
     case "pending":
     default:
-      return "text-gray-600 dark:text-gray-400";
+      return "text-text-muted";
   }
 }
 
@@ -243,10 +243,10 @@ function updateUpcomingWidget(data) {
 
     listItem.innerHTML = `
       <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+        <p class="text-sm font-medium text-text-heading truncate">
           ${escapeHtml(job.list_name)}
         </p>
-        <p class="text-xs text-gray-500 dark:text-gray-400">
+        <p class="text-xs text-text-muted">
           ${escapeHtml(job.next_run_relative)}
         </p>
       </div>
@@ -282,7 +282,7 @@ function updateJobsTable(jobs) {
   if (!jobs || jobs.length === 0) {
     const emptyRow = document.createElement("tr");
     emptyRow.innerHTML = `
-      <td colspan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+      <td colspan="4" class="px-6 py-8 text-center text-text-muted">
         No jobs have been executed yet
       </td>
     `;
@@ -299,13 +299,13 @@ function updateJobsTable(jobs) {
     const listName = escapeHtml(job.list_name) || "Unknown List";
 
     row.innerHTML = `
-      <td class="px-6 py-4 text-gray-800 dark:text-gray-100">
+      <td class="px-6 py-4 text-text-heading">
         ${listName}
       </td>
-      <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
+      <td class="px-6 py-4 text-text-base">
         ${service}
       </td>
-      <td class="px-6 py-4 text-gray-600 dark:text-gray-300">
+      <td class="px-6 py-4 text-text-base">
         ${executedAt}
       </td>
       <td class="px-6 py-4 ${statusColorClass}">
@@ -361,7 +361,7 @@ function updateStatusBadge(element, status) {
     case "not_configured":
     default:
       badgeClass =
-        "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+        "bg-bg-elevated text-text-base";
       badgeText = "Not Configured";
       break;
   }
@@ -385,7 +385,7 @@ function showServiceLoadingState(service) {
   if (statusEl) {
     statusEl.textContent = "Loading...";
     statusEl.className =
-      "text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+      "text-xs px-2 py-1 rounded-full bg-bg-elevated text-text-base";
   }
 }
 

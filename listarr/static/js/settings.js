@@ -54,16 +54,16 @@ function initSettingsTabs() {
     tab.addEventListener('click', function () {
       // Deactivate all tabs
       tabs.forEach(function (t) {
-        t.classList.remove('border-primary', 'text-white');
-        t.classList.add('border-transparent', 'text-gray-400');
+        t.classList.remove('border-primary', 'text-text-heading');
+        t.classList.add('border-transparent', 'text-text-muted');
       });
       // Hide all panels
       panels.forEach(function (p) {
         p.classList.add('hidden');
       });
       // Activate clicked tab
-      tab.classList.add('border-primary', 'text-white');
-      tab.classList.remove('border-transparent', 'text-gray-400');
+      tab.classList.add('border-primary', 'text-text-heading');
+      tab.classList.remove('border-transparent', 'text-text-muted');
       // Show matching panel
       var panelId = 'tab-' + tab.dataset.tab;
       var panel = document.getElementById(panelId);
@@ -92,16 +92,16 @@ function initServiceTabs() {
     tab.addEventListener('click', function () {
       // Deactivate all service tabs
       tabs.forEach(function (t) {
-        t.classList.remove('border-primary', 'text-white');
-        t.classList.add('border-transparent', 'text-gray-400');
+        t.classList.remove('border-primary', 'text-text-heading');
+        t.classList.add('border-transparent', 'text-text-muted');
       });
       // Hide all service panels
       panels.forEach(function (p) {
         p.classList.add('hidden');
       });
       // Activate clicked tab
-      tab.classList.add('border-primary', 'text-white');
-      tab.classList.remove('border-transparent', 'text-gray-400');
+      tab.classList.add('border-primary', 'text-text-heading');
+      tab.classList.remove('border-transparent', 'text-text-muted');
       // Show matching panel
       var service = tab.dataset.service;
       var panel = document.getElementById('service-panel-' + service);
@@ -179,12 +179,12 @@ function testConnection(service) {
       btn.disabled = false;
       if (data.success) {
         btn.textContent = 'Connected';
-        btn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-red-600', 'hover:bg-red-700');
         btn.classList.add('bg-green-600', 'hover:bg-green-700');
         setStatus(statusEl, true, 'Connection successful.');
       } else {
         btn.textContent = 'Failed';
-        btn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-green-600', 'hover:bg-green-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-green-600', 'hover:bg-green-700');
         btn.classList.add('bg-red-600', 'hover:bg-red-700');
         setStatus(statusEl, false, data.message || 'Connection failed.');
       }
@@ -192,7 +192,7 @@ function testConnection(service) {
       setTimeout(function () {
         btn.textContent = 'Test Connection';
         btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-red-600', 'hover:bg-red-700');
-        btn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+        btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover');
       }, 3000);
     })
     .catch(function (err) {
@@ -325,19 +325,19 @@ function testTmdb() {
       btn.disabled = false;
       if (data.success) {
         btn.textContent = 'Connected';
-        btn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-red-600', 'hover:bg-red-700');
         btn.classList.add('bg-green-600', 'hover:bg-green-700');
         setStatus(statusEl, true, 'TMDB API key is valid.');
       } else {
         btn.textContent = 'Failed';
-        btn.classList.remove('bg-gray-600', 'hover:bg-gray-700', 'bg-green-600', 'hover:bg-green-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-green-600', 'hover:bg-green-700');
         btn.classList.add('bg-red-600', 'hover:bg-red-700');
         setStatus(statusEl, false, data.message || 'Invalid API key.');
       }
       setTimeout(function () {
         btn.textContent = 'Test Connection';
         btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-red-600', 'hover:bg-red-700');
-        btn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+        btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover');
       }, 3000);
     })
     .catch(function (err) {
@@ -619,7 +619,7 @@ function saveImportSettings(service) {
  */
 function setStatus(el, success, message) {
   if (!el) return;
-  el.innerHTML = '<span class="' + (success ? 'text-green-400' : 'text-red-400') + '">' + escapeHtml(message) + '</span>';
+  el.innerHTML = '<span class="' + (success ? 'text-success' : 'text-error') + '">' + escapeHtml(message) + '</span>';
 }
 
 /**
