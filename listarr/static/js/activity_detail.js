@@ -39,7 +39,7 @@
 
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'inline-flex items-center px-3 py-1.5 text-sm border border-red-600 text-red-400 hover:text-red-300 hover:border-red-500 rounded';
+    btn.className = 'inline-flex items-center px-3 py-1.5 text-sm border border-error text-error rounded';
     btn.textContent = 'Rerun';
 
     btn.addEventListener('click', function () {
@@ -90,7 +90,7 @@
     var timestamp = formatTimestamp(job.started_at, 'absolute');
 
     // Metadata row
-    var metaRow = makeEl('div', 'flex flex-wrap gap-x-4 gap-y-1 mb-2 text-gray-400');
+    var metaRow = makeEl('div', 'flex flex-wrap gap-x-4 gap-y-1 mb-2 text-text-muted');
     metaRow.appendChild(makeEl('span', null, job.list_name || 'Unknown list'));
     metaRow.appendChild(makeEl('span', null, '\u2022'));
     metaRow.appendChild(makeEl('span', null, triggerLabel));
@@ -99,12 +99,12 @@
 
     // Counts row
     var countsRow = makeEl('div', 'flex flex-wrap gap-x-3 gap-y-1');
-    countsRow.appendChild(makeEl('span', 'text-green-400', 'Added ' + (job.items_added || 0)));
-    countsRow.appendChild(makeEl('span', 'text-gray-500', '\u2022'));
+    countsRow.appendChild(makeEl('span', 'text-success', 'Added ' + (job.items_added || 0)));
+    countsRow.appendChild(makeEl('span', 'text-text-muted', '\u2022'));
     countsRow.appendChild(makeEl('span', null, 'Skipped ' + (job.items_skipped || 0)));
-    countsRow.appendChild(makeEl('span', 'text-gray-500', '\u2022'));
-    countsRow.appendChild(makeEl('span', 'text-red-400', 'Failed ' + (job.items_failed || 0)));
-    countsRow.appendChild(makeEl('span', 'text-gray-500', '\u2022'));
+    countsRow.appendChild(makeEl('span', 'text-text-muted', '\u2022'));
+    countsRow.appendChild(makeEl('span', 'text-error', 'Failed ' + (job.items_failed || 0)));
+    countsRow.appendChild(makeEl('span', 'text-text-muted', '\u2022'));
     countsRow.appendChild(makeEl('span', null, 'Duration ' + duration));
 
     el.appendChild(metaRow);
@@ -118,9 +118,9 @@
 
   function renderItemStatusBadge(status) {
     var colorMap = {
-      'added': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'skipped': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-      'failed': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+      'added': 'bg-success/15 text-success border border-success/30',
+      'skipped': 'bg-bg-elevated text-text-muted',
+      'failed': 'bg-error/15 text-error border border-error/30'
     };
     var colorClass = colorMap[status] || colorMap['skipped'];
     var label = status ? (status.charAt(0).toUpperCase() + status.slice(1)) : 'Unknown';
@@ -159,14 +159,14 @@
     if (!el) { return; }
 
     var items = job.items || [];
-    var thClass = 'px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider';
+    var thClass = 'px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider';
 
     var table = document.createElement('table');
-    table.className = 'min-w-full divide-y divide-gray-700';
+    table.className = 'min-w-full divide-y divide-border-subtle';
 
     // thead
     var thead = document.createElement('thead');
-    thead.className = 'border-b border-gray-700';
+    thead.className = 'border-b border-border-subtle';
     var headerRow = document.createElement('tr');
     var cols = ['Title', 'Status', 'Reason', 'TMDB ID'];
     for (var h = 0; h < cols.length; h++) {
@@ -181,7 +181,7 @@
       var emptyRow = document.createElement('tr');
       var emptyCell = document.createElement('td');
       emptyCell.colSpan = 4;
-      emptyCell.className = 'px-4 py-8 text-center text-gray-400 text-sm';
+      emptyCell.className = 'px-4 py-8 text-center text-text-muted text-sm';
       emptyCell.textContent = 'No items recorded for this run.';
       emptyRow.appendChild(emptyCell);
       tbody.appendChild(emptyRow);
@@ -189,14 +189,14 @@
       for (var i = 0; i < items.length; i++) {
         var item = items[i];
         var row = document.createElement('tr');
-        row.className = 'border-b border-gray-700 last:border-0';
+        row.className = 'border-b border-border-subtle last:border-0';
 
-        var titleCell = makeEl('td', 'px-4 py-3 text-sm text-gray-100', item.title || 'Unknown');
+        var titleCell = makeEl('td', 'px-4 py-3 text-sm text-text-heading', item.title || 'Unknown');
         var statusCell = makeEl('td', 'px-4 py-3 text-sm');
         statusCell.appendChild(renderItemStatusBadge(item.status));
-        var reasonCell = makeEl('td', 'px-4 py-3 text-sm text-gray-400');
+        var reasonCell = makeEl('td', 'px-4 py-3 text-sm text-text-muted');
         reasonCell.appendChild(renderReason(item.message));
-        var tmdbCell = makeEl('td', 'px-4 py-3 text-sm text-gray-500', String(item.tmdb_id || '-'));
+        var tmdbCell = makeEl('td', 'px-4 py-3 text-sm text-text-muted', String(item.tmdb_id || '-'));
 
         row.appendChild(titleCell);
         row.appendChild(statusCell);

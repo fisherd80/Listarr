@@ -60,8 +60,8 @@ function switchTab(tab) {
     panelCustom.classList.add('hidden');
 
     btnPresets.classList.add('border-primary', 'text-white');
-    btnPresets.classList.remove('border-transparent', 'text-gray-400');
-    btnCustom.classList.add('border-transparent', 'text-gray-400');
+    btnPresets.classList.remove('border-transparent', 'text-text-muted');
+    btnCustom.classList.add('border-transparent', 'text-text-muted');
     btnCustom.classList.remove('border-primary', 'text-white');
 
     // Reset custom panel to step 1
@@ -71,8 +71,8 @@ function switchTab(tab) {
     panelPresets.classList.add('hidden');
 
     btnCustom.classList.add('border-primary', 'text-white');
-    btnCustom.classList.remove('border-transparent', 'text-gray-400');
-    btnPresets.classList.add('border-transparent', 'text-gray-400');
+    btnCustom.classList.remove('border-transparent', 'text-text-muted');
+    btnPresets.classList.add('border-transparent', 'text-text-muted');
     btnPresets.classList.remove('border-primary', 'text-white');
 
     // Reset preset panel to step 1
@@ -218,22 +218,22 @@ function updateStepBadges(panelName) {
 
     if (badge) {
       if (expanded) {
-        badge.className = badge.className.replace('bg-gray-600 text-gray-300', 'bg-primary text-white');
-        badge.classList.remove('bg-gray-600', 'text-gray-300');
+        badge.className = badge.className.replace('bg-bg-elevated text-text-muted', 'bg-primary text-white');
+        badge.classList.remove('bg-bg-elevated', 'text-text-muted');
         badge.classList.add('bg-primary', 'text-white');
       } else {
         badge.classList.remove('bg-primary', 'text-white');
-        badge.classList.add('bg-gray-600', 'text-gray-300');
+        badge.classList.add('bg-bg-elevated', 'text-text-muted');
       }
     }
 
     if (titleEl) {
       if (expanded) {
-        titleEl.classList.remove('text-gray-400');
-        titleEl.classList.add('text-gray-100');
+        titleEl.classList.remove('text-text-muted');
+        titleEl.classList.add('text-text-base');
       } else {
-        titleEl.classList.remove('text-gray-100');
-        titleEl.classList.add('text-gray-400');
+        titleEl.classList.remove('text-text-base');
+        titleEl.classList.add('text-text-muted');
       }
     }
   }
@@ -272,14 +272,14 @@ function selectPresetCard(card) {
   var allCards = document.querySelectorAll('.preset-card');
   for (var i = 0; i < allCards.length; i++) {
     allCards[i].classList.remove('border-amber-500', 'border-primary', 'bg-amber-900/30', 'bg-primary/10');
-    allCards[i].classList.add('border-gray-600');
+    allCards[i].classList.add('border-border-subtle');
   }
 
   if (service === 'radarr') {
-    card.classList.remove('border-gray-600');
+    card.classList.remove('border-border-subtle');
     card.classList.add('border-amber-500', 'bg-amber-900/30');
   } else {
-    card.classList.remove('border-gray-600');
+    card.classList.remove('border-border-subtle');
     card.classList.add('border-primary', 'bg-primary/10');
   }
 
@@ -349,7 +349,7 @@ function selectCustomService(service) {
     var btnService = btn.getAttribute('data-service');
     btn.classList.remove('border-amber-500', 'bg-amber-900/20', 'text-amber-300',
                          'border-primary', 'bg-primary/10', 'text-primary',
-                         'border-gray-600', 'text-gray-400');
+                         'border-border-subtle', 'text-text-muted');
 
     if (btnService === service) {
       if (service === 'radarr') {
@@ -358,7 +358,7 @@ function selectCustomService(service) {
         btn.classList.add('border-primary', 'bg-primary/10', 'text-primary');
       }
     } else {
-      btn.classList.add('border-gray-600', 'text-gray-400');
+      btn.classList.add('border-border-subtle', 'text-text-muted');
     }
   }
 
@@ -381,7 +381,7 @@ function selectCustomService(service) {
     pill.setAttribute('data-state', 'neutral');
     pill.classList.remove('border-green-500', 'text-green-300', 'bg-green-900/20',
                           'border-red-500', 'text-red-300', 'bg-red-900/20');
-    pill.classList.add('border-gray-600', 'text-gray-300', 'bg-transparent');
+    pill.classList.add('border-border-subtle', 'text-text-muted', 'bg-transparent');
     var pillIcon = pill.querySelector('.genre-pill-icon');
     if (pillIcon) { pillIcon.classList.add('hidden'); }
   }
@@ -435,7 +435,7 @@ function fetchPreview(panelName) {
   var filters = collectFilters();
 
   // Show loading state
-  previewPanel.innerHTML = '<div class="text-sm text-gray-500 text-center py-8">Loading...</div>';
+  previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8">Loading...</div>';
   if (previewCount) { previewCount.textContent = ''; }
 
   fetch('/lists/wizard/preview', {
@@ -453,34 +453,34 @@ function fetchPreview(panelName) {
   .then(function (response) { return response.json(); })
   .then(function (data) {
     if (data.error) {
-      previewPanel.innerHTML = '<div class="text-sm text-red-400 text-center py-8">' + escapeHtml(data.error) + '</div>';
+      previewPanel.innerHTML = '<div class="text-sm text-error text-center py-8">' + escapeHtml(data.error) + '</div>';
       return;
     }
 
     var items = data.items || [];
 
     if (items.length === 0) {
-      previewPanel.innerHTML = '<div class="text-sm text-gray-400 text-center py-8 px-4">No titles match these filters. Try broadening your criteria.</div>';
+      previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">No titles match these filters. Try broadening your criteria.</div>';
       if (previewCount) { previewCount.textContent = '0 results'; }
       return;
     }
 
     if (previewCount) { previewCount.textContent = items.length + ' results'; }
 
-    var html = '<ul class="divide-y divide-gray-700">';
+    var html = '<ul class="divide-y divide-border-subtle">';
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       var rating = item.rating ? parseFloat(item.rating).toFixed(1) : '—';
       html += '<li class="flex items-center justify-between py-2 px-1 gap-2">' +
-              '<span class="text-sm text-gray-200 truncate" title="' + escapeHtml(item.title) + '">' + escapeHtml(item.title) + '</span>' +
-              '<span class="flex-shrink-0 text-xs text-gray-500 whitespace-nowrap">' + escapeHtml(String(item.year || '')) + ' · ' + rating + '</span>' +
+              '<span class="text-sm text-text-base truncate" title="' + escapeHtml(item.title) + '">' + escapeHtml(item.title) + '</span>' +
+              '<span class="flex-shrink-0 text-xs text-text-muted whitespace-nowrap">' + escapeHtml(String(item.year || '')) + ' · ' + rating + '</span>' +
               '</li>';
     }
     html += '</ul>';
     previewPanel.innerHTML = html;
   })
   .catch(function (err) {
-    previewPanel.innerHTML = '<div class="text-sm text-red-400 text-center py-8">Preview unavailable.</div>';
+    previewPanel.innerHTML = '<div class="text-sm text-error text-center py-8">Preview unavailable.</div>';
     if (previewCount) { previewCount.textContent = ''; }
   });
 }
@@ -671,10 +671,10 @@ function validateCronExpression(expr, descEl) {
   .then(function (data) {
     if (data.valid && data.description) {
       descEl.textContent = data.description;
-      descEl.className = 'text-xs text-green-400';
+      descEl.className = 'text-xs text-success';
     } else if (data.error) {
       descEl.textContent = data.error;
-      descEl.className = 'text-xs text-red-400';
+      descEl.className = 'text-xs text-error';
     } else {
       descEl.textContent = '';
     }
@@ -698,13 +698,13 @@ function loadImportDefaults(service, panelName) {
   var container = document.getElementById(containerId);
   if (!container) { return; }
 
-  container.innerHTML = '<div class="text-sm text-gray-500 italic">Loading import settings...</div>';
+  container.innerHTML = '<div class="text-sm text-text-muted italic">Loading import settings...</div>';
 
   fetch('/lists/wizard/defaults/' + service)
   .then(function (response) { return response.json(); })
   .then(function (data) {
     if (data.error) {
-      container.innerHTML = '<div class="text-sm text-red-400">' + escapeHtml(data.error) + '</div>';
+      container.innerHTML = '<div class="text-sm text-error">' + escapeHtml(data.error) + '</div>';
       return;
     }
 
@@ -720,8 +720,8 @@ function loadImportDefaults(service, panelName) {
 
     // Quality profile
     html += '<div>';
-    html += '<label for="' + prefix + '-quality" class="block text-xs font-medium text-gray-300 mb-1">Quality Profile</label>';
-    html += '<select id="' + prefix + '-quality" class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">';
+    html += '<label for="' + prefix + '-quality" class="block text-xs font-medium text-text-base mb-1">Quality Profile</label>';
+    html += '<select id="' + prefix + '-quality" class="text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">';
     for (var i = 0; i < profiles.length; i++) {
       var p = profiles[i];
       var sel = (defaults.quality_profile_id && defaults.quality_profile_id === p.id) ? ' selected' : '';
@@ -734,8 +734,8 @@ function loadImportDefaults(service, panelName) {
 
     // Root folder
     html += '<div>';
-    html += '<label for="' + prefix + '-folder" class="block text-xs font-medium text-gray-300 mb-1">Root Folder</label>';
-    html += '<select id="' + prefix + '-folder" class="w-full text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">';
+    html += '<label for="' + prefix + '-folder" class="block text-xs font-medium text-text-base mb-1">Root Folder</label>';
+    html += '<select id="' + prefix + '-folder" class="w-full text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">';
     for (var j = 0; j < folders.length; j++) {
       var f = folders[j];
       var fSel = (defaults.root_folder && defaults.root_folder === f.path) ? ' selected' : '';
@@ -748,30 +748,30 @@ function loadImportDefaults(service, panelName) {
 
     // Tag (optional) — text input with datalist for existing tags + ability to create new
     html += '<div>';
-    html += '<label for="' + prefix + '-tag" class="block text-xs font-medium text-gray-300 mb-1">Tag (optional)</label>';
+    html += '<label for="' + prefix + '-tag" class="block text-xs font-medium text-text-base mb-1">Tag (optional)</label>';
     html += '<input type="text" id="' + prefix + '-tag" list="' + prefix + '-tag-list" placeholder="None"';
-    html += ' class="text-sm bg-gray-700 border border-gray-600 text-gray-100 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary w-full">';
+    html += ' class="text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary w-full">';
     html += '<datalist id="' + prefix + '-tag-list">';
     for (var k = 0; k < tags.length; k++) {
       var t = tags[k];
       html += '<option value="' + escapeHtml(t.label || String(t.id)) + '">';
     }
     html += '</datalist>';
-    html += '<p class="mt-1 text-xs text-gray-500">Created automatically if it doesn\'t exist. Letters, numbers, hyphens.</p>';
+    html += '<p class="mt-1 text-xs text-text-muted">Created automatically if it doesn\'t exist. Letters, numbers, hyphens.</p>';
     html += '</div>';
 
     // Monitored checkbox
     var monitoredChecked = (defaults.monitored !== false) ? ' checked' : '';
     html += '<div class="flex items-center gap-3">';
-    html += '<input type="checkbox" id="' + prefix + '-monitored" ' + monitoredChecked + ' class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary focus:ring-primary">';
-    html += '<label for="' + prefix + '-monitored" class="text-sm text-gray-300">Monitor items</label>';
+    html += '<input type="checkbox" id="' + prefix + '-monitored" ' + monitoredChecked + ' class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary">';
+    html += '<label for="' + prefix + '-monitored" class="text-sm text-text-base">Monitor items</label>';
     html += '</div>';
 
     // Search on add checkbox
     var searchChecked = (defaults.search_on_add !== false) ? ' checked' : '';
     html += '<div class="flex items-center gap-3">';
-    html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-gray-500 bg-gray-700 text-primary focus:ring-primary">';
-    html += '<label for="' + prefix + '-search-on-add" class="text-sm text-gray-300">Search on add</label>';
+    html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary">';
+    html += '<label for="' + prefix + '-search-on-add" class="text-sm text-text-base">Search on add</label>';
     html += '</div>';
 
     html += '</div>';
@@ -779,7 +779,7 @@ function loadImportDefaults(service, panelName) {
     container.innerHTML = html;
   })
   .catch(function (err) {
-    container.innerHTML = '<div class="text-sm text-red-400">Failed to load import settings.</div>';
+    container.innerHTML = '<div class="text-sm text-error">Failed to load import settings.</div>';
   });
 }
 
@@ -962,7 +962,7 @@ function initGenreToggles() {
 
         if (state === 'neutral') {
           // neutral -> include (green + checkmark)
-          pill.classList.remove('border-gray-600', 'text-gray-300', 'bg-transparent');
+          pill.classList.remove('border-border-subtle', 'text-text-muted', 'bg-transparent');
           pill.classList.add('border-green-500', 'text-green-300', 'bg-green-900/20');
           if (icon) { icon.classList.remove('hidden'); }
           if (path) { path.setAttribute('d', 'M5 13l4 4L19 7'); }
@@ -979,7 +979,7 @@ function initGenreToggles() {
         } else {
           // exclude -> neutral (gray, no icon)
           pill.classList.remove('border-red-500', 'text-red-300', 'bg-red-900/20');
-          pill.classList.add('border-gray-600', 'text-gray-300', 'bg-transparent');
+          pill.classList.add('border-border-subtle', 'text-text-muted', 'bg-transparent');
           if (icon) { icon.classList.add('hidden'); }
           if (path) { path.setAttribute('d', ''); }
           pill.setAttribute('data-state', 'neutral');

@@ -154,10 +154,10 @@ function updateStatusBadge(row, status, text) {
   if (!badge) { return; }
 
   var classMap = {
-    'enabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    'disabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    'enabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success border border-success/30',
+    'disabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-elevated text-text-muted',
     'running': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary',
-    'error': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+    'error': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error border border-error/30'
   };
 
   badge.className = classMap[status] || classMap['disabled'];
@@ -176,12 +176,12 @@ function updateStatusBadge(row, status, text) {
 function applyToggleStyle(btn, isActive) {
   var knob = btn.querySelector('span');
   if (isActive) {
-    btn.style.backgroundColor = '#22c55e'; // green-500
+    btn.style.backgroundColor = 'var(--color-success)'; // semantic success token
     if (knob) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
   } else {
-    btn.style.backgroundColor = '#4b5563'; // gray-600
+    btn.style.backgroundColor = 'var(--color-btn-secondary-bg)'; // semantic inactive state
     if (knob) {
       knob.style.transform = 'translateX(0)';
     }
