@@ -29,8 +29,8 @@
   }
 
   .dark {
-    --color-primary-rgb: 45 212 191;
-    --color-primary-hover-rgb: 38 191 170;
+    --color-primary-rgb: 13 148 136;
+    --color-primary-hover-rgb: 15 118 110;
     --color-bg-base: #0f1117;
     --color-bg-panel: #1a1d27;
     --color-bg-table-head: #141720;

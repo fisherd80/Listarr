@@ -59,10 +59,10 @@ function switchTab(tab) {
     panelPresets.classList.remove('hidden');
     panelCustom.classList.add('hidden');
 
-    btnPresets.classList.add('border-primary', 'text-white');
+    btnPresets.classList.add('border-primary', 'text-text-heading');
     btnPresets.classList.remove('border-transparent', 'text-text-muted');
     btnCustom.classList.add('border-transparent', 'text-text-muted');
-    btnCustom.classList.remove('border-primary', 'text-white');
+    btnCustom.classList.remove('border-primary', 'text-text-heading');
 
     // Reset custom panel to step 1
     resetPanelToStep('custom', 1);
@@ -70,10 +70,10 @@ function switchTab(tab) {
     panelCustom.classList.remove('hidden');
     panelPresets.classList.add('hidden');
 
-    btnCustom.classList.add('border-primary', 'text-white');
+    btnCustom.classList.add('border-primary', 'text-text-heading');
     btnCustom.classList.remove('border-transparent', 'text-text-muted');
     btnPresets.classList.add('border-transparent', 'text-text-muted');
-    btnPresets.classList.remove('border-primary', 'text-white');
+    btnPresets.classList.remove('border-primary', 'text-text-heading');
 
     // Reset preset panel to step 1
     resetPanelToStep('preset', 1);

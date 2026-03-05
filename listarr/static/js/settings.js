@@ -180,18 +180,18 @@ function testConnection(service) {
       if (data.success) {
         btn.textContent = 'Connected';
         btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-red-600', 'hover:bg-red-700');
-        btn.classList.add('bg-green-600', 'hover:bg-green-700');
+        btn.classList.add('bg-success', 'hover:bg-success/90');
         setStatus(statusEl, true, 'Connection successful.');
       } else {
         btn.textContent = 'Failed';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-green-600', 'hover:bg-green-700');
-        btn.classList.add('bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-success', 'hover:bg-success/90');
+        btn.classList.add('bg-error', 'hover:bg-error/90');
         setStatus(statusEl, false, data.message || 'Connection failed.');
       }
       // Reset button text after 3 seconds
       setTimeout(function () {
         btn.textContent = 'Test Connection';
-        btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-success', 'hover:bg-success/90', 'bg-error', 'hover:bg-error/90');
         btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover');
       }, 3000);
     })
@@ -326,17 +326,17 @@ function testTmdb() {
       if (data.success) {
         btn.textContent = 'Connected';
         btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-red-600', 'hover:bg-red-700');
-        btn.classList.add('bg-green-600', 'hover:bg-green-700');
+        btn.classList.add('bg-success', 'hover:bg-success/90');
         setStatus(statusEl, true, 'TMDB API key is valid.');
       } else {
         btn.textContent = 'Failed';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-green-600', 'hover:bg-green-700');
-        btn.classList.add('bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-success', 'hover:bg-success/90');
+        btn.classList.add('bg-error', 'hover:bg-error/90');
         setStatus(statusEl, false, data.message || 'Invalid API key.');
       }
       setTimeout(function () {
         btn.textContent = 'Test Connection';
-        btn.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-success', 'hover:bg-success/90', 'bg-error', 'hover:bg-error/90');
         btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover');
       }, 3000);
     })
