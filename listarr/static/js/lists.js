@@ -155,8 +155,8 @@ function updateStatusBadge(row, status, text) {
 
   var classMap = {
     'enabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success border border-success/30',
-    'disabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-elevated text-text-muted',
-    'running': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary',
+    'disabled': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-hover text-text-muted',
+    'running': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30',
     'error': 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-error/15 text-error border border-error/30'
   };
 
