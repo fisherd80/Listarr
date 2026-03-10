@@ -7,7 +7,7 @@
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="1" data-panel="preset">
       <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-800 dark:bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
         <span class="text-sm font-medium text-text-heading">Choose Template</span>
         <span class="preset-step1-summary text-xs text-text-muted"></span>
       </div>
@@ -19,17 +19,17 @@
       <div class="p-4">
 
         <!-- Movies group -->
-        <p class="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-3">Movies (Radarr)</p>
+        <p class="text-xs font-semibold text-badge-movie uppercase tracking-wider mb-3">Movies (Radarr)</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           {% for key, meta in presets.items() %}
           {% if 'movie' in key %}
           <button type="button"
-                  class="preset-card text-left p-3 bg-bg-table-head border-2 border-border-subtle rounded hover:border-amber-500 transition-colors focus:outline-none"
+                  class="preset-card text-left p-3 bg-bg-table-head border-2 border-border-subtle rounded hover:border-primary transition-colors focus:outline-none"
                   data-preset="{{ key }}"
                   data-service="radarr"
                   data-title="{{ meta.title }}">
             <div class="flex items-start gap-2">
-              <span class="flex-shrink-0 w-6 h-6 bg-amber-900/30 rounded text-amber-400 flex items-center justify-center">
+              <span class="flex-shrink-0 w-6 h-6 bg-badge-movie/15 rounded text-badge-movie flex items-center justify-center">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
                 </svg>
@@ -79,7 +79,7 @@
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="2" data-panel="preset">
       <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">2</span>
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-elevated text-text-muted text-xs font-bold flex items-center justify-center">2</span>
         <span class="text-sm font-medium text-text-muted">Import Settings</span>
         <span class="preset-step2-summary text-xs text-text-muted"></span>
       </div>
@@ -117,7 +117,7 @@
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="3" data-panel="preset">
       <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">3</span>
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-elevated text-text-muted text-xs font-bold flex items-center justify-center">3</span>
         <span class="text-sm font-medium text-text-muted">Schedule</span>
         <span class="preset-step3-summary text-xs text-text-muted"></span>
       </div>
@@ -203,7 +203,7 @@
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="4" data-panel="preset">
       <div class="flex items-center gap-3">
-        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-hover text-text-muted text-xs font-bold flex items-center justify-center">4</span>
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-bg-elevated text-text-muted text-xs font-bold flex items-center justify-center">4</span>
         <span class="text-sm font-medium text-text-muted">Review &amp; Save</span>
       </div>
       <svg class="accordion-chevron w-4 h-4 text-text-muted transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

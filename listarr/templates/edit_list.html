@@ -29,7 +29,7 @@
   <!-- Type Badge (read-only) -->
   <div class="flex items-center gap-3">
     {% if list.tmdb_list_type and list.tmdb_list_type != 'discovery' %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700">
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-table-head text-text-muted border border-border-subtle">
       Preset
     </span>
     {% else %}
@@ -38,7 +38,7 @@
     </span>
     {% endif %}
     {% if list.target_service == 'RADARR' %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/40 text-amber-400">
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-badge-movie/15 text-badge-movie border border-badge-movie/30">
       Radarr
     </span>
     {% else %}
