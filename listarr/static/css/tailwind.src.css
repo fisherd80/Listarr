@@ -15,17 +15,17 @@
     --color-text-base: #0f172a;
     --color-text-muted: #64748b;
     --color-text-heading: #0f172a;
-    --color-success: #16a34a;
-    --color-error: #dc2626;
-    --color-warning: #d97706;
+    --color-success-rgb: 22 163 74;
+    --color-error-rgb: 220 38 38;
+    --color-warning-rgb: 217 119 6;
     --color-input-bg: #ffffff;
     --color-input-border: #cbd5e1;
     --color-nav-bg: #ffffff;
     --color-btn-secondary-bg: #e2e8f0;
     --color-btn-secondary-text: #334155;
     --color-btn-secondary-hover: #cbd5e1;
-    --color-badge-movie: #0369a1;
-    --color-badge-tv: #0d9488;
+    --color-badge-movie-rgb: 3 105 161;
+    --color-badge-tv-rgb: 13 148 136;
   }
 
   .dark {
@@ -40,17 +40,17 @@
     --color-text-base: #e2e8f0;
     --color-text-muted: #94a3b8;
     --color-text-heading: #f1f5f9;
-    --color-success: #22c55e;
-    --color-error: #ef4444;
-    --color-warning: #f59e0b;
+    --color-success-rgb: 34 197 94;
+    --color-error-rgb: 239 68 68;
+    --color-warning-rgb: 245 158 11;
     --color-input-bg: #0f1117;
     --color-input-border: #2a2d3a;
     --color-nav-bg: #0f1117;
     --color-btn-secondary-bg: #22263a;
     --color-btn-secondary-text: #94a3b8;
     --color-btn-secondary-hover: #2a2d3a;
-    --color-badge-movie: #38bdf8;
-    --color-badge-tv: #2dd4bf;
+    --color-badge-movie-rgb: 56 189 248;
+    --color-badge-tv-rgb: 45 212 191;
   }
 
   body {
