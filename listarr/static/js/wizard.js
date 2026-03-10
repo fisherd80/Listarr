@@ -367,12 +367,12 @@ function updateGenreCheckboxes() {
 
         let bgClass, iconHtml;
         if (isIncluded) {
-            bgClass = "bg-green-100 dark:bg-green-900/50 border-green-300 dark:border-green-700 text-green-800 dark:text-green-200";
+            bgClass = "bg-success/15 text-success border border-success/30";
             iconHtml = `<svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
             </svg>`;
         } else if (isExcluded) {
-            bgClass = "bg-red-100 dark:bg-red-900/50 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200";
+            bgClass = "bg-error/15 text-error border border-error/30";
             iconHtml = `<svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
             </svg>`;
@@ -656,7 +656,7 @@ function renderPreviewItems(items) {
             </div>
             ${item.rating ? `
             <div class="ml-3 flex items-center">
-                <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-4 h-4 text-warning" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 <span class="ml-1 text-sm font-medium text-text-base">${item.rating}</span>
@@ -1104,7 +1104,7 @@ function updateImportSettingsServiceBadge() {
     if (!badge || !wizardState.service) return;
 
     if (wizardState.service === "radarr") {
-        badge.className = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
+        badge.className = "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-badge-movie/15 text-badge-movie border border-badge-movie/30";
         badge.innerHTML = `
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
@@ -1454,7 +1454,7 @@ function handleScheduleNameChange() {
     // Update validation UI
     const errorEl = document.getElementById("schedule-name-error");
     if (wizardState.schedule.name) {
-        nameInput.classList.remove("border-red-500");
+        nameInput.classList.remove("border-error");
         if (errorEl) errorEl.classList.add("hidden");
     }
 
@@ -1499,7 +1499,7 @@ function validateStep4() {
     if (!name) {
         // Show error
         if (nameInput) {
-            nameInput.classList.add("border-red-500");
+            nameInput.classList.add("border-error");
         }
         if (errorEl) {
             errorEl.classList.remove("hidden");
@@ -1509,7 +1509,7 @@ function validateStep4() {
 
     // Clear error
     if (nameInput) {
-        nameInput.classList.remove("border-red-500");
+        nameInput.classList.remove("border-error");
     }
     if (errorEl) {
         errorEl.classList.add("hidden");
@@ -1633,13 +1633,13 @@ function updateSummaryFilters() {
     // Include genres (green)
     if (wizardState.filters.genres_include && wizardState.filters.genres_include.length > 0) {
         const includeNames = wizardState.filters.genres_include.map(id => genreMap[id] || id);
-        parts.push(`<span class="text-green-600 dark:text-green-400">+${includeNames.join(", +")}</span>`);
+        parts.push(`<span class="text-success">+${includeNames.join(", +")}</span>`);
     }
 
     // Exclude genres (red with strikethrough)
     if (wizardState.filters.genres_exclude && wizardState.filters.genres_exclude.length > 0) {
         const excludeNames = wizardState.filters.genres_exclude.map(id => genreMap[id] || id);
-        parts.push(`<span class="text-red-600 dark:text-red-400 line-through">-${excludeNames.join(", -")}</span>`);
+        parts.push(`<span class="text-error line-through">-${excludeNames.join(", -")}</span>`);
     }
 
     // Language
@@ -1817,13 +1817,13 @@ function showSubmitError(message) {
         // Create error element
         errorEl = document.createElement("div");
         errorEl.id = "submit-error";
-        errorEl.className = "mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4";
+        errorEl.className = "mt-4 bg-error/10 border border-error/30 rounded p-4";
         errorEl.innerHTML = `
             <div class="flex items-start">
-                <svg class="w-5 h-5 text-red-500 dark:text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 text-error mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <p class="text-sm text-red-800 dark:text-red-200"><span id="submit-error-message"></span></p>
+                <p class="text-sm text-error"><span id="submit-error-message"></span></p>
             </div>
         `;
 

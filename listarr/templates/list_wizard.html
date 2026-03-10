@@ -106,7 +106,7 @@
           <!-- Service Badge -->
           <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
             {% if service == 'radarr' %}
-            bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300
+            bg-badge-movie/15 text-badge-movie border border-badge-movie/30
             {% else %}
             bg-primary/10 text-primary
             {% endif %}">
@@ -134,8 +134,8 @@
             class="type-card p-4 rounded border-2 border-border-subtle bg-bg-panel hover:border-primary transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             data-service="radarr">
             <div class="flex flex-col items-center text-center">
-              <div class="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
-                <svg class="w-8 h-8 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-16 h-16 rounded-full bg-badge-movie/15 flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-badge-movie" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
                 </svg>
               </div>
@@ -316,7 +316,7 @@
                 <option value="500">500 items</option>
                 <option value="1000">MAX (1000)</option>
               </select>
-              <p id="limit-warning" class="hidden mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+              <p id="limit-warning" class="hidden mt-2 text-sm text-warning">
                 <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                 </svg>
@@ -382,16 +382,16 @@
 
         <!-- Error State -->
         <div id="import-settings-error" class="hidden">
-          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-4">
+          <div class="bg-warning/10 border border-warning/30 rounded p-4">
             <div class="flex items-start">
-              <svg class="w-5 h-5 text-yellow-500 dark:text-yellow-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-warning mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <div>
-                <p id="import-settings-error-message" class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                <p id="import-settings-error-message" class="text-sm text-warning font-medium">
                   Service not configured
                 </p>
-                <p class="text-sm text-yellow-600 dark:text-yellow-300 mt-1">
+                <p class="text-sm text-text-muted mt-1">
                   You can continue, but import will fail until the service is configured in Settings.
                 </p>
               </div>
@@ -511,12 +511,12 @@
             <!-- List Name -->
             <div>
               <label for="schedule-name" class="block text-sm font-medium text-text-base mb-2">
-                List Name <span class="text-red-500">*</span>
+                List Name <span class="text-error">*</span>
               </label>
               <input type="text" id="schedule-name" required
                 placeholder="My Trending Movies"
                 class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary" />
-              <p id="schedule-name-error" class="hidden mt-1 text-xs text-red-500">* Name is required</p>
+              <p id="schedule-name-error" class="hidden mt-1 text-xs text-error">* Name is required</p>
             </div>
 
             <!-- Schedule Dropdown -->
