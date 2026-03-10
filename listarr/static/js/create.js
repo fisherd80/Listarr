@@ -218,11 +218,11 @@ function updateStepBadges(panelName) {
 
     if (badge) {
       if (expanded) {
-        badge.className = badge.className.replace('bg-bg-elevated text-text-muted', 'bg-primary text-white');
+        badge.className = badge.className.replace('bg-bg-elevated text-text-muted', 'bg-teal-800 dark:bg-primary text-white');
         badge.classList.remove('bg-bg-elevated', 'text-text-muted');
-        badge.classList.add('bg-primary', 'text-white');
+        badge.classList.add('bg-teal-800', 'dark:bg-primary', 'text-white');
       } else {
-        badge.classList.remove('bg-primary', 'text-white');
+        badge.classList.remove('bg-teal-800', 'dark:bg-primary', 'text-white');
         badge.classList.add('bg-bg-elevated', 'text-text-muted');
       }
     }
