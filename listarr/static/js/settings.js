@@ -179,14 +179,16 @@ function testConnection(service) {
       btn.disabled = false;
       if (data.success) {
         btn.textContent = 'Connected';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-error', 'hover:bg-error/90');
         btn.classList.add('bg-success', 'hover:bg-success/90');
         setStatus(statusEl, true, 'Connection successful.');
+        showToast('Connection successful.', 'success');
       } else {
         btn.textContent = 'Failed';
         btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-success', 'hover:bg-success/90');
         btn.classList.add('bg-error', 'hover:bg-error/90');
         setStatus(statusEl, false, data.message || 'Connection failed.');
+        showToast(data.message || 'Connection failed.', 'error');
       }
       // Reset button text after 3 seconds
       setTimeout(function () {
@@ -325,14 +327,16 @@ function testTmdb() {
       btn.disabled = false;
       if (data.success) {
         btn.textContent = 'Connected';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-red-600', 'hover:bg-red-700');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-error', 'hover:bg-error/90');
         btn.classList.add('bg-success', 'hover:bg-success/90');
         setStatus(statusEl, true, 'TMDB API key is valid.');
+        showToast('TMDB API key is valid.', 'success');
       } else {
         btn.textContent = 'Failed';
         btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-success', 'hover:bg-success/90');
         btn.classList.add('bg-error', 'hover:bg-error/90');
         setStatus(statusEl, false, data.message || 'Invalid API key.');
+        showToast(data.message || 'Invalid API key.', 'error');
       }
       setTimeout(function () {
         btn.textContent = 'Test Connection';

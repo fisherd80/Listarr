@@ -77,19 +77,7 @@
         </div>
 
         <!-- Status display -->
-        <div id="radarr-status" class="mt-3 text-sm">
-          {% if radarr.last_test_status %}
-            {% if radarr.last_test_status == 'success' %}
-            <span class="text-success">Last test: Connected
-              {% if radarr.last_tested_at %}&mdash; {{ radarr.last_tested_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
-            </span>
-            {% else %}
-            <span class="text-error">Last test: Failed
-              {% if radarr.last_tested_at %}&mdash; {{ radarr.last_tested_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
-            </span>
-            {% endif %}
-          {% endif %}
-        </div>
+        <div id="radarr-status" class="mt-3 text-sm"></div>
       </div>
 
       <!-- Import defaults panel -->
@@ -154,19 +142,7 @@
         </div>
 
         <!-- Status display -->
-        <div id="sonarr-status" class="mt-3 text-sm">
-          {% if sonarr.last_test_status %}
-            {% if sonarr.last_test_status == 'success' %}
-            <span class="text-success">Last test: Connected
-              {% if sonarr.last_tested_at %}&mdash; {{ sonarr.last_tested_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
-            </span>
-            {% else %}
-            <span class="text-error">Last test: Failed
-              {% if sonarr.last_tested_at %}&mdash; {{ sonarr.last_tested_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
-            </span>
-            {% endif %}
-          {% endif %}
-        </div>
+        <div id="sonarr-status" class="mt-3 text-sm"></div>
       </div>
 
       <!-- Import defaults panel -->
@@ -237,19 +213,7 @@
       </div>
 
       <!-- Status display -->
-      <div id="tmdb-status" class="mt-3 text-sm">
-        {% if tmdb.last_test_status %}
-          {% if tmdb.last_test_status == 'success' %}
-          <span class="text-success">Last test: Connected
-            {% if tmdb.last_tested_at %}&mdash; {{ tmdb.last_tested_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
-          </span>
-          {% else %}
-          <span class="text-error">Last test: Failed
-            {% if tmdb.last_tested_at %}&mdash; {{ tmdb.last_tested_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
-          </span>
-          {% endif %}
-        {% endif %}
-      </div>
+      <div id="tmdb-status" class="mt-3 text-sm"></div>
     </div>
   </div>
 
