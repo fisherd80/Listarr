@@ -271,17 +271,12 @@ function selectPresetCard(card) {
   // Update visual selection: clear all cards, highlight selected
   var allCards = document.querySelectorAll('.preset-card');
   for (var i = 0; i < allCards.length; i++) {
-    allCards[i].classList.remove('border-amber-500', 'border-primary', 'bg-amber-900/30', 'bg-primary/10');
+    allCards[i].classList.remove('border-primary', 'bg-primary/10');
     allCards[i].classList.add('border-border-subtle');
   }
 
-  if (service === 'radarr') {
-    card.classList.remove('border-border-subtle');
-    card.classList.add('border-amber-500', 'bg-amber-900/30');
-  } else {
-    card.classList.remove('border-border-subtle');
-    card.classList.add('border-primary', 'bg-primary/10');
-  }
+  card.classList.remove('border-border-subtle');
+  card.classList.add('border-primary', 'bg-primary/10');
 
   // Update step 1 summary
   var summary = document.querySelector('.preset-step1-summary');
@@ -296,7 +291,7 @@ function selectPresetCard(card) {
   if (serviceDisplay) {
     var serviceLabel = service === 'radarr' ? 'Radarr (Movies)' : 'Sonarr (TV Shows)';
     serviceDisplay.textContent = serviceLabel;
-    serviceDisplay.className = service === 'radarr' ? 'text-sm text-amber-400 font-medium' : 'text-sm text-primary font-medium';
+    serviceDisplay.className = 'text-sm text-primary font-medium';
   }
 
   // Auto-populate list name
@@ -347,16 +342,11 @@ function selectCustomService(service) {
   for (var i = 0; i < btns.length; i++) {
     var btn = btns[i];
     var btnService = btn.getAttribute('data-service');
-    btn.classList.remove('border-amber-500', 'bg-amber-900/20', 'text-amber-300',
-                         'border-primary', 'bg-primary/10', 'text-primary',
+    btn.classList.remove('border-primary', 'bg-primary/10', 'text-primary',
                          'border-border-subtle', 'text-text-muted');
 
     if (btnService === service) {
-      if (service === 'radarr') {
-        btn.classList.add('border-amber-500', 'bg-amber-900/20', 'text-amber-300');
-      } else {
-        btn.classList.add('border-primary', 'bg-primary/10', 'text-primary');
-      }
+      btn.classList.add('border-primary', 'bg-primary/10', 'text-primary');
     } else {
       btn.classList.add('border-border-subtle', 'text-text-muted');
     }
@@ -379,8 +369,8 @@ function selectCustomService(service) {
   for (var j = 0; j < allPills.length; j++) {
     var pill = allPills[j];
     pill.setAttribute('data-state', 'neutral');
-    pill.classList.remove('border-green-500', 'text-green-300', 'bg-green-900/20',
-                          'border-red-500', 'text-red-300', 'bg-red-900/20');
+    pill.classList.remove('border-success/30', 'text-success', 'bg-success/15',
+                          'border-error/30', 'text-error', 'bg-error/15');
     pill.classList.add('border-border-subtle', 'text-text-muted', 'bg-transparent');
     var pillIcon = pill.querySelector('.genre-pill-icon');
     if (pillIcon) { pillIcon.classList.add('hidden'); }
@@ -961,24 +951,24 @@ function initGenreToggles() {
         var path = icon ? icon.querySelector('path') : null;
 
         if (state === 'neutral') {
-          // neutral -> include (green + checkmark)
+          // neutral -> include (success + checkmark)
           pill.classList.remove('border-border-subtle', 'text-text-muted', 'bg-transparent');
-          pill.classList.add('border-green-500', 'text-green-300', 'bg-green-900/20');
+          pill.classList.add('border-success/30', 'text-success', 'bg-success/15');
           if (icon) { icon.classList.remove('hidden'); }
           if (path) { path.setAttribute('d', 'M5 13l4 4L19 7'); }
           pill.setAttribute('data-state', 'include');
 
         } else if (state === 'include') {
-          // include -> exclude (red + X)
-          pill.classList.remove('border-green-500', 'text-green-300', 'bg-green-900/20');
-          pill.classList.add('border-red-500', 'text-red-300', 'bg-red-900/20');
+          // include -> exclude (error + X)
+          pill.classList.remove('border-success/30', 'text-success', 'bg-success/15');
+          pill.classList.add('border-error/30', 'text-error', 'bg-error/15');
           if (icon) { icon.classList.remove('hidden'); }
           if (path) { path.setAttribute('d', 'M6 18L18 6M6 6l12 12'); }
           pill.setAttribute('data-state', 'exclude');
 
         } else {
           // exclude -> neutral (gray, no icon)
-          pill.classList.remove('border-red-500', 'text-red-300', 'bg-red-900/20');
+          pill.classList.remove('border-error/30', 'text-error', 'bg-error/15');
           pill.classList.add('border-border-subtle', 'text-text-muted', 'bg-transparent');
           if (icon) { icon.classList.add('hidden'); }
           if (path) { path.setAttribute('d', ''); }
