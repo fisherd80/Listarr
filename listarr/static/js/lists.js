@@ -177,11 +177,13 @@ function applyToggleStyle(btn, isActive) {
   var knob = btn.querySelector('span');
   if (isActive) {
     btn.style.backgroundColor = 'var(--color-success)'; // semantic success token
+    btn.style.borderColor = 'transparent'; // no border needed — track fill provides shape
     if (knob) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
   } else {
     btn.style.backgroundColor = 'var(--color-btn-secondary-bg)'; // semantic inactive state
+    btn.style.borderColor = 'var(--color-border)'; // visible border so toggle shape is clear against background
     if (knob) {
       knob.style.transform = 'translateX(0)';
     }
