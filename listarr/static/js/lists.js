@@ -182,8 +182,8 @@ function applyToggleStyle(btn, isActive) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
   } else {
-    btn.style.backgroundColor = 'var(--color-btn-secondary-bg)'; // semantic inactive state
-    btn.style.borderColor = 'var(--color-border)'; // visible border so toggle shape is clear against background
+    btn.style.backgroundColor = 'var(--color-text-muted)'; // mid-gray track — visible in both dark and light modes
+    btn.style.borderColor = 'transparent';
     if (knob) {
       knob.style.transform = 'translateX(0)';
     }
