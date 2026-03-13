@@ -179,8 +179,8 @@ function applyToggleStyle(btn, isActive) {
     knob.style.backgroundColor = '#ffffff'; // always white — visible on both active (teal) and inactive (gray) tracks
   }
   if (isActive) {
-    btn.style.backgroundColor = 'var(--color-primary)'; // teal fill when enabled
-    btn.style.borderColor = 'var(--color-primary)';
+    btn.style.backgroundColor = 'rgb(var(--color-primary-rgb))'; // teal fill when enabled
+    btn.style.borderColor = 'rgb(var(--color-primary-rgb))';
     if (knob) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
