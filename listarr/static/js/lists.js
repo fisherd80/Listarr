@@ -175,15 +175,18 @@ function updateStatusBadge(row, status, text) {
  */
 function applyToggleStyle(btn, isActive) {
   var knob = btn.querySelector('span');
+  if (knob) {
+    knob.style.backgroundColor = '#ffffff'; // always white — visible on both active (teal) and inactive (gray) tracks
+  }
   if (isActive) {
-    btn.style.backgroundColor = 'var(--color-success)'; // semantic success token
-    btn.style.borderColor = 'transparent'; // no border needed — track fill provides shape
+    btn.style.backgroundColor = 'var(--color-primary)'; // teal fill when enabled
+    btn.style.borderColor = 'var(--color-primary)';
     if (knob) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
   } else {
-    btn.style.backgroundColor = 'var(--color-text-muted)'; // mid-gray track — visible in both dark and light modes
-    btn.style.borderColor = 'transparent';
+    btn.style.backgroundColor = 'var(--color-text-muted)'; // mid-gray when disabled
+    btn.style.borderColor = 'var(--color-border)'; // visible outline in both modes
     if (knob) {
       knob.style.transform = 'translateX(0)';
     }
