@@ -401,3 +401,33 @@ class TestChangePassword:
         data = response.get_json()
         assert data["success"] is False
         assert "at least 8 characters" in data["message"]
+
+
+class TestCsrfProtectionAuth:
+    """
+    CSRF rejection for every POST endpoint in auth_routes.py.
+
+    Per D-07 (every POST gets a CSRF test), D-08 (status 400 only),
+    D-09 (client_with_csrf + POST without token).
+    """
+
+    def test_login_rejects_no_csrf(self, client_with_csrf):
+        """POST /login without CSRF token returns 400."""
+        response = client_with_csrf.post(
+            "/login",
+            data={"username": "x", "password": "y"},
+        )
+        assert response.status_code == 400
+
+    def test_logout_rejects_no_csrf(self, client_with_csrf):
+        """POST /logout without CSRF token returns 400."""
+        response = client_with_csrf.post("/logout")
+        assert response.status_code == 400
+
+    def test_setup_rejects_no_csrf(self, client_with_csrf):
+        """POST /setup without CSRF token returns 400."""
+        response = client_with_csrf.post(
+            "/setup",
+            data={"username": "x", "password": "y", "password_confirm": "y"},
+        )
+        assert response.status_code == 400
