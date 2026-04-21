@@ -131,7 +131,7 @@
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
       <div
-        class="flash-toast flex items-center p-4 rounded border max-w-md transition-all duration-300 {% if category == 'success' %}bg-success/10 border border-success/30{% elif category == 'warning' %}bg-warning/10 border border-warning/30{% elif category == 'error' %}bg-error/10 border border-error/30{% else %}bg-primary/10 border border-primary/30{% endif %}"
+        class="flash-toast flex items-center p-4 rounded border-l-4 border max-w-md transition-all duration-300 bg-bg-elevated {% if category == 'success' %}border-success{% elif category == 'warning' %}border-warning{% elif category == 'error' %}border-error{% else %}border-primary{% endif %}"
       >
         <svg class="w-5 h-5 mr-3 flex-shrink-0 {% if category == 'success' %}text-success{% elif category == 'warning' %}text-warning{% elif category == 'error' %}text-error{% else %}text-primary{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           {% if category == 'success' %}
