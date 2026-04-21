@@ -1875,3 +1875,92 @@ class TestCsrfProtectionLists:
     def test_api_schedule_update_rejects_no_csrf(self, client_with_csrf):
         response = client_with_csrf.post("/api/schedule/1/update", json={})
         assert response.status_code == 400
+
+
+class TestWizardAndEditCoverage:
+    """
+    TEST-03 and TEST-04 coverage closure for list_wizard, wizard_preview,
+    and edit_list bodies.
+    """
+
+    def test_list_wizard_top_rated_movies_preset(self, client):
+        response = client.get("/lists/wizard?preset=top_rated_movies")
+        assert response.status_code == 200
+        assert b"top_rated_movies" in response.data
+
+    def test_list_wizard_top_rated_tv_preset(self, client):
+        response = client.get("/lists/wizard?preset=top_rated_tv")
+        assert response.status_code == 200
+        assert b"top_rated_tv" in response.data
+
+    def test_list_wizard_with_region(self, client):
+        response = client.get("/lists/wizard?preset=top_rated_movies&region=US")
+        assert response.status_code == 200
+
+    def test_list_wizard_default_returns_200(self, client):
+        response = client.get("/lists/wizard")
+        assert response.status_code == 200
+
+    @patch("listarr.routes.lists_routes.decrypt_data", return_value="tmdb-key")
+    @patch("listarr.routes.lists_routes.get_top_rated_movies_cached")
+    def test_wizard_preview_top_rated_movies(self, mock_cache, mock_decrypt, client, db_session):
+        db.session.add(ServiceConfig(service="TMDB", api_key_encrypted="encrypted"))
+        db.session.commit()
+        mock_cache.return_value = [
+            {
+                "id": 1,
+                "title": "Test Movie",
+                "release_date": "2024-01-01",
+                "vote_average": 8.6,
+            }
+        ]
+
+        response = client.post(
+            "/lists/wizard/preview",
+            json={"service": "radarr", "preset": "top_rated_movies", "filters": {}},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["items"][0]["title"] == "Test Movie"
+        mock_cache.assert_called_once_with("tmdb-key")
+
+    @patch("listarr.routes.lists_routes.decrypt_data", return_value="tmdb-key")
+    @patch("listarr.routes.lists_routes.get_top_rated_tv_cached")
+    def test_wizard_preview_top_rated_tv(self, mock_cache, mock_decrypt, client, db_session):
+        db.session.add(ServiceConfig(service="TMDB", api_key_encrypted="encrypted"))
+        db.session.commit()
+        mock_cache.return_value = [
+            {
+                "id": 10,
+                "name": "Test Show",
+                "first_air_date": "2023-02-03",
+                "vote_average": 9.1,
+            }
+        ]
+
+        response = client.post(
+            "/lists/wizard/preview",
+            json={"service": "sonarr", "preset": "top_rated_tv", "filters": {}},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["items"][0]["title"] == "Test Show"
+        mock_cache.assert_called_once_with("tmdb-key")
+
+    def test_edit_list_legacy_limit_migration(self, client, db_session):
+        lst = List(
+            name="Legacy Limit",
+            target_service="RADARR",
+            tmdb_list_type="trending_movies",
+            filters_json={"limit": 10},
+            is_active=True,
+        )
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/edit")
+
+        assert response.status_code == 200
+        assert b"Edit List" in response.data

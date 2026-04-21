@@ -415,10 +415,11 @@ class TestGetRunningActivity:
 
     def test_returns_running_jobs(self, client, app):
         """Returns only running jobs."""
-        test_list = _make_list()
-        _make_job(test_list, status="running")
-        _make_job(test_list, status="running")
-        _make_job(test_list, status="completed")
+        first_list = _make_list(name="Running List 1")
+        second_list = _make_list(name="Running List 2")
+        _make_job(first_list, status="running")
+        _make_job(second_list, status="running")
+        _make_job(first_list, status="completed")
         db.session.commit()
 
         response = client.get("/api/activity/running")
