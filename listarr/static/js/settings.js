@@ -179,22 +179,22 @@ function testConnection(service) {
       btn.disabled = false;
       if (data.success) {
         btn.textContent = 'Connected';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-error', 'hover:bg-error/90');
-        btn.classList.add('bg-success', 'hover:bg-success/90');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'text-btn-secondary-text', 'border-border-subtle', 'bg-error/15', 'text-error', 'border-error/30');
+        btn.classList.add('bg-success/15', 'text-success', 'border-success/30');
         setStatus(statusEl, true, 'Connection successful.');
         showToast('Connection successful.', 'success');
       } else {
         btn.textContent = 'Failed';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-success', 'hover:bg-success/90');
-        btn.classList.add('bg-error', 'hover:bg-error/90');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'text-btn-secondary-text', 'border-border-subtle', 'bg-success/15', 'text-success', 'border-success/30');
+        btn.classList.add('bg-error/15', 'text-error', 'border-error/30');
         setStatus(statusEl, false, data.message || 'Connection failed.');
         showToast(data.message || 'Connection failed.', 'error');
       }
       // Reset button text after 3 seconds
       setTimeout(function () {
         btn.textContent = 'Test Connection';
-        btn.classList.remove('bg-success', 'hover:bg-success/90', 'bg-error', 'hover:bg-error/90');
-        btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover');
+        btn.classList.remove('bg-success/15', 'text-success', 'border-success/30', 'bg-error/15', 'text-error', 'border-error/30');
+        btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'text-btn-secondary-text', 'border-border-subtle');
       }, 3000);
     })
     .catch(function (err) {
@@ -327,21 +327,21 @@ function testTmdb() {
       btn.disabled = false;
       if (data.success) {
         btn.textContent = 'Connected';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-error', 'hover:bg-error/90');
-        btn.classList.add('bg-success', 'hover:bg-success/90');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'text-btn-secondary-text', 'border-border-subtle', 'bg-error/15', 'text-error', 'border-error/30');
+        btn.classList.add('bg-success/15', 'text-success', 'border-success/30');
         setStatus(statusEl, true, 'TMDB API key is valid.');
         showToast('TMDB API key is valid.', 'success');
       } else {
         btn.textContent = 'Failed';
-        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'bg-success', 'hover:bg-success/90');
-        btn.classList.add('bg-error', 'hover:bg-error/90');
+        btn.classList.remove('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'text-btn-secondary-text', 'border-border-subtle', 'bg-success/15', 'text-success', 'border-success/30');
+        btn.classList.add('bg-error/15', 'text-error', 'border-error/30');
         setStatus(statusEl, false, data.message || 'Invalid API key.');
         showToast(data.message || 'Invalid API key.', 'error');
       }
       setTimeout(function () {
         btn.textContent = 'Test Connection';
-        btn.classList.remove('bg-success', 'hover:bg-success/90', 'bg-error', 'hover:bg-error/90');
-        btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover');
+        btn.classList.remove('bg-success/15', 'text-success', 'border-success/30', 'bg-error/15', 'text-error', 'border-error/30');
+        btn.classList.add('bg-btn-secondary-bg', 'hover:bg-btn-secondary-hover', 'text-btn-secondary-text', 'border-border-subtle');
       }, 3000);
     })
     .catch(function (err) {
