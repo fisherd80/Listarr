@@ -1500,3 +1500,152 @@ class TestServiceStatusEndpoint:
             response = unauthenticated_client.get("/api/service-status")
             # Unauthenticated non-JSON request redirects to login (302)
             assert response.status_code in (302, 401)
+
+
+class TestAuthEnforcementSettings:
+    """
+    Auth enforcement for every @login_required route in settings_routes.py
+    EXCEPT /settings and /settings/change-password, which are covered in
+    test_auth_routes.py.
+
+    Per D-03 (audit every @login_required route), D-05 (JSON -> 401),
+    D-06 (use app_with_auth + auth_client).
+
+    test_user is mandatory to satisfy check_setup() before_request hook.
+    """
+
+    def test_save_radarr_connection_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/radarr/connection", json={})
+        assert response.status_code == 401
+
+    def test_save_sonarr_connection_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/sonarr/connection", json={})
+        assert response.status_code == 401
+
+    def test_save_tmdb_settings_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/tmdb", json={})
+        assert response.status_code == 401
+
+    def test_test_tmdb_api_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/settings/test_tmdb_api", json={})
+        assert response.status_code == 401
+
+    def test_test_radarr_api_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/test_radarr_api", json={})
+        assert response.status_code == 401
+
+    def test_test_sonarr_api_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/test_sonarr_api", json={})
+        assert response.status_code == 401
+
+    def test_service_status_requires_auth_standard_fixture(self, auth_client, test_user):
+        response = auth_client.get("/api/service-status", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_radarr_quality_profiles_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/api/settings/radarr/quality-profiles",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_sonarr_quality_profiles_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/api/settings/sonarr/quality-profiles",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_radarr_root_folders_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/api/settings/radarr/root-folders",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_sonarr_root_folders_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/api/settings/sonarr/root-folders",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_radarr_get_import_settings_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/api/settings/radarr/import-settings",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_sonarr_get_import_settings_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/api/settings/sonarr/import-settings",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_radarr_save_import_settings_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/radarr/import-settings", json={})
+        assert response.status_code == 401
+
+    def test_sonarr_save_import_settings_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/settings/sonarr/import-settings", json={})
+        assert response.status_code == 401
+
+
+class TestCsrfProtectionSettings:
+    """
+    CSRF rejection for every POST endpoint in settings_routes.py.
+
+    Per D-07 (every POST), D-08 (status 400 only, no body), D-09
+    (client_with_csrf).
+    """
+
+    def test_change_password_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post(
+            "/settings/change-password",
+            data={
+                "current_password": "x",
+                "new_password": "y",
+                "new_password_confirm": "y",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_test_tmdb_api_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/settings/test_tmdb_api", json={})
+        assert response.status_code == 400
+
+    def test_test_radarr_api_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/settings/test_radarr_api", json={})
+        assert response.status_code == 400
+
+    def test_test_sonarr_api_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/settings/test_sonarr_api", json={})
+        assert response.status_code == 400
+
+    def test_save_radarr_connection_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post(
+            "/api/settings/radarr/connection",
+            json={"base_url": "http://x", "api_key": "y"},
+        )
+        assert response.status_code == 400
+
+    def test_save_sonarr_connection_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post(
+            "/api/settings/sonarr/connection",
+            json={"base_url": "http://x", "api_key": "y"},
+        )
+        assert response.status_code == 400
+
+    def test_save_tmdb_settings_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/settings/tmdb", json={})
+        assert response.status_code == 400
+
+    def test_save_radarr_import_settings_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/settings/radarr/import-settings", json={})
+        assert response.status_code == 400
+
+    def test_save_sonarr_import_settings_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/settings/sonarr/import-settings", json={})
+        assert response.status_code == 400
