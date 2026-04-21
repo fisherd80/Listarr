@@ -1716,3 +1716,162 @@ class TestListsEditStub:
         response = client.get("/lists/1/edit")
         assert response.status_code == 200
         assert b"Edit List" in response.data
+
+
+class TestAuthEnforcementLists:
+    """
+    Auth enforcement for every @login_required route in lists_routes.py
+    EXCEPT /lists GET which is covered in test_auth_routes.py::TestRouteProtection.
+
+    Per D-03 (audit every @login_required route), D-04 (HTML -> 302 /login),
+    D-05 (JSON -> 401), D-06 (use app_with_auth + auth_client).
+
+    test_user is mandatory: app_with_auth has no session-level user, so without
+    it check_setup() redirects to /setup not /login (Pitfall 1).
+    """
+
+    def test_api_lists_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/lists", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_lists_create_get_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/create")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_create_preset_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/create/preset")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_create_custom_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/create/custom")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_id_edit_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/1/edit")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_edit_id_get_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/edit/1")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_wizard_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/wizard")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_create_post_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/create", json={})
+        assert response.status_code == 401
+
+    def test_lists_edit_post_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/edit/1", data={})
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_lists_delete_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/delete/1", json={})
+        assert response.status_code == 401
+
+    def test_lists_toggle_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/toggle/1", json={})
+        assert response.status_code == 401
+
+    def test_lists_wizard_preview_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/wizard/preview", json={})
+        assert response.status_code == 401
+
+    def test_lists_wizard_submit_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/wizard/submit", json={})
+        assert response.status_code == 401
+
+    def test_lists_wizard_defaults_requires_auth(self, auth_client, test_user):
+        response = auth_client.get(
+            "/lists/wizard/defaults/RADARR",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        assert response.status_code == 401
+
+    def test_lists_run_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/lists/1/run", json={})
+        assert response.status_code == 401
+
+    def test_api_cron_validate_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/cron/validate", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_lists_status_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/lists/1/status", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_schedule_pause_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/schedule/pause", json={})
+        assert response.status_code == 401
+
+    def test_api_schedule_resume_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/schedule/resume", json={})
+        assert response.status_code == 401
+
+    def test_api_schedule_status_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/schedule/status", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_schedule_update_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/schedule/1/update", json={})
+        assert response.status_code == 401
+
+
+class TestCsrfProtectionLists:
+    """
+    CSRF rejection for every POST endpoint in lists_routes.py.
+
+    Per D-07 (every POST), D-08 (status 400 only, no body assertion),
+    D-09 (client_with_csrf + POST without token).
+
+    LOGIN_DISABLED=True in app_with_csrf, so requests pass @login_required
+    and reach the CSRF check.
+    """
+
+    def test_lists_create_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/create", json={})
+        assert response.status_code == 400
+
+    def test_lists_edit_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/edit/1", data={})
+        assert response.status_code == 400
+
+    def test_lists_delete_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/delete/1", json={})
+        assert response.status_code == 400
+
+    def test_lists_toggle_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/toggle/1", json={})
+        assert response.status_code == 400
+
+    def test_lists_wizard_preview_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/wizard/preview", json={})
+        assert response.status_code == 400
+
+    def test_lists_wizard_submit_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/wizard/submit", json={})
+        assert response.status_code == 400
+
+    def test_lists_run_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/lists/1/run", json={})
+        assert response.status_code == 400
+
+    def test_api_schedule_pause_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/schedule/pause", json={})
+        assert response.status_code == 400
+
+    def test_api_schedule_resume_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/schedule/resume", json={})
+        assert response.status_code == 400
+
+    def test_api_schedule_update_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/schedule/1/update", json={})
+        assert response.status_code == 400
