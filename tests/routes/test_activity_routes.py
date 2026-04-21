@@ -20,6 +20,16 @@ Note on rerun endpoint: submit_job and is_list_running are imported INSIDE
 the rerun_activity() function body (deferred import to avoid circular imports).
 This means they do NOT exist on the listarr.routes.activity_routes module.
 Patch at listarr.services.job_executor.submit_job (the source module).
+
+Phase 7 baseline (captured 2026-04-21):
+- Overall coverage: 49% (2883 statements, 1483 missed)
+- Target: 65% (CI threshold 60%)
+- Top uncovered (input for Plan 05 gap closure decision):
+  * listarr/routes/lists_routes.py: 17%
+  * listarr/services/import_service.py: 48%
+  * listarr/services/tmdb_cache.py: 30%
+  * listarr/routes/settings_routes.py: 28%
+  * listarr/routes/activity_routes.py: 94%
 """
 
 from datetime import datetime, timezone
@@ -428,3 +438,77 @@ class TestActivityRunDetail:
         response = client.get("/activity/1")
         assert response.status_code == 200
         assert b"Run Detail" in response.data
+
+
+class TestAuthEnforcementActivity:
+    """
+    Auth enforcement for every @login_required route in activity_routes.py.
+
+    Per D-03 (audit every @login_required route), D-04 (HTML -> 302 /login),
+    D-05 (JSON -> 401), D-06 (use app_with_auth + auth_client).
+
+    test_user is required because app_with_auth does NOT create a session-level
+    user; without one, check_setup() redirects to /setup, not /login (Pitfall 1).
+    """
+
+    def test_activity_page_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/activity")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_activity_run_detail_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/activity/1")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_api_activity_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_activity_recent_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity/recent", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_activity_detail_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity/1", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_activity_rerun_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/activity/1/rerun", json={})
+        assert response.status_code == 401
+
+    def test_api_activity_clear_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/activity/clear", json={})
+        assert response.status_code == 401
+
+    def test_api_activity_clear_list_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/activity/clear/1", json={})
+        assert response.status_code == 401
+
+    def test_api_activity_running_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity/running", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+
+class TestCsrfProtectionActivity:
+    """
+    CSRF rejection for every POST endpoint in activity_routes.py.
+
+    Per D-07 (every POST gets a CSRF test), D-08 (status 400 is sufficient;
+    no body assertion), D-09 (use client_with_csrf + submit POST without token).
+
+    LOGIN_DISABLED=True in app_with_csrf, so these requests reach the CSRF
+    check rather than the @login_required gate.
+    """
+
+    def test_api_activity_rerun_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/activity/1/rerun", json={})
+        assert response.status_code == 400
+
+    def test_api_activity_clear_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/activity/clear", json={})
+        assert response.status_code == 400
+
+    def test_api_activity_clear_list_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/activity/clear/1", json={})
+        assert response.status_code == 400
