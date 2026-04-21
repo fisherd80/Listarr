@@ -1390,3 +1390,113 @@ class TestSettingsPageContext:
         """Page renders when no services configured."""
         response = client.get("/settings")
         assert response.status_code == 200
+
+
+class TestServiceStatusEndpoint:
+    """Tests for GET /api/service-status — nav badge polling endpoint."""
+
+    def test_returns_200_with_no_services_configured(self, client):
+        """Returns 200 with null statuses when no services exist."""
+        response = client.get("/api/service-status")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {"radarr": None, "sonarr": None}
+
+    def test_returns_success_status_for_configured_service(self, client, app):
+        """Returns last_test_status value when service is configured and tested."""
+        enc_key = encrypt_data("radarr_key", instance_path=app.instance_path)
+        cfg = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=enc_key,
+            last_test_status="success",
+        )
+        db.session.add(cfg)
+        db.session.commit()
+
+        response = client.get("/api/service-status")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["radarr"] == "success"
+        assert data["sonarr"] is None
+
+    def test_returns_failed_status(self, client, app):
+        """Returns 'failed' when last test failed."""
+        enc_key = encrypt_data("sonarr_key", instance_path=app.instance_path)
+        cfg = ServiceConfig(
+            service="SONARR",
+            base_url="http://localhost:8989",
+            api_key_encrypted=enc_key,
+            last_test_status="failed",
+        )
+        db.session.add(cfg)
+        db.session.commit()
+
+        response = client.get("/api/service-status")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["sonarr"] == "failed"
+        assert data["radarr"] is None
+
+    def test_returns_null_when_service_exists_but_never_tested(self, client, app):
+        """Returns null (not 'failed') for a configured service that has never been tested."""
+        enc_key = encrypt_data("radarr_key", instance_path=app.instance_path)
+        cfg = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=enc_key,
+            last_test_status=None,
+        )
+        db.session.add(cfg)
+        db.session.commit()
+
+        response = client.get("/api/service-status")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["radarr"] is None
+
+    def test_returns_both_services_when_both_configured(self, client, app):
+        """Returns status for both Radarr and Sonarr simultaneously."""
+        enc_radarr = encrypt_data("radarr_key", instance_path=app.instance_path)
+        enc_sonarr = encrypt_data("sonarr_key", instance_path=app.instance_path)
+        db.session.add(
+            ServiceConfig(
+                service="RADARR",
+                base_url="http://localhost:7878",
+                api_key_encrypted=enc_radarr,
+                last_test_status="success",
+            )
+        )
+        db.session.add(
+            ServiceConfig(
+                service="SONARR",
+                base_url="http://localhost:8989",
+                api_key_encrypted=enc_sonarr,
+                last_test_status="failed",
+            )
+        )
+        db.session.commit()
+
+        response = client.get("/api/service-status")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["radarr"] == "success"
+        assert data["sonarr"] == "failed"
+
+    def test_requires_authentication(self, app):
+        """Endpoint requires login — unauthenticated request gets 401."""
+        from listarr import create_app
+
+        test_app = create_app(
+            {
+                "TESTING": True,
+                "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                "WTF_CSRF_ENABLED": False,
+                "LOGIN_DISABLED": False,
+                "SECRET_KEY": "test-secret-key",
+            }
+        )
+        with test_app.test_client() as unauthenticated_client:
+            response = unauthenticated_client.get("/api/service-status")
+            # Unauthenticated non-JSON request redirects to login (302)
+            assert response.status_code in (302, 401)

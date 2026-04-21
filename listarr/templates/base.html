@@ -77,8 +77,8 @@
           <!-- Right side: User menu or Login -->
           <div class="flex items-center gap-3">
             {% if current_user.is_authenticated %}
-              <!-- Connection status placeholder -->
-              <span class="w-2 h-2 rounded-full bg-text-muted" title="Service status"></span>
+              <!-- Connection status dot — updated by service-status poller below -->
+              <span id="nav-service-status" class="w-3 h-3 rounded-full bg-text-muted" title="Service status: unknown"></span>
               <!-- User dropdown -->
               <div class="relative" id="user-dropdown">
                 <button
@@ -241,5 +241,56 @@
         });
       })();
     </script>
+
+    <!-- Service status poller — updates the nav dot every 60 s -->
+    {% if current_user.is_authenticated %}
+    <script>
+      (function () {
+        var dot = document.getElementById('nav-service-status');
+        if (!dot) { return; }
+
+        function applyStatus(radarr, sonarr) {
+          // Both success → green
+          // Either failed → red
+          // Neither tested (both null) → muted grey (default)
+          // Mixed (one success, one null) → yellow/warning
+          var bothNull = radarr === null && sonarr === null;
+          var anyFailed = radarr === 'failed' || sonarr === 'failed';
+          var anySuccess = radarr === 'success' || sonarr === 'success';
+          var allSuccess = radarr === 'success' && sonarr === 'success';
+
+          dot.classList.remove('bg-text-muted', 'bg-success', 'bg-error', 'bg-warning');
+
+          if (bothNull) {
+            dot.classList.add('bg-text-muted');
+            dot.title = 'Service status: not configured';
+          } else if (anyFailed) {
+            dot.classList.add('bg-error');
+            dot.title = 'Service status: connection failed';
+          } else if (allSuccess) {
+            dot.classList.add('bg-success');
+            dot.title = 'Service status: connected';
+          } else {
+            // At least one success, others null (not yet tested)
+            dot.classList.add('bg-warning');
+            dot.title = 'Service status: partially configured';
+          }
+        }
+
+        function poll() {
+          fetch('/api/service-status', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+              if (data) { applyStatus(data.radarr, data.sonarr); }
+            })
+            .catch(function () { /* silently ignore — network error, server restarting, etc. */ });
+        }
+
+        // Run immediately on page load, then every 60 seconds
+        poll();
+        setInterval(poll, 60000);
+      })();
+    </script>
+    {% endif %}
   </body>
 </html>

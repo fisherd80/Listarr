@@ -373,6 +373,38 @@ def test_sonarr_api():
     return _test_service_api("SONARR", base_url, api_key)
 
 
+@bp.route("/api/service-status", methods=["GET"])
+@login_required
+def service_status():
+    """Return the last-known connection status for Radarr and Sonarr.
+
+    Reads last_test_status from ServiceConfig — no live API call is made,
+    so this endpoint is fast and safe to poll on every page load.
+
+    Returns JSON::
+
+        {
+          "radarr": "success" | "failed" | null,
+          "sonarr": "success" | "failed" | null
+        }
+
+    ``null`` means the service has never been tested or is not configured.
+    """
+
+    def _status_for(service_name):
+        cfg = ServiceConfig.query.filter_by(service=service_name).first()
+        if cfg is None:
+            return None
+        return cfg.last_test_status  # "success", "failed", or None
+
+    return jsonify(
+        {
+            "radarr": _status_for("RADARR"),
+            "sonarr": _status_for("SONARR"),
+        }
+    )
+
+
 @bp.route("/api/settings/<service>/quality-profiles", methods=["GET"])
 @login_required
 def fetch_quality_profiles_route(service):
