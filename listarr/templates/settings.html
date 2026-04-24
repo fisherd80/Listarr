@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-  <h1 class="text-2xl font-bold text-text-heading mb-6">Settings</h1>
+<div>
+  <h1 class="text-2xl font-semibold text-text-heading mb-6">Settings</h1>
 
   <!-- Top-level Tab navigation -->
   <div class="border-b border-border-subtle mb-6">
@@ -36,7 +36,7 @@
             <label for="radarr-url" class="block text-sm font-medium text-text-base mb-1">Radarr URL</label>
             <input type="url" id="radarr-url" placeholder="http://localhost:7878"
               value="{{ radarr.base_url or '' }}"
-              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary" />
+              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
           </div>
           <div>
             <label for="radarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
@@ -44,7 +44,7 @@
               <input type="password" id="radarr-api-key"
                 {% if radarr.configured and radarr.api_key %}value="{{ radarr.api_key }}"{% endif %}
                 placeholder="Enter API key"
-                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary" />
+                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
               <button type="button" onclick="togglePasswordVisibility('radarr-api-key', this)"
                 class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
                 title="Show/hide API key">
@@ -101,7 +101,7 @@
             <label for="sonarr-url" class="block text-sm font-medium text-text-base mb-1">Sonarr URL</label>
             <input type="url" id="sonarr-url" placeholder="http://localhost:8989"
               value="{{ sonarr.base_url or '' }}"
-              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary" />
+              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
           </div>
           <div>
             <label for="sonarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
@@ -109,7 +109,7 @@
               <input type="password" id="sonarr-api-key"
                 {% if sonarr.configured and sonarr.api_key %}value="{{ sonarr.api_key }}"{% endif %}
                 placeholder="Enter API key"
-                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary" />
+                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
               <button type="button" onclick="togglePasswordVisibility('sonarr-api-key', this)"
                 class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
                 title="Show/hide API key">
@@ -169,7 +169,7 @@
             <input type="password" id="tmdb-api-key"
               {% if tmdb.configured and tmdb.api_key %}value="{{ tmdb.api_key }}"{% endif %}
               placeholder="Enter TMDB API key"
-              class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary" />
+              class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
             <button type="button" onclick="togglePasswordVisibility('tmdb-api-key', this)"
               class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
               title="Show/hide API key">
@@ -187,7 +187,7 @@
         <div>
           <label for="tmdb-region" class="block text-sm font-medium text-text-base mb-1">Default Region</label>
           <select id="tmdb-region"
-            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary">
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
             <option value="">— No Region —</option>
             {% for code, label in region_choices %}
             <option value="{{ code }}" {% if tmdb_region == code %}selected{% endif %}>{{ label }}</option>
@@ -229,19 +229,19 @@
         <div>
           <label for="current-password" class="block text-sm font-medium text-text-base mb-1">Current Password</label>
           <input type="password" id="current-password" name="current_password"
-            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
             required />
         </div>
         <div>
           <label for="new-password" class="block text-sm font-medium text-text-base mb-1">New Password</label>
           <input type="password" id="new-password" name="new_password"
-            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
             required />
         </div>
         <div>
           <label for="new-password-confirm" class="block text-sm font-medium text-text-base mb-1">Confirm New Password</label>
           <input type="password" id="new-password-confirm" name="new_password_confirm"
-            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
             required />
         </div>
         <div>

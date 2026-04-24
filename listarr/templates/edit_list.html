@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/status.html' import service_badge %}
 {% block title %}Edit {{ list.name }} - Listarr{% endblock %}
 {% block head %}
 <script src="{{ url_for('static', filename='js/create.js') }}" defer></script>
@@ -37,15 +38,7 @@
       Custom
     </span>
     {% endif %}
-    {% if list.target_service == 'RADARR' %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-badge-movie/15 text-badge-movie border border-badge-movie/30">
-      Radarr
-    </span>
-    {% else %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-      Sonarr
-    </span>
-    {% endif %}
+    {{ service_badge(list.target_service) }}
     <span class="text-xs text-text-muted">List type and target service are locked after creation.</span>
   </div>
 

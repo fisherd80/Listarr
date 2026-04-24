@@ -40,7 +40,6 @@ module.exports = {
         xl: "4px",
         "2xl": "4px",
         "3xl": "4px",
-        full: "4px",
       },
       fontFamily: {
         sans: [

@@ -5,20 +5,20 @@
 <script src="{{ url_for('static', filename='js/activity_detail.js') }}" defer></script>
 {% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="space-y-4">
   <div id="run-id-anchor" data-run-id="{{ run_id }}"></div>
 
-  <nav class="text-sm text-text-muted mb-4">
-    <a href="{{ url_for('main.activity_page') }}" class="hover:text-white">Activity</a>
+  <nav class="text-sm text-text-muted">
+    <a href="{{ url_for('main.activity_page') }}" class="hover:text-text-base">Activity</a>
     <span class="mx-1">/</span>
     <span class="text-text-muted">Run Detail</span>
   </nav>
 
-  <div class="flex justify-between items-center mb-4">
-    <h1 class="text-xl font-semibold text-text-heading">Run Detail</h1>
+  <div class="flex justify-between items-center">
+    <h1 class="text-2xl font-semibold text-text-heading">Run Detail</h1>
     <div class="flex items-center gap-3">
       <a href="{{ url_for('main.activity_page') }}"
-         class="inline-flex items-center px-3 py-1.5 text-sm text-text-muted hover:text-white border border-input-border rounded-md hover:border-border-subtle transition-colors">
+         class="inline-flex items-center px-3 py-1.5 text-sm text-text-muted hover:text-text-base border border-border-subtle rounded hover:border-input-border transition-colors">
         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>

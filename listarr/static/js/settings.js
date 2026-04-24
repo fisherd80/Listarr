@@ -16,15 +16,6 @@
 // ---------------------------------------------------------------------------
 
 /**
- * Return the CSRF token from the page meta tag.
- * @returns {string}
- */
-function getCsrfToken() {
-  const meta = document.querySelector('meta[name="csrf-token"]');
-  return meta ? meta.getAttribute('content') : '';
-}
-
-/**
  * Fetch wrapper that automatically includes CSRF header for non-GET requests.
  * @param {string} url
  * @param {object} options - Standard fetch options (method, headers, body, etc.)
@@ -624,17 +615,6 @@ function saveImportSettings(service) {
 function setStatus(el, success, message) {
   if (!el) return;
   el.innerHTML = '<span class="' + (success ? 'text-success' : 'text-error') + '">' + escapeHtml(message) + '</span>';
-}
-
-/**
- * Escape HTML to prevent XSS in server-returned messages.
- * @param {string} str
- * @returns {string}
- */
-function escapeHtml(str) {
-  var div = document.createElement('div');
-  div.appendChild(document.createTextNode(str));
-  return div.innerHTML;
 }
 
 // ---------------------------------------------------------------------------

@@ -62,3 +62,10 @@
     font-weight: 700;
   }
 }
+
+@layer utilities {
+  .toast-hiding {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}

@@ -153,9 +153,8 @@
       // Auto-dismiss flash messages after 3 seconds
       document.querySelectorAll('.flash-toast').forEach((toast, index) => {
         setTimeout(() => {
-          toast.style.opacity = '0';
-          toast.style.transform = 'translateX(100%)';
-          setTimeout(() => toast.remove(), 300);
+          toast.classList.add('toast-hiding');
+          setTimeout(() => toast.remove(), 350);
         }, 3000 + (index * 200));
       });
     </script>
