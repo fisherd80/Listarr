@@ -10,6 +10,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFError, CSRFProtect
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from werkzeug.exceptions import HTTPException
 
 from listarr.services.crypto_utils import load_encryption_key, load_or_generate_secret_key
 
@@ -172,6 +173,8 @@ def create_app(test_config=None):
 
     @app.errorhandler(Exception)
     def unhandled_error(error):
+        if isinstance(error, HTTPException):
+            return error
         app.logger.error(f"Unhandled exception: {error}", exc_info=True)
         db.session.rollback()
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":

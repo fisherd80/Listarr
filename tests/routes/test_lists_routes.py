@@ -178,69 +178,45 @@ class TestGetListsAPI:
 
 
 class TestCreateList:
-    """Tests for POST /lists/create endpoint."""
+    """POST /lists/create is intentionally removed (security: unvalidated target_service write path).
 
-    def test_creates_list_successfully(self, client, db_session):
-        """Valid form data creates a list and redirects."""
-        form_data = {
-            "name": "New Movie List",
-            "target_service": "RADARR",
-            "tmdb_list_type": "trending_movies",
-            "filters_json": "{}",
-            "is_active": "y",
-            "schedule_cron": "",
-            "override_quality_profile": "",
-            "override_root_folder": "",
-            "override_tag": "",
-            "override_monitored": "",
-            "override_search_on_add": "",
-            "override_season_folder": "",
-        }
-        response = client.post("/lists/create", data=form_data, follow_redirects=True)
+    The route prefix /lists/create is preserved by the GET handlers that render the creation
+    wizard. POST requests must return 405 Method Not Allowed.
+    """
+
+    def test_post_lists_create_returns_405_handler_removed(self, client, db_session):
+        """POST /lists/create has no handler (security review: dead endpoint removed); Flask returns 405.
+
+        Uses a delta-based DB count assertion rather than an absolute `== 0` check so this
+        test remains robust if fixtures are ever changed to seed `List` rows.
+        """
+        count_before = List.query.count()
+        response = client.post(
+            "/lists/create",
+            data={
+                "name": "anything",
+                "target_service": "RADARR",
+                "tmdb_list_type": "trending_movies",
+                "filters_json": "{}",
+            },
+        )
+        assert response.status_code == 405
+        assert List.query.count() == count_before
+
+    def test_get_lists_create_still_renders(self, client):
+        """Regression guard: GET /lists/create must still return 200 (wizard landing preserved)."""
+        response = client.get("/lists/create")
         assert response.status_code == 200
 
-        lst = List.query.filter_by(name="New Movie List").first()
-        assert lst is not None
-        assert lst.target_service == "RADARR"
-
-    def test_validation_error_shows_flash(self, client, db_session):
-        """Missing required name shows error flash and redirects to lists."""
-        form_data = {
-            "name": "",  # Required field missing
-            "target_service": "RADARR",
-            "tmdb_list_type": "trending_movies",
-            "filters_json": "{}",
-            "override_quality_profile": "",
-            "override_root_folder": "",
-            "override_tag": "",
-            "override_monitored": "",
-            "override_search_on_add": "",
-            "override_season_folder": "",
-        }
-        response = client.post("/lists/create", data=form_data, follow_redirects=True)
+    def test_get_lists_create_preset_still_renders(self, client):
+        """Regression guard: GET /lists/create/preset must still return 200 (preset wizard preserved)."""
+        response = client.get("/lists/create/preset")
         assert response.status_code == 200
-        # Redirects back to lists page with error
-        assert List.query.count() == 0
 
-    def test_create_redirects_to_lists_page(self, client, db_session):
-        """Successful create redirects to /lists."""
-        form_data = {
-            "name": "Redirect Test",
-            "target_service": "RADARR",
-            "tmdb_list_type": "trending_movies",
-            "filters_json": "{}",
-            "is_active": "y",
-            "schedule_cron": "",
-            "override_quality_profile": "",
-            "override_root_folder": "",
-            "override_tag": "",
-            "override_monitored": "",
-            "override_search_on_add": "",
-            "override_season_folder": "",
-        }
-        response = client.post("/lists/create", data=form_data)
-        assert response.status_code == 302
-        assert "/lists" in response.headers.get("Location", "")
+    def test_get_lists_create_custom_still_renders(self, client):
+        """Regression guard: GET /lists/create/custom must still return 200 (custom wizard preserved)."""
+        response = client.get("/lists/create/custom")
+        assert response.status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -1764,9 +1740,10 @@ class TestAuthEnforcementLists:
         assert response.status_code == 302
         assert "/login" in response.location
 
-    def test_lists_create_post_requires_auth(self, auth_client, test_user):
+    def test_lists_create_post_returns_405_before_auth(self, auth_client, test_user):
+        """POST /lists/create has no route, so method rejection happens before auth."""
         response = auth_client.post("/lists/create", json={})
-        assert response.status_code == 401
+        assert response.status_code == 405
 
     def test_lists_edit_post_requires_auth(self, auth_client, test_user):
         response = auth_client.post("/lists/edit/1", data={})
@@ -1836,9 +1813,10 @@ class TestCsrfProtectionLists:
     and reach the CSRF check.
     """
 
-    def test_lists_create_rejects_no_csrf(self, client_with_csrf):
+    def test_lists_create_post_returns_405_before_csrf(self, client_with_csrf):
+        """POST /lists/create has no route, so method rejection happens before CSRF."""
         response = client_with_csrf.post("/lists/create", json={})
-        assert response.status_code == 400
+        assert response.status_code == 405
 
     def test_lists_edit_rejects_no_csrf(self, client_with_csrf):
         response = client_with_csrf.post("/lists/edit/1", data={})
