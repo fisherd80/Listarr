@@ -208,34 +208,6 @@ def get_lists_api():
     )
 
 
-@bp.route("/lists/create", methods=["POST"])
-@login_required
-def create_list():
-    form = ListForm()
-
-    if form.validate_on_submit():
-        try:
-            new_list = List(
-                name=form.name.data,
-                target_service=request.form.get("target_service", ""),
-                tmdb_list_type=request.form.get("tmdb_list_type", ""),
-                filters_json=request.form.get("filters_json") or "{}",
-                is_active=form.is_active.data,
-                created_at=datetime.now(timezone.utc),
-            )
-            db.session.add(new_list)
-            db.session.commit()
-            flash(f"List '{new_list.name}' created successfully!", "success")
-        except (IntegrityError, OperationalError) as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error creating list: {e}", exc_info=True)
-            flash("Error creating list. Please try again.", "error")
-    else:
-        flash("Please correct the errors in the form.", "error")
-
-    return redirect(url_for("main.lists_page"))
-
-
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
 @login_required
 def edit_list(list_id):
