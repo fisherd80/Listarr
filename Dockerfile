@@ -57,7 +57,7 @@ COPY --from=builder /root/.local /home/listarr/.local
 COPY --chown=listarr:listarr . .
 
 # Copy entrypoint script (must be executable, owned by root)
-COPY entrypoint.sh /entrypoint.sh
+COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Add local Python packages to PATH
@@ -75,4 +75,4 @@ USER listarr
 
 # Entrypoint handles permissions and privilege drop
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["gunicorn", "--config", "gunicorn_config.py", "listarr:create_app()"]
+CMD ["gunicorn", "--config", "config/gunicorn_config.py", "listarr:create_app()"]

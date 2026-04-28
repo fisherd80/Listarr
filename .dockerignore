@@ -45,7 +45,6 @@ ENV/
 # Development & Testing
 # ===========================
 tests/
-pytest.ini
 pyproject.toml
 requirements-dev.txt
 run.py

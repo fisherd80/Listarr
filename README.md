@@ -115,7 +115,7 @@ The compose file pulls the latest image from Docker Hub and uses a bind mount at
 3. **Run first-time setup**
 
    ```bash
-   python setup.py
+   python manage.py
    ```
 
    This generates the encryption key at `instance/.fernet_key` and creates the SQLite database at `instance/listarr.db`.
@@ -141,7 +141,7 @@ On first access, Listarr redirects you to `/setup` where you create your account
 If you are locked out, reset your password from the command line:
 
 ```bash
-python setup.py --reset-password
+python manage.py --reset-password
 ```
 
 ### API Keys

@@ -12,3 +12,42 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
 "tests/**" = ["F401", "F841", "E501"]  # E501: line length relaxed for test assertions
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--showlocals",
+    "-ra",
+    "--strict-markers",
+    "-W", "ignore::DeprecationWarning",
+]
+markers = [
+    "unit: Unit tests for individual functions",
+    "integration: Integration tests for multi-component workflows",
+    "routes: Route handler tests",
+    "slow: Tests that take longer to run",
+    "database: Tests that interact with the database",
+    "encryption: Tests related to encryption/decryption",
+]
+
+[tool.coverage.run]
+source = ["listarr"]
+omit = ["*/tests/*", "*/venv/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
