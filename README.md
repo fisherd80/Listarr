@@ -12,13 +12,13 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 <!-- Screenshots captured in dark mode using the footer toggle -->
 
-| Dashboard | Lists |
+| Lists | Activity |
 |-----------|-------|
-| ![Dashboard](.github/assets/screenshots/dashboard.png) | ![Lists](.github/assets/screenshots/lists.png) |
+| ![Lists](.github/assets/screenshots/lists.png) | ![Activity](.github/assets/screenshots/activity.png) |
 
-| Wizard | Jobs |
-|--------|------|
-| ![Wizard](.github/assets/screenshots/wizard.png) | ![Jobs](.github/assets/screenshots/jobs.png) |
+| Wizard |  |
+|--------|----------|
+| ![Wizard](.github/assets/screenshots/wizard_preset.png) | ![Activity](.github/assets/screenshots/wizard_custom.png) |
 
 ---
 
@@ -48,9 +48,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 **Monitoring**
 
-- Dashboard with read-only stats from Radarr and Sonarr (total, missing, "Added by Listarr" counters)
-- Job monitoring page with filtering, pagination, and expandable per-item details
-- Recent activity feed on dashboard with status indicators
+- Activity page with filtering, pagination, and expandable per-item details
 - Background job execution with activity-based idle timeout
 
 **Security**
@@ -97,6 +95,22 @@ The compose file pulls the latest image from Docker Hub and uses a bind mount at
 
 ---
 
+### Unraid
+
+An Unraid community application template is available at [`deployment/unraid-template.xml`](deployment/unraid-template.xml). Community Applications store listing is pending approval.
+
+Until the store listing is live, install manually by adding the following URL to the **Template repositories** field in Unraid Community Applications settings:
+
+```
+https://raw.githubusercontent.com/fisherd80/listarr/main/deployment/unraid-template.xml
+```
+
+Or use Docker Compose directly.
+
+Configure the **App Data** path to a persistent location (e.g. `/mnt/user/appdata/listarr`) and set your timezone. All other settings are optional.
+
+---
+
 ### Development Setup
 
 1. **Clone the repository**
@@ -109,7 +123,8 @@ The compose file pulls the latest image from Docker Hub and uses a bind mount at
 2. **Install dependencies**
 
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt          # Production dependencies
+   pip install -r requirements-dev.txt      # Dev tools: ruff, pytest, bandit, pre-commit
    ```
 
 3. **Run first-time setup**
@@ -118,7 +133,7 @@ The compose file pulls the latest image from Docker Hub and uses a bind mount at
    python manage.py
    ```
 
-   This generates the encryption key at `instance/.fernet_key` and creates the SQLite database at `instance/listarr.db`.
+   This generates the encryption key (`instance/.fernet_key`), the session secret key (`instance/.secret_key`), and the SQLite database (`instance/listarr.db`).
 
 4. **Start the development server**
 
@@ -146,15 +161,15 @@ python manage.py --reset-password
 
 ### API Keys
 
-All API keys are configured through the web interface and encrypted before storage.
+All API keys are configured through the Settings page (`/settings`) and encrypted before storage.
 
-- **TMDB API Key** — Settings page (`/settings`). Required before creating any lists.
-- **Radarr** — Config page (`/config`). Enter your Radarr URL and API key, then use "Test Connection" to verify.
-- **Sonarr** — Config page (`/config`). Enter your Sonarr URL and API key, then use "Test Connection" to verify.
+- **TMDB API Key** — Enter your TMDB API key and select a region, then use "Test Connection" to verify.
+- **Radarr** — Enter your Radarr URL and API key, then use "Test Connection" to verify.
+- **Sonarr** — Enter your Sonarr URL and API key, then use "Test Connection" to verify.
 
 ### Import Settings
 
-Global import defaults for Radarr and Sonarr are set on the Config page. These apply to all lists unless a list has its own overrides configured in Step 3 of the wizard.
+Global import defaults for Radarr and Sonarr are configured on the Settings page (`/settings`). These apply to all lists unless a list has its own overrides configured in Step 3 of the wizard.
 
 Settings include: quality profile, root folder, monitor mode, search on add, tags, and season folder (Sonarr only).
 
@@ -181,7 +196,6 @@ See [.env.example](.env.example) for a ready-to-use template.
 - **Single-user only** — no multi-user support, roles, or permissions. Designed for personal homelab use.
 - **Homelab deployment** — not hardened for direct public internet exposure. Use a reverse proxy (nginx, Caddy, Traefik) with authentication if you need external access.
 - **SQLite only** — no PostgreSQL or MySQL support. SQLite with WAL mode handles typical single-user workloads without issue.
-- **Read-only dashboard** — Listarr shows stats from Radarr/Sonarr but does not edit or delete existing media. It only pushes new imports.
 - **No dry-run mode** — imports are executed immediately when a list is run. Use the wizard preview step to review content before saving a list.
 
 ---

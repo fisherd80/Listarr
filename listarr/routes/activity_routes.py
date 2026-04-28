@@ -76,29 +76,6 @@ def get_activity():
     )
 
 
-@bp.route("/api/activity/recent")
-@login_required
-def get_recent_activity():
-    """
-    Get 5 most recent jobs for the activity feed.
-
-    Returns:
-        JSON with jobs array (max 5)
-    """
-    jobs = Job.query.order_by(Job.started_at.desc()).limit(5).all()
-
-    # Include list's target_service for display
-    result = []
-    for job in jobs:
-        job_dict = job.to_dict()
-        # Get service from list if still exists (guard against NULL list_id)
-        list_obj = List.query.get(job.list_id) if job.list_id else None
-        job_dict["target_service"] = list_obj.target_service if list_obj else None
-        result.append(job_dict)
-
-    return jsonify({"jobs": result})
-
-
 @bp.route("/api/activity/<int:job_id>")
 @login_required
 def get_activity_detail(job_id):
