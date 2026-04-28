@@ -37,15 +37,14 @@ class TestSetupPage:
         assert response.status_code == 200
 
     def test_setup_blocked_when_user_exists(self, authenticated_client):
-        """Test that GET /setup redirects to dashboard when user exists."""
-        response = authenticated_client.get("/setup", follow_redirects=True)
+        """Test that GET /setup redirects to lists when user exists."""
+        response = authenticated_client.get("/setup", follow_redirects=False)
 
-        # Should redirect to dashboard
-        assert response.status_code == 200
-        assert b"Dashboard" in response.data or b"Listarr" in response.data
+        assert response.status_code in (301, 302)
+        assert "/lists" in response.location
 
     def test_setup_post_blocked_when_user_exists(self, authenticated_client):
-        """Test that POST /setup redirects when user already exists."""
+        """Test that POST /setup redirects to lists when user already exists."""
         response = authenticated_client.post(
             "/setup",
             data={
@@ -53,12 +52,11 @@ class TestSetupPage:
                 "password": "pass123",
                 "password_confirm": "pass123",
             },
-            follow_redirects=True,
+            follow_redirects=False,
         )
 
-        # Should redirect to dashboard
-        assert response.status_code == 200
-        assert b"Dashboard" in response.data or b"Listarr" in response.data
+        assert response.status_code in (301, 302)
+        assert "/lists" in response.location
 
     def test_setup_password_mismatch_shows_error(self, auth_client):
         """Test that POST /setup with mismatched passwords shows error."""
@@ -110,27 +108,25 @@ class TestLoginPage:
         assert b"Password" in response.data
 
     def test_login_page_redirect_if_authenticated(self, authenticated_client):
-        """Test that GET /login redirects to dashboard when already logged in."""
-        response = authenticated_client.get("/login", follow_redirects=True)
+        """Test that GET /login redirects to lists when already logged in."""
+        response = authenticated_client.get("/login", follow_redirects=False)
 
-        # Should redirect to dashboard
-        assert response.status_code == 200
-        assert b"Dashboard" in response.data or b"Listarr" in response.data
+        assert response.status_code in (301, 302)
+        assert "/lists" in response.location
 
     def test_login_valid_credentials(self, auth_client, test_user):
-        """Test that POST /login with correct credentials redirects to dashboard."""
+        """Test that POST /login with correct credentials redirects to lists."""
         response = auth_client.post(
             "/login",
             data={
                 "username": "testuser",
                 "password": "testpassword",
             },
-            follow_redirects=True,
+            follow_redirects=False,
         )
 
-        assert response.status_code == 200
-        # Should be at dashboard
-        assert b"Dashboard" in response.data or b"Listarr" in response.data
+        assert response.status_code in (301, 302)
+        assert "/lists" in response.location
 
     def test_login_invalid_credentials(self, auth_client, test_user):
         """Test that POST /login with wrong password returns 401."""
@@ -168,12 +164,11 @@ class TestLoginPage:
                 "password": "testpassword",
                 "remember_me": True,
             },
-            follow_redirects=True,
+            follow_redirects=False,
         )
 
-        assert response.status_code == 200
-        # Should be logged in
-        assert b"Dashboard" in response.data or b"Listarr" in response.data
+        assert response.status_code in (301, 302)
+        assert "/lists" in response.location
 
     def test_login_next_redirect(self, auth_client, test_user):
         """Test that POST /login redirects to next page from session."""
@@ -195,20 +190,20 @@ class TestLoginPage:
         assert b"Lists" in response.data or b"Create New List" in response.data
 
     def test_login_safe_redirect_rejects_external(self, auth_client, test_user):
-        """Test that POST /login with external next URL redirects to dashboard."""
+        """Test that POST /login with external next URL redirects to lists, not the external site."""
         response = auth_client.post(
             "/login",
             data={
                 "username": "testuser",
                 "password": "testpassword",
             },
-            follow_redirects=True,
+            follow_redirects=False,
             query_string={"next": "http://evil.com"},
         )
 
-        assert response.status_code == 200
-        # Should redirect to dashboard, not external site
-        assert b"Dashboard" in response.data or b"Listarr" in response.data
+        assert response.status_code in (301, 302)
+        assert "evil.com" not in response.location
+        assert "/lists" in response.location
 
 
 class TestLogout:

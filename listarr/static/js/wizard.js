@@ -651,7 +651,7 @@ function renderPreviewItems(items) {
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-medium text-text-heading truncate">${escapeHtml(item.title)}</p>
                 <p class="text-xs text-text-muted">
-                    ${item.year ? item.year : "Unknown year"}
+                    ${item.year ? escapeHtml(String(item.year)) : "Unknown year"}
                 </p>
             </div>
             ${item.rating ? `
@@ -659,23 +659,13 @@ function renderPreviewItems(items) {
                 <svg class="w-4 h-4 text-warning" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
-                <span class="ml-1 text-sm font-medium text-text-base">${item.rating}</span>
+                <span class="ml-1 text-sm font-medium text-text-base">${escapeHtml(String(item.rating))}</span>
             </div>
             ` : ""}
         </div>
     `).join("");
 }
 
-/**
- * Escape HTML to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} - Escaped text
- */
-function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-}
 
 /**
  * Update Next button enabled/disabled state based on current step validation
@@ -1645,18 +1635,18 @@ function updateSummaryFilters() {
     // Language
     if (wizardState.filters.language) {
         const langOption = LANGUAGE_OPTIONS.find(l => l.code === wizardState.filters.language);
-        const langLabel = langOption ? langOption.label : wizardState.filters.language;
+        const langLabel = langOption ? langOption.label : escapeHtml(wizardState.filters.language);
         parts.push(langLabel);
     }
 
     if (wizardState.filters.year_min || wizardState.filters.year_max) {
-        const yearMin = wizardState.filters.year_min || "Any";
-        const yearMax = wizardState.filters.year_max || "Any";
+        const yearMin = escapeHtml(String(wizardState.filters.year_min || "Any"));
+        const yearMax = escapeHtml(String(wizardState.filters.year_max || "Any"));
         parts.push(`${yearMin}-${yearMax}`);
     }
 
     if (wizardState.filters.rating_min) {
-        parts.push(`${wizardState.filters.rating_min}+ rating`);
+        parts.push(`${escapeHtml(String(wizardState.filters.rating_min))}+ rating`);
     }
 
     el.innerHTML = parts.length > 0 ? parts.join(", ") : "No filters (all results)";

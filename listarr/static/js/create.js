@@ -715,7 +715,7 @@ function loadImportDefaults(service, panelName) {
     for (var i = 0; i < profiles.length; i++) {
       var p = profiles[i];
       var sel = (defaults.quality_profile_id && defaults.quality_profile_id === p.id) ? ' selected' : '';
-      html += '<option value="' + p.id + '"' + sel + '>' + escapeHtml(p.name) + '</option>';
+      html += '<option value="' + escapeHtml(String(p.id)) + '"' + sel + '>' + escapeHtml(p.name) + '</option>';
     }
     if (profiles.length === 0) {
       html += '<option value="">No profiles available</option>';

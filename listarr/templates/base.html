@@ -54,7 +54,7 @@
             <div class="flex space-x-4">
               <a
                 href="{{ url_for('main.lists_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint in ('main.lists_page', 'main.dashboard_page') %}bg-primary/10 text-primary{% else %}text-text-muted hover:text-text-heading{% endif %}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary/10 text-primary{% else %}text-text-muted hover:text-text-heading{% endif %}"
               >
                 Lists
               </a>

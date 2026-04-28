@@ -80,7 +80,7 @@ def get_activity():
 @login_required
 def get_recent_activity():
     """
-    Get 5 most recent jobs for dashboard widget.
+    Get 5 most recent jobs for the activity feed.
 
     Returns:
         JSON with jobs array (max 5)
