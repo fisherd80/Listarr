@@ -13,7 +13,7 @@ export TAILWINDCSS_VERSION=${TAILWINDCSS_VERSION:-v3.4.19}
 # Ensure pytailwindcss is installed
 pip show pytailwindcss > /dev/null 2>&1 || pip install pytailwindcss==0.3.0
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INPUT="listarr/static/css/tailwind.src.css"
 OUTPUT="listarr/static/css/tailwind.css"
 

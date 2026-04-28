@@ -11,7 +11,7 @@ if [ "$(id -u)" = "0" ]; then
 
     # Run setup as listarr user (generates keys and database if needed)
     echo "[INFO] Running setup..."
-    su-exec listarr python setup.py
+    su-exec listarr python manage.py
 
     # Drop privileges and exec the main command
     echo "[INFO] Starting application as user listarr (UID 1000)..."
@@ -19,6 +19,6 @@ if [ "$(id -u)" = "0" ]; then
 else
     # Already running as non-root (e.g., Kubernetes securityContext, rootless Docker)
     echo "[INFO] Running as UID $(id -u)"
-    python setup.py
+    python manage.py
     exec "$@"
 fi
