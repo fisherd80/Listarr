@@ -39,7 +39,7 @@
 
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'inline-flex items-center px-3 py-1.5 text-sm border border-error text-error rounded';
+    btn.className = 'inline-flex items-center px-3 py-1.5 text-sm border border-error text-error rounded hover:bg-error/10 focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 transition-colors';
     btn.textContent = 'Rerun';
 
     btn.addEventListener('click', function () {
@@ -119,7 +119,7 @@
   function renderItemStatusBadge(status) {
     var colorMap = {
       'added': 'bg-success/15 text-success border border-success/30',
-      'skipped': 'bg-bg-elevated text-text-muted',
+      'skipped': 'bg-bg-hover text-text-muted border border-border-subtle',
       'failed': 'bg-error/15 text-error border border-error/30'
     };
     var colorClass = colorMap[status] || colorMap['skipped'];
@@ -166,7 +166,7 @@
 
     // thead
     var thead = document.createElement('thead');
-    thead.className = 'border-b border-border-subtle';
+    thead.className = 'bg-bg-table-head';
     var headerRow = document.createElement('tr');
     var cols = ['Title', 'Status', 'Reason', 'TMDB ID'];
     for (var h = 0; h < cols.length; h++) {
