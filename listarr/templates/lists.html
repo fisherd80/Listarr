@@ -12,7 +12,10 @@
 <div class="space-y-4">
   <!-- Page Header -->
   <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-semibold text-text-heading">Lists</h1>
+    <div>
+      <h1 class="text-2xl font-semibold text-text-heading">Lists</h1>
+      <p class="mt-1 text-sm text-text-muted">Manage your import lists and scheduled runs.</p>
+    </div>
     <a href="{{ url_for('main.lists_create') }}"
        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,19 +27,38 @@
 
   {% if lists %}
   <!-- Filters -->
-  <div class="flex items-center gap-3">
-    <select id="filter-service"
-            class="text-sm bg-input-bg border border-input-border text-text-base rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-      <option value="">All Services</option>
-      <option value="radarr">Radarr</option>
-      <option value="sonarr">Sonarr</option>
-    </select>
-    <select id="filter-type"
-            class="text-sm bg-input-bg border border-input-border text-text-base rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary">
-      <option value="">All Sources</option>
-      <option value="preset">Preset</option>
-      <option value="custom">Custom</option>
-    </select>
+  <div class="bg-bg-panel border border-border-subtle rounded p-3">
+    <div class="flex flex-wrap items-end gap-4">
+      <!-- Service Filter -->
+      <div class="flex-1 min-w-[200px]">
+        <label for="filter-service" class="block text-sm font-medium text-text-base mb-1">
+          Service
+        </label>
+        <select
+          id="filter-service"
+          class="block w-full rounded border border-input-border bg-input-bg text-text-base focus:border-primary focus:ring-primary text-sm py-2"
+        >
+          <option value="">All Services</option>
+          <option value="radarr">Radarr</option>
+          <option value="sonarr">Sonarr</option>
+        </select>
+      </div>
+
+      <!-- Source Filter -->
+      <div class="flex-1 min-w-[150px]">
+        <label for="filter-type" class="block text-sm font-medium text-text-base mb-1">
+          Source
+        </label>
+        <select
+          id="filter-type"
+          class="block w-full rounded border border-input-border bg-input-bg text-text-base focus:border-primary focus:ring-primary text-sm py-2"
+        >
+          <option value="">All Sources</option>
+          <option value="preset">Preset</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <!-- Data Table -->
@@ -79,7 +101,7 @@
         </thead>
         <tbody id="lists-tbody" class="bg-bg-panel divide-y divide-border-subtle">
           <!-- Skeleton rows -->
-          <tr class="skeleton-row">
+          <tr class="skeleton-row" style="display: none">
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-40"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-16"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-14"></div></td>
@@ -89,7 +111,7 @@
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-28"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-24 ml-auto"></div></td>
           </tr>
-          <tr class="skeleton-row">
+          <tr class="skeleton-row" style="display: none">
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-32"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-16"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-14"></div></td>
@@ -99,7 +121,7 @@
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-28"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-24 ml-auto"></div></td>
           </tr>
-          <tr class="skeleton-row">
+          <tr class="skeleton-row" style="display: none">
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-48"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-16"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-14"></div></td>
@@ -109,7 +131,7 @@
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-28"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-24 ml-auto"></div></td>
           </tr>
-          <tr class="skeleton-row">
+          <tr class="skeleton-row" style="display: none">
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-36"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-16"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-14"></div></td>
@@ -119,7 +141,7 @@
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-28"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-24 ml-auto"></div></td>
           </tr>
-          <tr class="skeleton-row">
+          <tr class="skeleton-row" style="display: none">
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-44"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-16"></div></td>
             <td class="px-4 py-3"><div class="animate-pulse bg-bg-hover rounded h-4 w-14"></div></td>
