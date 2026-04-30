@@ -661,6 +661,17 @@ document.addEventListener('DOMContentLoaded', function () {
   initSettingsTabs();
   initServiceTabs();
   initImportSettingsButtons();
+
+  // If the URL contains a hash that matches a settings tab, activate it.
+  // e.g. /settings#account activates the Account tab.
+  var hash = window.location.hash ? window.location.hash.slice(1) : '';
+  if (hash) {
+    var targetTab = document.querySelector('.settings-tab[data-tab="' + hash + '"]');
+    if (targetTab) {
+      targetTab.click();
+    }
+  }
+
   // Load import defaults for pre-configured services on initial page load
   maybeLoadImportDefaults();
 });
