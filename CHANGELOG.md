@@ -5,6 +5,19 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.0.1] - 2026-04-30
+
+### Changed
+
+- Docker base image migrated from `python:3.14.3-slim` to `python:3-alpine` — 24 MB smaller, 83 fewer packages, 31 fewer CVEs
+- Logo colour updated from indigo to green
+
+### Security
+
+- `apt-get upgrade` in both build stages patches openssl (CVE-2026-31789, 9.8 critical) and glibc CVEs
+- Health check migrated from `requests` to stdlib `urllib` to avoid user-path issue in Alpine containers
+- Entrypoint shebang fixed from `#!/bin/bash` to `#!/bin/sh` for Alpine compatibility
+
 ## [2.0.0] - 2026-04-30
 
 ### Added
