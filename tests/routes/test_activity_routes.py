@@ -4,7 +4,6 @@ Route tests for activity_routes.py - Activity page endpoints.
 Tests cover:
 - GET /activity - Activity page rendering
 - GET /api/activity - Paginated activity list with filters
-- GET /api/activity/recent - 5 most recent activities for dashboard widget
 - GET /api/activity/<id> - Activity detail with items
 - POST /api/activity/<id>/rerun - Rerun a failed activity
 - POST /api/activity/clear - Clear all non-running activities
@@ -154,56 +153,6 @@ class TestGetActivity:
         data = response.get_json()
         assert len(data["jobs"]) == 25
         assert data["current_page"] == 1
-
-
-class TestGetRecentActivity:
-    """Tests for GET /api/activity/recent endpoint."""
-
-    def test_returns_empty_when_no_jobs(self, client):
-        """Returns empty list when no jobs exist."""
-        response = client.get("/api/activity/recent")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data["jobs"] == []
-
-    def test_returns_max_5_jobs(self, client, app):
-        """Returns at most 5 recent jobs."""
-        test_list = _make_list()
-        for i in range(10):
-            _make_job(test_list, status="completed")
-        db.session.commit()
-
-        response = client.get("/api/activity/recent")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert len(data["jobs"]) == 5
-
-    def test_includes_target_service_from_list(self, client, app):
-        """Includes target_service from the related List."""
-        radarr_list = _make_list(name="Radarr List", service="RADARR")
-        _make_job(radarr_list, status="completed")
-        db.session.commit()
-
-        response = client.get("/api/activity/recent")
-        data = response.get_json()
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["target_service"] == "RADARR"
-
-    def test_handles_deleted_list(self, client, app):
-        """Returns null target_service when list no longer exists."""
-        test_list = _make_list()
-        job = _make_job(test_list, status="completed")
-        db.session.commit()
-        job_id = job.id
-
-        # Delete the list
-        db.session.delete(test_list)
-        db.session.commit()
-
-        response = client.get("/api/activity/recent")
-        data = response.get_json()
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["target_service"] is None
 
 
 class TestGetActivityDetail:
@@ -464,10 +413,6 @@ class TestAuthEnforcementActivity:
 
     def test_api_activity_requires_auth(self, auth_client, test_user):
         response = auth_client.get("/api/activity", headers={"X-Requested-With": "XMLHttpRequest"})
-        assert response.status_code == 401
-
-    def test_api_activity_recent_requires_auth(self, auth_client, test_user):
-        response = auth_client.get("/api/activity/recent", headers={"X-Requested-With": "XMLHttpRequest"})
         assert response.status_code == 401
 
     def test_api_activity_detail_requires_auth(self, auth_client, test_user):
