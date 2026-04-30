@@ -202,7 +202,7 @@ See [.env.example](.env.example) for a ready-to-use template.
 
 ## Roadmap
 
-v1.0.0 is the initial release, covering the full discovery-to-import workflow with scheduling, monitoring, and authentication.
+v2.0.0 delivers a full UI overhaul with a semantic dark/light theme system, redesigned Lists, Activity, and Settings pages, security hardening, and expanded test coverage.
 
 Possible future enhancements:
 
