@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Create List - Listarr{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='js/create.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+
+<div class="space-y-4">
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <nav class="text-sm text-text-muted mb-1">
+        <a href="{{ url_for('main.lists_page') }}" class="hover:text-text-base">Lists</a>
+        <span class="mx-1">/</span>
+        <span class="text-text-base">Create</span>
+      </nav>
+      <h1 class="text-2xl font-semibold text-text-heading">Create List</h1>
+    </div>
+    <a href="{{ url_for('main.lists_page') }}"
+       class="inline-flex items-center px-3 py-1.5 text-sm text-text-muted hover:text-text-base border border-border-subtle rounded hover:border-input-border transition-colors">
+      <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      Back to Lists
+    </a>
+  </div>
+
+  <!-- Tab Toggle -->
+  <div class="border-b border-border-subtle">
+    <div class="flex space-x-0">
+      <button id="tab-presets"
+              class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-primary text-text-heading transition-colors focus:outline-none">
+        Presets
+      </button>
+      <button id="tab-custom"
+              class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-text-muted hover:text-text-base transition-colors focus:outline-none">
+        Custom
+      </button>
+    </div>
+  </div>
+
+  <!-- Presets Panel -->
+  <div id="panel-presets" class="tab-panel">
+    {% include 'lists_create_preset.html' %}
+  </div>
+
+  <!-- Custom Panel -->
+  <div id="panel-custom" class="tab-panel hidden">
+    {% include 'lists_create_custom.html' %}
+  </div>
+
+</div>
+
+{% endblock %}

@@ -10,13 +10,11 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from requests.exceptions import RequestException
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError
 
 from listarr import db
 from listarr.models.jobs_model import Job, JobItem
 from listarr.models.lists_model import List
-from listarr.services.dashboard_cache import refresh_dashboard_cache
 from listarr.services.import_service import import_list
 
 logger = logging.getLogger(__name__)
@@ -32,6 +30,7 @@ RETRY_DELAYS = [5, 10, 20]  # seconds
 _executor = None
 _stop_events = {}
 _stop_events_lock = threading.Lock()
+_submit_lock = threading.Lock()  # Prevents TOCTOU race in submit_job check-then-create
 
 
 class ActivityTracker:
@@ -96,27 +95,43 @@ def submit_job(list_id, list_name, app, triggered_by="manual"):
     Raises:
         ValueError: If job already running for this list
     """
-    # Check if already running (database check for persistence)
-    if is_list_running(list_id):
-        raise ValueError(f"Job already running for list {list_id}")
+    # Check if already running and create job record atomically.
+    # Two-layer guard:
+    #   1. _submit_lock (threading.Lock): fast in-process TOCTOU guard for threads
+    #      in the same OS process. Avoids redundant DB round-trips when two threads
+    #      race inside the same worker.
+    #   2. Unique partial index ix_jobs_one_running_per_list (SQLite): cross-process
+    #      guard. The database enforces "at most one running row per list_id" at the
+    #      storage level, so even two separate OS processes (e.g. Flask debug reloader)
+    #      cannot both commit a running job for the same list. If the second INSERT
+    #      races past the in-process lock it will hit an IntegrityError on commit,
+    #      which we catch and convert to ValueError here.
+    with _submit_lock:
+        if is_list_running(list_id):
+            raise ValueError(f"Job already running for list {list_id}")
 
-    # Create job record first (within app context)
-    with app.app_context():
-        job = Job(
-            list_id=list_id,
-            list_name=list_name,
-            status="running",
-            started_at=datetime.now(timezone.utc),
-            triggered_by=triggered_by,
-            retry_count=0,
-            items_found=0,
-            items_added=0,
-            items_skipped=0,
-            items_failed=0,
-        )
-        db.session.add(job)
-        db.session.commit()
-        job_id = job.id
+        # Create job record inside the lock so the next caller sees it immediately.
+        # The DB-level unique partial index is the definitive cross-process guard.
+        with app.app_context():
+            job = Job(
+                list_id=list_id,
+                list_name=list_name,
+                status="running",
+                started_at=datetime.now(timezone.utc),
+                triggered_by=triggered_by,
+                retry_count=0,
+                items_found=0,
+                items_added=0,
+                items_skipped=0,
+                items_failed=0,
+            )
+            db.session.add(job)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                raise ValueError(f"Job already running for list {list_id}")
+            job_id = job.id
 
     # Create stop event for timeout
     stop_event = threading.Event()
@@ -230,12 +245,6 @@ def _mark_job_completed(job_id, result, start_time):
     logger.info(
         f"Job {job_id} completed: {job.items_added} added, {job.items_skipped} skipped, {job.items_failed} failed"
     )
-
-    # Refresh dashboard cache to reflect new imports
-    try:
-        refresh_dashboard_cache()
-    except (OperationalError, RequestException) as e:
-        logger.warning(f"Failed to refresh dashboard cache after job completion: {e}")
 
 
 def _mark_job_failed(job_id, error_message, error_details, start_time=None):

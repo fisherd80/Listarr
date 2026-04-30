@@ -1,24 +1,34 @@
 """
-Route tests for jobs_routes.py - Jobs page endpoints.
+Route tests for activity_routes.py - Activity page endpoints.
 
 Tests cover:
-- GET /jobs - Jobs page rendering
-- GET /api/jobs - Paginated job list with filters
-- GET /api/jobs/recent - 5 most recent jobs for dashboard widget
-- GET /api/jobs/<id> - Job detail with items
-- POST /api/jobs/<id>/rerun - Rerun a failed job
-- POST /api/jobs/clear - Clear all non-running jobs
-- POST /api/jobs/clear/<list_id> - Clear jobs for specific list
-- GET /api/jobs/running - Get currently running jobs
+- GET /activity - Activity page rendering
+- GET /api/activity - Paginated activity list with filters
+- GET /api/activity/<id> - Activity detail with items
+- POST /api/activity/<id>/rerun - Rerun a failed activity
+- POST /api/activity/clear - Clear all non-running activities
+- POST /api/activity/clear/<list_id> - Clear activities for specific list
+- GET /api/activity/running - Get currently running activities
+- GET /activity/<run_id> - Activity run detail stub
 
 Isolation pattern: Use db.session directly (no nested with app.app_context()
 blocks). The session-scoped app fixture keeps an app context open for the
 entire session; nested contexts corrupt Flask's ContextVar stack.
 
 Note on rerun endpoint: submit_job and is_list_running are imported INSIDE
-the rerun_job() function body (deferred import to avoid circular imports).
-This means they do NOT exist on the listarr.routes.jobs_routes module.
+the rerun_activity() function body (deferred import to avoid circular imports).
+This means they do NOT exist on the listarr.routes.activity_routes module.
 Patch at listarr.services.job_executor.submit_job (the source module).
+
+Phase 7 baseline (captured 2026-04-21):
+- Overall coverage: 49% (2883 statements, 1483 missed)
+- Target: 65% (CI threshold 60%)
+- Top uncovered (input for Plan 05 gap closure decision):
+  * listarr/routes/lists_routes.py: 17%
+  * listarr/services/import_service.py: 48%
+  * listarr/services/tmdb_cache.py: 30%
+  * listarr/routes/settings_routes.py: 28%
+  * listarr/routes/activity_routes.py: 94%
 """
 
 from datetime import datetime, timezone
@@ -60,21 +70,21 @@ def _make_job(list_obj, status="completed", items_added=0, items_skipped=0):
     return job
 
 
-class TestJobsPage:
-    """Tests for GET /jobs page."""
+class TestActivityPage:
+    """Tests for GET /activity page."""
 
-    def test_renders_jobs_page(self, client):
-        """Jobs page renders with 200 status."""
-        response = client.get("/jobs")
+    def test_renders_activity_page(self, client):
+        """Activity page renders with 200 status."""
+        response = client.get("/activity")
         assert response.status_code == 200
 
 
-class TestGetJobs:
-    """Tests for GET /api/jobs endpoint."""
+class TestGetActivity:
+    """Tests for GET /api/activity endpoint."""
 
     def test_returns_empty_list_when_no_jobs(self, client):
         """Returns empty list when no jobs exist."""
-        response = client.get("/api/jobs")
+        response = client.get("/api/activity")
         assert response.status_code == 200
         data = response.get_json()
         assert data["jobs"] == []
@@ -87,7 +97,7 @@ class TestGetJobs:
             _make_job(test_list, status="completed")
         db.session.commit()
 
-        response = client.get("/api/jobs?page=1&per_page=10")
+        response = client.get("/api/activity?page=1&per_page=10")
         assert response.status_code == 200
         data = response.get_json()
         assert len(data["jobs"]) == 10
@@ -102,7 +112,7 @@ class TestGetJobs:
         _make_job(test_list, status="failed")
         db.session.commit()
 
-        response = client.get("/api/jobs?status=failed")
+        response = client.get("/api/activity?status=failed")
         data = response.get_json()
         assert data["total"] == 1
         assert data["jobs"][0]["status"] == "failed"
@@ -117,7 +127,7 @@ class TestGetJobs:
         db.session.commit()
         list1_id = list1.id
 
-        response = client.get(f"/api/jobs?list_id={list1_id}")
+        response = client.get(f"/api/activity?list_id={list1_id}")
         data = response.get_json()
         assert data["total"] == 2
 
@@ -128,7 +138,7 @@ class TestGetJobs:
             _make_job(test_list, status="completed")
         db.session.commit()
 
-        response = client.get("/api/jobs?per_page=100")
+        response = client.get("/api/activity?per_page=100")
         data = response.get_json()
         assert len(data["jobs"]) == 50
 
@@ -139,64 +149,14 @@ class TestGetJobs:
             _make_job(test_list, status="completed")
         db.session.commit()
 
-        response = client.get("/api/jobs")
+        response = client.get("/api/activity")
         data = response.get_json()
         assert len(data["jobs"]) == 25
         assert data["current_page"] == 1
 
 
-class TestGetRecentJobs:
-    """Tests for GET /api/jobs/recent endpoint."""
-
-    def test_returns_empty_when_no_jobs(self, client):
-        """Returns empty list when no jobs exist."""
-        response = client.get("/api/jobs/recent")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data["jobs"] == []
-
-    def test_returns_max_5_jobs(self, client, app):
-        """Returns at most 5 recent jobs."""
-        test_list = _make_list()
-        for i in range(10):
-            _make_job(test_list, status="completed")
-        db.session.commit()
-
-        response = client.get("/api/jobs/recent")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert len(data["jobs"]) == 5
-
-    def test_includes_target_service_from_list(self, client, app):
-        """Includes target_service from the related List."""
-        radarr_list = _make_list(name="Radarr List", service="RADARR")
-        _make_job(radarr_list, status="completed")
-        db.session.commit()
-
-        response = client.get("/api/jobs/recent")
-        data = response.get_json()
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["target_service"] == "RADARR"
-
-    def test_handles_deleted_list(self, client, app):
-        """Returns null target_service when list no longer exists."""
-        test_list = _make_list()
-        job = _make_job(test_list, status="completed")
-        db.session.commit()
-        job_id = job.id
-
-        # Delete the list
-        db.session.delete(test_list)
-        db.session.commit()
-
-        response = client.get("/api/jobs/recent")
-        data = response.get_json()
-        assert len(data["jobs"]) == 1
-        assert data["jobs"][0]["target_service"] is None
-
-
-class TestGetJobDetail:
-    """Tests for GET /api/jobs/<id> endpoint."""
+class TestGetActivityDetail:
+    """Tests for GET /api/activity/<id> endpoint."""
 
     def test_returns_job_with_items(self, client, app):
         """Returns job detail including its items."""
@@ -210,7 +170,7 @@ class TestGetJobDetail:
         db.session.add_all([item1, item2])
         db.session.commit()
 
-        response = client.get(f"/api/jobs/{job_id}")
+        response = client.get(f"/api/activity/{job_id}")
         assert response.status_code == 200
         data = response.get_json()
         assert data["list_name"] == "Test List"
@@ -218,12 +178,12 @@ class TestGetJobDetail:
 
     def test_returns_404_for_missing_job(self, client):
         """Returns 404 when job does not exist."""
-        response = client.get("/api/jobs/99999")
+        response = client.get("/api/activity/99999")
         assert response.status_code == 404
 
 
-class TestRerunJob:
-    """Tests for POST /api/jobs/<id>/rerun endpoint."""
+class TestRerunActivity:
+    """Tests for POST /api/activity/<id>/rerun endpoint."""
 
     def test_rerun_failed_job_returns_202(self, client, app):
         """Reruns a failed job and returns 202."""
@@ -239,7 +199,7 @@ class TestRerunJob:
             mock_running.return_value = False
             mock_submit.return_value = 99
 
-            response = client.post(f"/api/jobs/{job_id}/rerun")
+            response = client.post(f"/api/activity/{job_id}/rerun")
 
         assert response.status_code == 202
         data = response.get_json()
@@ -253,7 +213,7 @@ class TestRerunJob:
         db.session.commit()
         job_id = job.id
 
-        response = client.post(f"/api/jobs/{job_id}/rerun")
+        response = client.post(f"/api/activity/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
@@ -269,7 +229,7 @@ class TestRerunJob:
         db.session.delete(list_obj)
         db.session.commit()
 
-        response = client.post(f"/api/jobs/{job_id}/rerun")
+        response = client.post(f"/api/activity/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
         assert "no longer exists" in data["message"].lower()
@@ -290,7 +250,7 @@ class TestRerunJob:
         db.session.commit()
         job_id = job.id
 
-        response = client.post(f"/api/jobs/{job_id}/rerun")
+        response = client.post(f"/api/activity/{job_id}/rerun")
         assert response.status_code == 400
         data = response.get_json()
         assert "not active" in data["message"].lower()
@@ -304,15 +264,15 @@ class TestRerunJob:
 
         with patch("listarr.services.job_executor.is_list_running") as mock_running:
             mock_running.return_value = True
-            response = client.post(f"/api/jobs/{job_id}/rerun")
+            response = client.post(f"/api/activity/{job_id}/rerun")
 
         assert response.status_code == 400
         data = response.get_json()
         assert "already has a job running" in data["message"].lower()
 
 
-class TestClearAllJobs:
-    """Tests for POST /api/jobs/clear endpoint."""
+class TestClearAllActivity:
+    """Tests for POST /api/activity/clear endpoint."""
 
     def test_clears_completed_and_failed_jobs(self, client, app):
         """Clears completed and failed jobs but not running ones."""
@@ -322,7 +282,7 @@ class TestClearAllJobs:
         _make_job(test_list, status="running")
         db.session.commit()
 
-        response = client.post("/api/jobs/clear")
+        response = client.post("/api/activity/clear")
         assert response.status_code == 200
         data = response.get_json()
         assert data["deleted_count"] == 2
@@ -335,7 +295,7 @@ class TestClearAllJobs:
         db.session.commit()
         running_id = running.id
 
-        client.post("/api/jobs/clear")
+        client.post("/api/activity/clear")
 
         remaining = Job.query.all()
         assert len(remaining) == 1
@@ -348,13 +308,13 @@ class TestClearAllJobs:
             _make_job(test_list, status="completed")
         db.session.commit()
 
-        response = client.post("/api/jobs/clear")
+        response = client.post("/api/activity/clear")
         data = response.get_json()
         assert data["deleted_count"] == 5
 
 
-class TestClearListJobs:
-    """Tests for POST /api/jobs/clear/<list_id> endpoint."""
+class TestClearListActivity:
+    """Tests for POST /api/activity/clear/<list_id> endpoint."""
 
     def test_clears_jobs_for_specific_list(self, client, app):
         """Only clears completed/failed jobs for the specified list."""
@@ -366,7 +326,7 @@ class TestClearListJobs:
         db.session.commit()
         list1_id = list1.id
 
-        response = client.post(f"/api/jobs/clear/{list1_id}")
+        response = client.post(f"/api/activity/clear/{list1_id}")
         assert response.status_code == 200
         data = response.get_json()
         assert data["deleted_count"] == 2
@@ -383,7 +343,7 @@ class TestClearListJobs:
         list_id = test_list.id
         running_id = running.id
 
-        response = client.post(f"/api/jobs/clear/{list_id}")
+        response = client.post(f"/api/activity/clear/{list_id}")
         data = response.get_json()
         assert data["deleted_count"] == 1
 
@@ -392,28 +352,109 @@ class TestClearListJobs:
         assert remaining[0].id == running_id
 
 
-class TestGetRunningJobs:
-    """Tests for GET /api/jobs/running endpoint."""
+class TestGetRunningActivity:
+    """Tests for GET /api/activity/running endpoint."""
 
     def test_returns_empty_when_no_running_jobs(self, client):
         """Returns empty list when no running jobs exist."""
-        response = client.get("/api/jobs/running")
+        response = client.get("/api/activity/running")
         assert response.status_code == 200
         data = response.get_json()
         assert data["running_jobs"] == []
 
     def test_returns_running_jobs(self, client, app):
         """Returns only running jobs."""
-        test_list = _make_list()
-        _make_job(test_list, status="running")
-        _make_job(test_list, status="running")
-        _make_job(test_list, status="completed")
+        first_list = _make_list(name="Running List 1")
+        second_list = _make_list(name="Running List 2")
+        _make_job(first_list, status="running")
+        _make_job(second_list, status="running")
+        _make_job(first_list, status="completed")
         db.session.commit()
 
-        response = client.get("/api/jobs/running")
+        response = client.get("/api/activity/running")
         data = response.get_json()
         assert len(data["running_jobs"]) == 2
         for job in data["running_jobs"]:
             assert "job_id" in job
             assert "list_id" in job
             assert "list_name" in job
+
+
+class TestActivityRunDetail:
+    """Tests for /activity/<run_id> stub route."""
+
+    def test_run_detail_returns_200(self, client):
+        """Activity run detail stub returns 200."""
+        response = client.get("/activity/1")
+        assert response.status_code == 200
+        assert b"Run Detail" in response.data
+
+
+class TestAuthEnforcementActivity:
+    """
+    Auth enforcement for every @login_required route in activity_routes.py.
+
+    Per D-03 (audit every @login_required route), D-04 (HTML -> 302 /login),
+    D-05 (JSON -> 401), D-06 (use app_with_auth + auth_client).
+
+    test_user is required because app_with_auth does NOT create a session-level
+    user; without one, check_setup() redirects to /setup, not /login (Pitfall 1).
+    """
+
+    def test_activity_page_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/activity")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_activity_run_detail_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/activity/1")
+        assert response.status_code == 302
+        assert "/login" in response.location
+
+    def test_api_activity_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_activity_detail_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity/1", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+    def test_api_activity_rerun_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/activity/1/rerun", json={})
+        assert response.status_code == 401
+
+    def test_api_activity_clear_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/activity/clear", json={})
+        assert response.status_code == 401
+
+    def test_api_activity_clear_list_requires_auth(self, auth_client, test_user):
+        response = auth_client.post("/api/activity/clear/1", json={})
+        assert response.status_code == 401
+
+    def test_api_activity_running_requires_auth(self, auth_client, test_user):
+        response = auth_client.get("/api/activity/running", headers={"X-Requested-With": "XMLHttpRequest"})
+        assert response.status_code == 401
+
+
+class TestCsrfProtectionActivity:
+    """
+    CSRF rejection for every POST endpoint in activity_routes.py.
+
+    Per D-07 (every POST gets a CSRF test), D-08 (status 400 is sufficient;
+    no body assertion), D-09 (use client_with_csrf + submit POST without token).
+
+    LOGIN_DISABLED=True in app_with_csrf, so these requests reach the CSRF
+    check rather than the @login_required gate.
+    """
+
+    def test_api_activity_rerun_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/activity/1/rerun", json={})
+        assert response.status_code == 400
+
+    def test_api_activity_clear_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/activity/clear", json={})
+        assert response.status_code == 400
+
+    def test_api_activity_clear_list_rejects_no_csrf(self, client_with_csrf):
+        response = client_with_csrf.post("/api/activity/clear/1", json={})
+        assert response.status_code == 400

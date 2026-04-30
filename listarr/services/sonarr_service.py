@@ -48,7 +48,7 @@ def validate_sonarr_api_key(base_url: str, api_key: str) -> bool:
 
 
 def get_sonarr_system_status(base_url: str, api_key: str) -> dict:
-    """Fetches system status from Sonarr. Alias for dashboard_cache compatibility."""
+    """Fetches system status from Sonarr (version, app name, startup time)."""
     return get_system_status(base_url, api_key)
 
 

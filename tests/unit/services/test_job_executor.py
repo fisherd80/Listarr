@@ -231,6 +231,26 @@ class TestSubmitJob:
             # Verify executor.submit was called
             mock_submit.assert_called_once()
 
+    def test_raises_on_integrity_error_from_commit(self, app):
+        """
+        Raises ValueError when DB commit raises IntegrityError.
+
+        This covers the cross-process race: two separate OS processes both pass the
+        is_list_running() check (no running row exists yet in either process's view),
+        but the second process's INSERT hits the unique partial index
+        ix_jobs_one_running_per_list and raises IntegrityError. submit_job must
+        catch that and raise ValueError, not propagate the raw DB error.
+        """
+        from sqlalchemy.exc import IntegrityError
+
+        with patch("listarr.services.job_executor.get_executor") as mock_executor:
+            mock_executor.return_value.submit = MagicMock()
+
+            # Simulate the DB constraint firing on commit (cross-process duplicate)
+            with patch("listarr.db.session.commit", side_effect=IntegrityError("stmt", {}, Exception())):
+                with pytest.raises(ValueError, match="already running"):
+                    submit_job(8, "Test List", app)
+
 
 class TestGetExecutor:
     """Tests for get_executor function."""

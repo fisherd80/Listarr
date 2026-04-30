@@ -16,10 +16,10 @@ Flask-Login==0.6.3
 cachetools>=5.3.0
 
 # Encryption
-cryptography==46.0.5
+cryptography==46.0.7
 
 # HTTP Requests (for external APIs)
-requests==2.32.5
+requests==2.33.0
 
 # Production WSGI Server (required for Docker deployment)
 gunicorn==25.1.0

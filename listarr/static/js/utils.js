@@ -135,8 +135,8 @@ function formatRelativeTimeInternal(diffMs, date) {
 function generateStatusHTML(success, timestamp) {
   const statusIcon = success ? "\u2713" : "\u2717";
   const statusClass = success
-    ? "text-green-600 dark:text-green-400"
-    : "text-red-600 dark:text-red-400";
+    ? "text-success"
+    : "text-error";
   const formattedTime = formatTimestamp(timestamp, "utc");
 
   return `
@@ -171,9 +171,10 @@ function capitalize(str) {
 function generateServiceBadge(service) {
   const isRadarr = service.toLowerCase() === "radarr";
   const colorClass = isRadarr
-    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-    : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${capitalize(service)}</span>`;
+    ? "bg-badge-movie/15 text-badge-movie border border-badge-movie/30"
+    : "bg-badge-tv/15 text-badge-tv border border-badge-tv/30";
+  // colorClass is constructed from a hardcoded boolean branch — not user data, no escaping needed
+  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}">${escapeHtml(capitalize(service))}</span>`;
 }
 
 // --- Function Utilities ---

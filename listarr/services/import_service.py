@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from cryptography.fernet import InvalidToken
-from requests.exceptions import RequestException
 
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
@@ -256,7 +255,7 @@ def _flush_movie_batch(base_url, api_key, batch, batch_meta, result, activity_tr
             else:
                 result.skipped.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"], "reason": "already_exists"})
         logger.info(f"Batch complete: {len(added_tmdb_ids)} added, {len(batch_meta) - len(added_tmdb_ids)} skipped")
-    except RequestException as e:
+    except Exception as e:
         logger.error(f"Bulk import batch failed: {e}", exc_info=True)
         for meta in batch_meta:
             result.failed.append({"tmdb_id": meta["tmdb_id"], "title": meta["title"], "reason": str(e)})
@@ -306,6 +305,7 @@ def _import_movies(
     # Batch accumulation
     batch = []
     batch_meta = []
+    seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
 
     for item in tmdb_items:
         # Check for timeout/cancellation
@@ -326,6 +326,13 @@ def _import_movies(
 
         if not tmdb_id:
             result.failed.append({"tmdb_id": None, "title": title, "reason": "no_tmdb_id"})
+            if activity_tracker:
+                activity_tracker.update()
+            continue
+
+        # Check if already queued in this import (TMDB can return duplicates across pages)
+        if tmdb_id in seen_ids:
+            result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "duplicate_in_batch"})
             if activity_tracker:
                 activity_tracker.update()
             continue
@@ -375,6 +382,7 @@ def _import_movies(
 
         batch.append(payload)
         batch_meta.append({"tmdb_id": tmdb_id, "title": title})
+        seen_ids.add(tmdb_id)
 
         # Flush batch if full
         if len(batch) >= BATCH_SIZE:
@@ -425,7 +433,7 @@ def _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_t
                     }
                 )
         logger.info(f"Batch complete: {len(added_tvdb_ids)} added, {len(batch_meta) - len(added_tvdb_ids)} skipped")
-    except RequestException as e:
+    except Exception as e:
         logger.error(f"Bulk import batch failed: {e}", exc_info=True)
         for meta in batch_meta:
             result.failed.append(
@@ -477,6 +485,7 @@ def _import_series(
     # Batch accumulation
     batch = []
     batch_meta = []
+    seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
 
     for item in tmdb_items:
         # Check for timeout/cancellation
@@ -500,6 +509,14 @@ def _import_series(
             if activity_tracker:
                 activity_tracker.update()
             continue
+
+        # Check if already queued in this import (TMDB can return duplicates across pages)
+        if tmdb_id in seen_ids:
+            result.skipped.append({"tmdb_id": tmdb_id, "title": title, "reason": "duplicate_in_batch"})
+            if activity_tracker:
+                activity_tracker.update()
+            continue
+        seen_ids.add(tmdb_id)
 
         # Translate TMDB ID to TVDB ID
         tvdb_id = tmdb_service.get_tvdb_id_from_tmdb(tmdb_id, tmdb_api_key)

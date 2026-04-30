@@ -1,21 +1,21 @@
 {# Status badge macro - renders a colored pill badge for any status #}
 {% macro status_badge(status, label=none, size='xs', animate=false) %}
 {%- set colors = {
-  'online': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'connected': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'active': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'completed': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'scheduled': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'running': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  'paused': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  'failed': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  'offline': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  'inactive': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-  'not_configured': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-  'manual_only': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  'online':         'bg-success/15 text-success border border-success/30',
+  'connected':      'bg-success/15 text-success border border-success/30',
+  'active':         'bg-success/15 text-success border border-success/30',
+  'completed':      'bg-success/15 text-success border border-success/30',
+  'scheduled':      'bg-success/15 text-success border border-success/30',
+  'running':        'bg-primary/15 text-primary border border-primary/30',
+  'pending':        'bg-warning/15 text-warning border border-warning/30',
+  'paused':         'bg-warning/15 text-warning border border-warning/30',
+  'failed':         'bg-error/15 text-error border border-error/30',
+  'offline':        'bg-error/15 text-error border border-error/30',
+  'inactive':       'bg-bg-hover text-text-muted border border-border-subtle',
+  'not_configured': 'bg-bg-hover text-text-muted border border-border-subtle',
+  'manual_only':    'bg-bg-hover text-text-muted border border-border-subtle',
 } -%}
-{%- set color = colors.get(status|lower, 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') -%}
+{%- set color = colors.get(status|lower, 'bg-bg-hover text-text-muted border border-border-subtle') -%}
 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-{{ size }} font-medium {{ color }}">
   {%- if animate and status|lower == 'running' %}
   <svg class="animate-spin -ml-1 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -27,14 +27,14 @@
 </span>
 {% endmacro %}
 
-{# Service badge macro - renders radarr (amber) or sonarr (blue) pill #}
+{# Service badge macro - renders radarr (movie) or sonarr (tv) pill #}
 {% macro service_badge(service) %}
 {%- if service|lower == 'radarr' -%}
-<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-badge-movie/15 text-badge-movie border border-badge-movie/30">
   {{ service|title }}
 </span>
 {%- else -%}
-<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-badge-tv/15 text-badge-tv border border-badge-tv/30">
   {{ service|title }}
 </span>
 {%- endif -%}

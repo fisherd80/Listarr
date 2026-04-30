@@ -331,7 +331,7 @@ def get_next_run_time(list_id):
         return None
 
     # Non-scheduler worker fallback: calculate from cron expression
-    # This ensures dashboard works on all Gunicorn workers
+    # This ensures next-run calculation works on non-scheduler Gunicorn workers
     try:
         # Query list from database to get cron expression
         list_obj = List.query.get(list_id)

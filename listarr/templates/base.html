@@ -11,8 +11,11 @@
     <script>
       (function () {
         var theme = localStorage.getItem('theme');
-        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (theme === 'dark' || (!theme && systemDark)) {
+        if (theme === 'light') {
+          // explicitly light — remove dark if present (it may have been set by a prior session)
+          document.documentElement.classList.remove('dark');
+        } else {
+          // 'dark', no preference, or unknown — apply dark
           document.documentElement.classList.add('dark');
         }
       })();
@@ -33,9 +36,9 @@
     {% block head %}{% endblock %}
   </head>
 
-  <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+  <body class="bg-bg-base text-text-base">
     <!-- Top Navigation -->
-    <nav class="bg-white dark:bg-gray-800 shadow-md">
+    <nav class="bg-nav-bg border-b border-border-subtle">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16 items-center">
           <!-- Left side: Logo + Main Links -->
@@ -47,58 +50,41 @@
             </div>
 
             <!-- Main links -->
+            {% if current_user.is_authenticated %}
             <div class="flex space-x-4">
               <a
-                href="{{ url_for('main.dashboard_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.dashboard_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-              >
-                Dashboard
-              </a>
-              {% if current_user.is_authenticated %}
-              <a
                 href="{{ url_for('main.lists_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.lists_page' %}bg-primary/10 text-primary{% else %}text-text-muted hover:text-text-heading{% endif %}"
               >
                 Lists
               </a>
               <a
-                href="{{ url_for('main.jobs_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.jobs_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+                href="{{ url_for('main.activity_page') }}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.activity_page' %}bg-primary/10 text-primary{% else %}text-text-muted hover:text-text-heading{% endif %}"
               >
-                Jobs
+                Activity
               </a>
-              <a
-                href="{{ url_for('main.schedule_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.schedule_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-              >
-                Schedule
-              </a>
-              <a
-                href="{{ url_for('main.config_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.config_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
-              >
-                Config
-              </a>
-              {% endif %}
-            </div>
-          </div>
-
-          <!-- Right side: User menu or Login -->
-          <div class="flex items-center">
-            {% if current_user.is_authenticated %}
-              <!-- Settings link -->
               <a
                 href="{{ url_for('main.settings_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary text-white{% else %}text-gray-700 dark:text-gray-200 hover:text-primary{% endif %}"
+                class="px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'main.settings_page' %}bg-primary/10 text-primary{% else %}text-text-muted hover:text-text-heading{% endif %}"
               >
                 Settings
               </a>
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Right side: User menu or Login -->
+          <div class="flex items-center gap-3">
+            {% if current_user.is_authenticated %}
+              <!-- Connection status dot — updated by service-status poller below -->
+              <span id="nav-service-status" class="w-3 h-3 rounded-full bg-text-muted" title="Service status: unknown"></span>
               <!-- User dropdown -->
-              <div class="relative ml-3" id="user-dropdown">
+              <div class="relative" id="user-dropdown">
                 <button
                   type="button"
                   id="user-dropdown-button"
-                  class="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary focus:outline-none"
+                  class="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-text-base hover:text-text-heading focus:outline-none"
                 >
                   <span>{{ current_user.username }}</span>
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,13 +94,19 @@
                 <!-- Dropdown menu -->
                 <div
                   id="user-dropdown-menu"
-                  class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg ring-1 ring-black ring-opacity-5 rounded-md py-1 z-50"
+                  class="hidden absolute right-0 mt-2 w-48 bg-bg-elevated border border-border-subtle rounded-md py-1 z-50"
                 >
+                  <a
+                    href="{{ url_for('main.settings_page') }}#account"
+                    class="block px-4 py-2 text-sm text-text-base hover:bg-bg-hover"
+                  >
+                    Change Password
+                  </a>
                   <form method="POST" action="{{ url_for('main.logout') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <button
                       type="submit"
-                      class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                      class="block w-full text-left px-4 py-2 text-sm text-text-base hover:bg-bg-hover"
                     >
                       Logout
                     </button>
@@ -124,7 +116,7 @@
             {% else %}
               <a
                 href="{{ url_for('main.login_page') }}"
-                class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary"
+                class="px-3 py-2 rounded-md text-sm font-medium text-text-base hover:text-primary"
               >
                 Login
               </a>
@@ -139,9 +131,9 @@
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
       <div
-        class="flash-toast flex items-center p-4 rounded-lg border shadow-lg max-w-md transition-all duration-300 {% if category == 'success' %}bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-800{% elif category == 'warning' %}bg-yellow-100 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-800{% elif category == 'error' %}bg-red-100 dark:bg-red-900 border-red-200 dark:border-red-800{% else %}bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-800{% endif %}"
+        class="flash-toast flex items-center p-4 rounded border-l-4 border max-w-md transition-all duration-300 bg-bg-elevated {% if category == 'success' %}border-success{% elif category == 'warning' %}border-warning{% elif category == 'error' %}border-error{% else %}border-primary{% endif %}"
       >
-        <svg class="w-5 h-5 mr-3 flex-shrink-0 {% if category == 'success' %}text-green-500 dark:text-green-400{% elif category == 'warning' %}text-yellow-500 dark:text-yellow-400{% elif category == 'error' %}text-red-500 dark:text-red-400{% else %}text-blue-500 dark:text-blue-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 mr-3 flex-shrink-0 {% if category == 'success' %}text-success{% elif category == 'warning' %}text-warning{% elif category == 'error' %}text-error{% else %}text-primary{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           {% if category == 'success' %}
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           {% elif category == 'warning' %}
@@ -152,7 +144,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           {% endif %}
         </svg>
-        <span class="text-sm font-medium {% if category == 'success' %}text-green-800 dark:text-green-200{% elif category == 'warning' %}text-yellow-800 dark:text-yellow-200{% elif category == 'error' %}text-red-800 dark:text-red-200{% else %}text-blue-800 dark:text-blue-200{% endif %}">{{ message }}</span>
+        <span class="text-sm font-medium {% if category == 'success' %}text-success{% elif category == 'warning' %}text-warning{% elif category == 'error' %}text-error{% else %}text-primary{% endif %}">{{ message }}</span>
       </div>
       {% endfor %}
       {% endwith %}
@@ -161,20 +153,19 @@
       // Auto-dismiss flash messages after 3 seconds
       document.querySelectorAll('.flash-toast').forEach((toast, index) => {
         setTimeout(() => {
-          toast.style.opacity = '0';
-          toast.style.transform = 'translateX(100%)';
-          setTimeout(() => toast.remove(), 300);
+          toast.classList.add('toast-hiding');
+          setTimeout(() => toast.remove(), 350);
         }, 3000 + (index * 200));
       });
     </script>
 
     <!-- Content -->
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <main class="max-w-7xl mx-auto px-4 py-3">
       {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white dark:bg-gray-800 text-sm py-4 text-gray-500 dark:text-gray-400">
+    <footer class="bg-bg-elevated border-t border-border-subtle text-sm py-4 text-text-muted">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <!-- Spacer for balance -->
         <div class="w-10"></div>
@@ -185,7 +176,7 @@
             href="https://github.com/fisherd80/Listarr"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            class="text-text-muted hover:text-text-heading transition-colors"
             aria-label="View on GitHub"
           >
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -199,7 +190,7 @@
           type="button"
           aria-label="Toggle dark mode"
           aria-pressed="false"
-          class="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+          class="p-2 rounded-md text-text-muted hover:text-text-heading hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
         >
           <svg id="dark-mode-sun" class="hidden dark:block w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -249,5 +240,56 @@
         });
       })();
     </script>
+
+    <!-- Service status poller — updates the nav dot every 60 s -->
+    {% if current_user.is_authenticated %}
+    <script>
+      (function () {
+        var dot = document.getElementById('nav-service-status');
+        if (!dot) { return; }
+
+        function applyStatus(radarr, sonarr) {
+          // Both success → green
+          // Either failed → red
+          // Neither tested (both null) → muted grey (default)
+          // Mixed (one success, one null) → yellow/warning
+          var bothNull = radarr === null && sonarr === null;
+          var anyFailed = radarr === 'failed' || sonarr === 'failed';
+          var anySuccess = radarr === 'success' || sonarr === 'success';
+          var allSuccess = radarr === 'success' && sonarr === 'success';
+
+          dot.classList.remove('bg-text-muted', 'bg-success', 'bg-error', 'bg-warning');
+
+          if (bothNull) {
+            dot.classList.add('bg-text-muted');
+            dot.title = 'Service status: not configured';
+          } else if (anyFailed) {
+            dot.classList.add('bg-error');
+            dot.title = 'Service status: connection failed';
+          } else if (allSuccess) {
+            dot.classList.add('bg-success');
+            dot.title = 'Service status: connected';
+          } else {
+            // At least one success, others null (not yet tested)
+            dot.classList.add('bg-warning');
+            dot.title = 'Service status: partially configured';
+          }
+        }
+
+        function poll() {
+          fetch('/api/service-status', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+              if (data) { applyStatus(data.radarr, data.sonarr); }
+            })
+            .catch(function () { /* silently ignore — network error, server restarting, etc. */ });
+        }
+
+        // Run immediately on page load, then every 60 seconds
+        poll();
+        setInterval(poll, 60000);
+      })();
+    </script>
+    {% endif %}
   </body>
 </html>

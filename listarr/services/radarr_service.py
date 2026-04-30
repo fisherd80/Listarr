@@ -48,7 +48,7 @@ def validate_radarr_api_key(base_url: str, api_key: str) -> bool:
 
 
 def get_radarr_system_status(base_url: str, api_key: str) -> dict:
-    """Fetches system status from Radarr. Alias for dashboard_cache compatibility."""
+    """Fetches system status from Radarr (version, app name, startup time)."""
     return get_system_status(base_url, api_key)
 
 

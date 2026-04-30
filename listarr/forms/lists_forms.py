@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, SelectField, StringField
-from wtforms.validators import DataRequired, Length
+from wtforms.validators import DataRequired, Length, Optional
 
 # Cron schedule presets - must match wizard options in list_wizard.html
 SCHEDULE_CHOICES = [
@@ -26,7 +26,7 @@ class ListForm(FlaskForm):
 
     is_active = BooleanField(label="Active", default=True)
 
-    schedule_cron = SelectField(label="Schedule", choices=SCHEDULE_CHOICES, validators=[])
+    schedule_cron = StringField(label="Schedule", validators=[Optional(), Length(max=50)])
 
     # Import settings - choices populated dynamically in route
     override_quality_profile = SelectField(label="Quality Profile", choices=[("", "Use Default")], validators=[])

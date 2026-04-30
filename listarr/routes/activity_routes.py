@@ -1,6 +1,6 @@
-"""Jobs routes - API endpoints for job history and management."""
+"""Activity routes - API endpoints for activity history and management."""
 
-from flask import current_app, jsonify, render_template, request
+from flask import current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required
 from sqlalchemy.exc import OperationalError
 
@@ -11,15 +11,28 @@ from listarr.routes import bp
 
 
 @bp.route("/jobs")
+def jobs_redirect():
+    """301 redirect to /activity — /jobs page removed in v2."""
+    return redirect(url_for("main.activity_page"), code=301)
+
+
+@bp.route("/activity")
 @login_required
-def jobs_page():
-    """Render the Jobs page."""
+def activity_page():
+    """Render the Activity page."""
     return render_template("jobs.html")
 
 
-@bp.route("/api/jobs")
+@bp.route("/activity/<int:run_id>")
 @login_required
-def get_jobs():
+def activity_run_detail(run_id):
+    """Stub: Activity run detail page (Phase 5 implementation)."""
+    return render_template("activity_run_detail.html", run_id=run_id)
+
+
+@bp.route("/api/activity")
+@login_required
+def get_activity():
     """
     Get paginated job history with optional filters.
 
@@ -46,9 +59,16 @@ def get_jobs():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    result = []
+    for job in pagination.items:
+        job_dict = job.to_dict()
+        list_obj = List.query.get(job.list_id) if job.list_id else None
+        job_dict["target_service"] = list_obj.target_service if list_obj else None
+        result.append(job_dict)
+
     return jsonify(
         {
-            "jobs": [job.to_dict() for job in pagination.items],
+            "jobs": result,
             "total": pagination.total,
             "pages": pagination.pages,
             "current_page": page,
@@ -56,32 +76,9 @@ def get_jobs():
     )
 
 
-@bp.route("/api/jobs/recent")
+@bp.route("/api/activity/<int:job_id>")
 @login_required
-def get_recent_jobs():
-    """
-    Get 5 most recent jobs for dashboard widget.
-
-    Returns:
-        JSON with jobs array (max 5)
-    """
-    jobs = Job.query.order_by(Job.started_at.desc()).limit(5).all()
-
-    # Include list's target_service for display
-    result = []
-    for job in jobs:
-        job_dict = job.to_dict()
-        # Get service from list if still exists (guard against NULL list_id)
-        list_obj = List.query.get(job.list_id) if job.list_id else None
-        job_dict["target_service"] = list_obj.target_service if list_obj else None
-        result.append(job_dict)
-
-    return jsonify({"jobs": result})
-
-
-@bp.route("/api/jobs/<int:job_id>")
-@login_required
-def get_job_detail(job_id):
+def get_activity_detail(job_id):
     """
     Get job detail with item breakdown.
 
@@ -99,9 +96,9 @@ def get_job_detail(job_id):
     return jsonify(job_dict)
 
 
-@bp.route("/api/jobs/<int:job_id>/rerun", methods=["POST"])
+@bp.route("/api/activity/<int:job_id>/rerun", methods=["POST"])
 @login_required
-def rerun_job(job_id):
+def rerun_activity(job_id):
     """
     Rerun a job (triggers new import for the same list).
 
@@ -162,9 +159,9 @@ def rerun_job(job_id):
         return jsonify({"success": False, "message": "Failed to start job"}), 500
 
 
-@bp.route("/api/jobs/clear", methods=["POST"])
+@bp.route("/api/activity/clear", methods=["POST"])
 @login_required
-def clear_all_jobs():
+def clear_all_activity():
     """
     Clear all job history (global).
 
@@ -189,9 +186,9 @@ def clear_all_jobs():
     return jsonify({"success": True, "deleted_count": len(job_ids)})
 
 
-@bp.route("/api/jobs/clear/<int:list_id>", methods=["POST"])
+@bp.route("/api/activity/clear/<int:list_id>", methods=["POST"])
 @login_required
-def clear_list_jobs(list_id):
+def clear_list_activity(list_id):
     """
     Clear job history for a specific list.
 
@@ -216,9 +213,9 @@ def clear_list_jobs(list_id):
     return jsonify({"success": True, "deleted_count": len(job_ids)})
 
 
-@bp.route("/api/jobs/running")
+@bp.route("/api/activity/running")
 @login_required
-def get_running_jobs():
+def get_running_activity():
     """
     Get all currently running jobs for polling.
 

@@ -1,298 +1,265 @@
-{% extends "base.html" %} {% block title %}Settings{% endblock %} {% block
-content %}
-<div class="space-y-10">
-  <!-- Page Header -->
-  <div>
-    <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-      Settings
-    </h1>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-      Manage user preferences and API credentials.
-    </p>
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div>
+  <h1 class="text-2xl font-semibold text-text-heading mb-6">Settings</h1>
+
+  <!-- Top-level Tab navigation -->
+  <div class="border-b border-border-subtle mb-6">
+    <nav class="flex space-x-6" id="settings-tabs">
+      <button class="settings-tab pb-2 border-b-2 border-primary text-text-heading text-sm font-medium" data-tab="integrations">Integrations</button>
+      <button class="settings-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-tab="tmdb">TMDB</button>
+      <button class="settings-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-tab="account">Account</button>
+    </nav>
   </div>
 
-  <!-- ===================== -->
-  <!-- Change Password Section -->
-  <!-- ===================== -->
-  {% if current_user.is_authenticated %}
-  <section class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-    <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-      Change Password
-    </h2>
+  <!-- ================================================================
+       Tab Panel: Integrations
+       ================================================================ -->
+  <div id="tab-integrations" class="settings-panel">
+    <!-- Service sub-tab navigation -->
+    <div class="border-b border-border-subtle mb-6">
+      <nav class="flex space-x-4" id="service-tabs">
+        <button class="service-tab pb-2 border-b-2 border-primary text-text-heading text-sm font-medium" data-service="radarr">Radarr</button>
+        <button class="service-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-service="sonarr">Sonarr</button>
+      </nav>
+    </div>
 
-    <form id="change-password-form" class="grid grid-cols-1 gap-6 max-w-lg">
-      {{ password_form.hidden_tag() }}
+    <!-- Sub-panel: Radarr -->
+    <div id="service-panel-radarr" class="service-panel">
+      <div id="radarr-connection-form" data-configured="{{ 'true' if radarr.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
+        <h2 class="text-lg font-semibold text-text-heading mb-4">Radarr Connection</h2>
 
-      <!-- Current Password -->
-      <div class="relative">
-        <label for="current_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {{ password_form.current_password.label }}
-        </label>
-        <div class="flex items-center">
-          <input
-            id="current_password"
-            type="password"
-            name="{{ password_form.current_password.name }}"
-            class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            required
-          />
-          <button
-            type="button"
-            onclick="togglePasswordVisibility('current_password')"
-            class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- New Password -->
-      <div class="relative">
-        <label for="new_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {{ password_form.new_password.label }}
-        </label>
-        <div class="flex items-center">
-          <input
-            id="new_password"
-            type="password"
-            name="{{ password_form.new_password.name }}"
-            class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            required
-          />
-          <button
-            type="button"
-            onclick="togglePasswordVisibility('new_password')"
-            class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Confirm New Password -->
-      <div class="relative">
-        <label for="new_password_confirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {{ password_form.new_password_confirm.label }}
-        </label>
-        <div class="flex items-center">
-          <input
-            id="new_password_confirm"
-            type="password"
-            name="{{ password_form.new_password_confirm.name }}"
-            class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            required
-          />
-          <button
-            type="button"
-            onclick="togglePasswordVisibility('new_password_confirm')"
-            class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Submit Button -->
-      <div>
-        <button
-          type="submit"
-          id="change-password-button"
-          class="inline-flex items-center px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-indigo-700 focus:outline-none"
-        >
-          Change Password
-        </button>
-      </div>
-    </form>
-  </section>
-  {% endif %}
-
-  <!-- ===================== -->
-  <!-- TMDB API Section -->
-  <!-- ===================== -->
-  <section class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-    <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-      TMDB API Configuration
-    </h2>
-
-    <form method="post">
-      {{ tmdb_api_form.hidden_tag() }}
-
-      <div class="grid grid-cols-1 gap-6 max-w-lg">
-        <!-- API Key Field -->
-        <div class="relative max-w-lg">
-          <!-- Label -->
-
-          <label
-            for="tmdb_api"
-            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
-            {{ tmdb_api_form.tmdb_api.label }}
-          </label>
-
-          <!-- Input Field -->
-          <div class="flex items-center">
-            <input
-              id="tmdb_api"
-              type="password"
-              name="{{ tmdb_api_form.tmdb_api.name }}"
-              value="{{ tmdb_api_form.tmdb_api.data }}"
-              class="flex-1 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 pr-10 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-            />
-
-            <!-- Toggle Button with icon -->
-            <button
-              type="button"
-              onclick="toggleTMDBKey(event)"
-              class="ml-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-              aria-label="Toggle API Key visibility"
-            >
-              <!-- Eye icon example -->
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M2.458 12C3.732 7.943 7.523 5 12 5
-                 c4.478 0 8.268 2.943 9.542 7
-                 -1.274 4.057-5.064 7-9.542 7
-                 -4.477 0-8.268-2.943-9.542-7z"
-                />
-              </svg>
-            </button>
+        <!-- Connection form -->
+        <div class="space-y-4">
+          <div>
+            <label for="radarr-url" class="block text-sm font-medium text-text-base mb-1">Radarr URL</label>
+            <input type="url" id="radarr-url" placeholder="http://localhost:7878"
+              value="{{ radarr.base_url or '' }}"
+              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
           </div>
-        </div>
-
-        <!-- Region Setting -->
-        <div class="relative max-w-lg">
-          <label
-            for="tmdb_region"
-            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-          >
-            Region
-          </label>
-          <select
-            id="tmdb_region"
-            name="{{ tmdb_api_form.tmdb_region.name }}"
-            class="w-full border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-primary focus:border-primary"
-          >
-            {% for value, label in tmdb_api_form.tmdb_region.choices %}
-            <option value="{{ value }}" {% if tmdb_api_form.tmdb_region.data == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Filter TMDB results by region. Leave as "Worldwide" for all regions.
-          </p>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="flex gap-3 items-center">
-          <button
-            type="submit"
-            name="save_api_key"
-            class="inline-flex items-center px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-indigo-700 focus:outline-none"
-          >
-            Save API Key
-          </button>
-
-          <button
-            type="button"
-            id="test-tmdb-button"
-            class="inline-flex items-center px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600"
-          >
-            Test Connection
-          </button>
-
-          <!-- Last Test Timestamp -->
-          <div id="tmdb-last-test" class="text-sm text-gray-600 dark:text-gray-400">
-            {% if last_test_at %}
-              <span class="inline-flex items-center gap-1">
-                <span class="{% if last_test_status == 'success' %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
-                  {% if last_test_status == 'success' %}✓{% else %}✗{% endif %}
-                </span>
-                Last tested: <span id="tmdb-last-test-time" data-timestamp="{{ last_test_at.isoformat() }}">{{ last_test_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
-              </span>
-            {% else %}
-              <span class="text-gray-500 dark:text-gray-500">Not tested yet</span>
+          <div>
+            <label for="radarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
+            <div class="relative">
+              <input type="password" id="radarr-api-key"
+                {% if radarr.configured and radarr.api_key %}value="{{ radarr.api_key }}"{% endif %}
+                placeholder="Enter API key"
+                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
+              <button type="button" onclick="togglePasswordVisibility('radarr-api-key', this)"
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
+                title="Show/hide API key">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+            </div>
+            {% if radarr.configured %}
+            <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
             {% endif %}
           </div>
         </div>
 
+        <!-- Action buttons -->
+        <div class="flex items-center gap-3 mt-4">
+          <button type="button" id="radarr-test-btn" onclick="testConnection('radarr')"
+            class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
+            Test Connection
+          </button>
+          <button type="button" id="radarr-save-btn" onclick="saveConnection('radarr')"
+            class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
+            Save
+          </button>
+          <button type="button" id="radarr-force-save-btn" onclick="saveConnectionForce('radarr')"
+            class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
+            Save Anyway
+          </button>
+        </div>
 
+        <!-- Status display -->
+        <div id="radarr-status" class="mt-3 text-sm"></div>
       </div>
-    </form>
-  </section>
+
+      <!-- Import defaults panel -->
+      {% from 'macros/forms.html' import import_settings_form %}
+      <div id="radarr-import-defaults" class="mt-6 max-w-2xl {% if not radarr.configured %}hidden{% endif %}">
+        <div class="bg-bg-panel border border-border-subtle rounded p-4">
+          <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
+          {{ import_settings_form('radarr', show_season_folder=false, inline=true) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-panel: Sonarr -->
+    <div id="service-panel-sonarr" class="service-panel hidden">
+      <div id="sonarr-connection-form" data-configured="{{ 'true' if sonarr.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
+        <h2 class="text-lg font-semibold text-text-heading mb-4">Sonarr Connection</h2>
+
+        <!-- Connection form -->
+        <div class="space-y-4">
+          <div>
+            <label for="sonarr-url" class="block text-sm font-medium text-text-base mb-1">Sonarr URL</label>
+            <input type="url" id="sonarr-url" placeholder="http://localhost:8989"
+              value="{{ sonarr.base_url or '' }}"
+              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
+          </div>
+          <div>
+            <label for="sonarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
+            <div class="relative">
+              <input type="password" id="sonarr-api-key"
+                {% if sonarr.configured and sonarr.api_key %}value="{{ sonarr.api_key }}"{% endif %}
+                placeholder="Enter API key"
+                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
+              <button type="button" onclick="togglePasswordVisibility('sonarr-api-key', this)"
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
+                title="Show/hide API key">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+            </div>
+            {% if sonarr.configured %}
+            <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="flex items-center gap-3 mt-4">
+          <button type="button" id="sonarr-test-btn" onclick="testConnection('sonarr')"
+            class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
+            Test Connection
+          </button>
+          <button type="button" id="sonarr-save-btn" onclick="saveConnection('sonarr')"
+            class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
+            Save
+          </button>
+          <button type="button" id="sonarr-force-save-btn" onclick="saveConnectionForce('sonarr')"
+            class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
+            Save Anyway
+          </button>
+        </div>
+
+        <!-- Status display -->
+        <div id="sonarr-status" class="mt-3 text-sm"></div>
+      </div>
+
+      <!-- Import defaults panel -->
+      <div id="sonarr-import-defaults" class="mt-6 max-w-2xl {% if not sonarr.configured %}hidden{% endif %}">
+        <div class="bg-bg-panel border border-border-subtle rounded p-4">
+          <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
+          {{ import_settings_form('sonarr', show_season_folder=true, inline=true) }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Tab Panel: TMDB
+       ================================================================ -->
+  <div id="tab-tmdb" class="settings-panel hidden">
+    <div id="tmdb-connection-form" data-configured="{{ 'true' if tmdb.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
+      <h2 class="text-lg font-semibold text-text-heading mb-4">TMDB Configuration</h2>
+
+      <div class="space-y-4">
+        <div>
+          <label for="tmdb-api-key" class="block text-sm font-medium text-text-base mb-1">TMDB API Key</label>
+          <div class="relative">
+            <input type="password" id="tmdb-api-key"
+              {% if tmdb.configured and tmdb.api_key %}value="{{ tmdb.api_key }}"{% endif %}
+              placeholder="Enter TMDB API key"
+              class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
+            <button type="button" onclick="togglePasswordVisibility('tmdb-api-key', this)"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
+              title="Show/hide API key">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
+          {% if tmdb.configured %}
+          <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="tmdb-region" class="block text-sm font-medium text-text-base mb-1">Default Region</label>
+          <select id="tmdb-region"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+            <option value="">— No Region —</option>
+            {% for code, label in region_choices %}
+            <option value="{{ code }}" {% if tmdb_region == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-3 mt-4">
+        <button type="button" id="tmdb-test-btn" onclick="testTmdb()"
+          class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
+          Test Connection
+        </button>
+        <button type="button" id="tmdb-save-btn" onclick="saveTmdbSettings()"
+          class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
+          Save
+        </button>
+        <button type="button" id="tmdb-force-save-btn" onclick="saveTmdbSettingsForce()"
+          class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
+          Save Anyway
+        </button>
+      </div>
+
+      <!-- Status display -->
+      <div id="tmdb-status" class="mt-3 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Tab Panel: Account
+       ================================================================ -->
+  <div id="tab-account" class="settings-panel hidden">
+    <div class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
+      <h2 class="text-lg font-semibold text-text-heading mb-4">Change Password</h2>
+
+      <form id="change-password-form" onsubmit="changePassword(event)" class="space-y-4">
+        {{ change_password_form.hidden_tag() }}
+        <div>
+          <label for="current-password" class="block text-sm font-medium text-text-base mb-1">Current Password</label>
+          <input type="password" id="current-password" name="current_password"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            required />
+        </div>
+        <div>
+          <label for="new-password" class="block text-sm font-medium text-text-base mb-1">New Password</label>
+          <input type="password" id="new-password" name="new_password"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            required />
+        </div>
+        <div>
+          <label for="new-password-confirm" class="block text-sm font-medium text-text-base mb-1">Confirm New Password</label>
+          <input type="password" id="new-password-confirm" name="new_password_confirm"
+            class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            required />
+        </div>
+        <div>
+          <button type="submit" id="change-password-btn"
+            class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
+            Change Password
+          </button>
+        </div>
+      </form>
+
+      <!-- Status display -->
+      <div id="password-status" class="mt-3 text-sm"></div>
+    </div>
+  </div>
 </div>
-<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-  Your API key is stored securely and masked by default.
-</p>
 
-<script>
-  // Password visibility toggle
-  function togglePasswordVisibility(fieldId) {
-    const field = document.getElementById(fieldId);
-    if (field.type === "password") {
-      field.type = "text";
-    } else {
-      field.type = "password";
-    }
-  }
+{% endblock %}
 
-  // Change password form handler
-  {% if current_user.is_authenticated %}
-  document.getElementById('change-password-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const formData = new FormData(this);
-    const csrfToken = getCsrfToken();
-
-    try {
-      const response = await fetch('/settings/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-CSRFToken': csrfToken,
-        },
-        body: new URLSearchParams(formData),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        showToast(data.message, 'success');
-        // Clear form fields
-        document.getElementById('current_password').value = '';
-        document.getElementById('new_password').value = '';
-        document.getElementById('new_password_confirm').value = '';
-      } else {
-        showToast(data.message, 'error');
-      }
-    } catch (error) {
-      showToast('Failed to change password. Please try again.', 'error');
-    }
-  });
-  {% endif %}
-</script>
-
-<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
-
+{% block head %}
+<script src="{{ url_for('static', filename='js/settings.js') }}" defer></script>
 {% endblock %}

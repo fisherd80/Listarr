@@ -8,21 +8,21 @@
 
 {% block content %}
 
-<div class="space-y-6">
+<div class="space-y-4">
   <!-- Page Header -->
   <div class="flex items-center justify-between">
     <div>
       <div class="flex items-center space-x-3">
-        <a href="{{ url_for('main.lists_page') }}" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+        <a href="{{ url_for('main.lists_page') }}" class="text-text-muted hover:text-text-base">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </a>
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <h1 class="text-2xl font-semibold text-text-heading">
           {% if edit_mode %}Edit List{% else %}Create List{% endif %}
         </h1>
       </div>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 ml-8">
+      <p class="mt-1 text-sm text-text-muted ml-8">
         {% if edit_mode %}
         Modify your list settings
         {% elif is_preset %}
@@ -35,9 +35,9 @@
   </div>
 
   <!-- Wizard Card -->
-  <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+  <div class="bg-bg-panel border border-border-subtle rounded">
     <!-- Stepper -->
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <div class="px-4 py-3 border-b border-border-subtle">
       <div class="flex items-center justify-between">
         <!-- Step indicators -->
         <div class="flex items-center flex-1">
@@ -46,69 +46,69 @@
             <div id="step-indicator-1" class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-medium">
               1
             </div>
-            <span id="step-label-1" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-100">Type</span>
+            <span id="step-label-1" class="ml-2 text-sm font-medium text-text-heading">Type</span>
           </div>
 
           <!-- Connector 1-2 -->
-          <div id="connector-1" class="flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600"></div>
+          <div id="connector-1" class="flex-1 h-0.5 mx-4 bg-bg-hover"></div>
 
           <!-- Step 2: Filters -->
           <div class="flex items-center">
-            <div id="step-indicator-2" class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium">
+            <div id="step-indicator-2" class="flex items-center justify-center w-8 h-8 rounded-full bg-bg-hover text-text-muted text-sm font-medium">
               2
             </div>
-            <span id="step-label-2" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">Filters</span>
+            <span id="step-label-2" class="ml-2 text-sm font-medium text-text-muted">Filters</span>
           </div>
 
           <!-- Connector 2-3 -->
-          <div id="connector-2" class="flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600"></div>
+          <div id="connector-2" class="flex-1 h-0.5 mx-4 bg-bg-hover"></div>
 
           <!-- Step 3: Import Settings -->
           <div class="flex items-center">
-            <div id="step-indicator-3" class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium">
+            <div id="step-indicator-3" class="flex items-center justify-center w-8 h-8 rounded-full bg-bg-hover text-text-muted text-sm font-medium">
               3
             </div>
-            <span id="step-label-3" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">Import Settings</span>
+            <span id="step-label-3" class="ml-2 text-sm font-medium text-text-muted">Import Settings</span>
           </div>
 
           <!-- Connector 3-4 -->
-          <div id="connector-3" class="flex-1 h-0.5 mx-4 bg-gray-300 dark:bg-gray-600"></div>
+          <div id="connector-3" class="flex-1 h-0.5 mx-4 bg-bg-hover"></div>
 
           <!-- Step 4: Schedule -->
           <div class="flex items-center">
-            <div id="step-indicator-4" class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-sm font-medium">
+            <div id="step-indicator-4" class="flex items-center justify-center w-8 h-8 rounded-full bg-bg-hover text-text-muted text-sm font-medium">
               4
             </div>
-            <span id="step-label-4" class="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">Schedule</span>
+            <span id="step-label-4" class="ml-2 text-sm font-medium text-text-muted">Schedule</span>
           </div>
         </div>
 
         <!-- Step counter -->
-        <div class="ml-6 text-sm text-gray-500 dark:text-gray-400">
+        <div class="ml-6 text-sm text-text-muted">
           Step <span id="current-step-number">1</span> of 4
         </div>
       </div>
     </div>
 
     <!-- Step Content Area -->
-    <div class="p-6">
+    <div class="p-4">
       <!-- Step 1: Type -->
       <div id="step-1" class="step-content">
         {% if is_preset %}
         <!-- Preset Mode: Show preset info -->
-        <div class="text-center py-6">
-          <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+        <div class="text-center py-4">
+          <h2 class="text-2xl font-semibold text-text-heading mb-2">
             {{ preset_info.title }}
           </h2>
-          <p class="text-gray-500 dark:text-gray-400 mb-4">
+          <p class="text-text-muted mb-4">
             {{ preset_info.description }}
           </p>
           <!-- Service Badge -->
           <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
             {% if service == 'radarr' %}
-            bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200
+            bg-badge-movie/15 text-badge-movie border border-badge-movie/30
             {% else %}
-            bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+            bg-primary/10 text-primary
             {% endif %}">
             {% if service == 'radarr' %}
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,43 +125,43 @@
         </div>
         {% else %}
         <!-- Custom Mode: Type Selection Cards -->
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">What type of content?</h2>
-        <p class="text-gray-500 dark:text-gray-400 mb-6">Choose whether this list is for movies or TV shows.</p>
+        <h2 class="text-lg font-medium text-text-heading mb-2">What type of content?</h2>
+        <p class="text-text-muted mb-4">Choose whether this list is for movies or TV shows.</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
           <!-- Movies Card -->
           <button type="button" id="type-card-movies"
-            class="type-card p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-primary hover:shadow-md transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            class="type-card p-4 rounded border-2 border-border-subtle bg-bg-panel hover:border-primary transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             data-service="radarr">
             <div class="flex flex-col items-center text-center">
-              <div class="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center mb-4">
-                <svg class="w-8 h-8 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-16 h-16 rounded-full bg-badge-movie/15 flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-badge-movie" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
                 </svg>
               </div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Movies</h3>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Import to Radarr</p>
+              <h3 class="text-lg font-semibold text-text-heading mb-1">Movies</h3>
+              <p class="text-sm text-text-muted">Import to Radarr</p>
             </div>
           </button>
 
           <!-- TV Shows Card -->
           <button type="button" id="type-card-tv"
-            class="type-card p-6 rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-primary hover:shadow-md transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            class="type-card p-4 rounded border-2 border-border-subtle bg-bg-panel hover:border-primary transition-all duration-200 text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             data-service="sonarr">
             <div class="flex flex-col items-center text-center">
-              <div class="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-4">
-                <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">TV Shows</h3>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Import to Sonarr</p>
+              <h3 class="text-lg font-semibold text-text-heading mb-1">TV Shows</h3>
+              <p class="text-sm text-text-muted">Import to Sonarr</p>
             </div>
           </button>
         </div>
 
         <!-- Selection Required Message -->
-        <p id="type-selection-hint" class="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p id="type-selection-hint" class="mt-4 text-center text-sm text-text-muted">
           Select a content type to continue
         </p>
         {% endif %}
@@ -171,53 +171,53 @@
       <div id="step-2" class="step-content hidden">
         {% if is_preset %}
         <!-- Preset Mode: Read-only filter info -->
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Preset Filters</h2>
-        <p class="text-gray-500 dark:text-gray-400 mb-4">
+        <h2 class="text-lg font-medium text-text-heading mb-2">Preset Filters</h2>
+        <p class="text-text-muted mb-4">
           These filters are pre-configured for this preset.
         </p>
 
-        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <div class="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded p-4 mb-4">
           <div class="flex items-start">
-            <svg class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-primary mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <p class="text-sm text-blue-800 dark:text-blue-200 font-medium">
+              <p class="text-sm text-text-heading font-medium">
                 {{ preset_info.filter_title }}
               </p>
-              <p class="text-sm text-blue-600 dark:text-blue-300 mt-1">
+              <p class="text-sm text-text-base mt-1">
                 {{ preset_info.filter_description }}
               </p>
             </div>
           </div>
         </div>
 
-        <p class="text-sm text-gray-500 dark:text-gray-400 italic mb-6">
+        <p class="text-sm text-text-muted italic mb-4">
           Preset filters cannot be modified. Create a custom list if you need specific filters.
         </p>
 
         <!-- Preset Preview Section -->
         <div>
-          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview</h3>
-          <div id="preview-container" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 min-h-[200px]">
+          <h3 class="text-sm font-medium text-text-base mb-2">Preview</h3>
+          <div id="preview-container" class="bg-bg-table-head rounded p-4 min-h-[200px]">
             <div id="preview-loading" class="hidden flex items-center justify-center py-8">
               <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </div>
-            <div id="preview-empty" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+            <div id="preview-empty" class="flex flex-col items-center justify-center py-8 text-text-muted">
               <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
               <p class="text-sm">Loading preview...</p>
             </div>
             <div id="preview-error" class="hidden text-center py-8">
-              <svg class="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <svg class="mx-auto h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Preview Error</h3>
-              <p id="preview-error-message" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Failed to load preview</p>
+              <h3 class="mt-2 text-sm font-medium text-text-heading">Preview Error</h3>
+              <p id="preview-error-message" class="mt-1 text-sm text-text-muted">Failed to load preview</p>
             </div>
             <div id="preview-results" class="hidden space-y-2">
               <!-- Preview items will be inserted here by JavaScript -->
@@ -227,21 +227,21 @@
 
         {% else %}
         <!-- Custom Mode: Editable filters -->
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Configure Filters</h2>
-        <p class="text-gray-500 dark:text-gray-400 mb-6">
+        <h2 class="text-lg font-medium text-text-heading mb-2">Configure Filters</h2>
+        <p class="text-text-muted mb-4">
           Set up discovery filters to find the content you want. Leave fields empty to include all.
         </p>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <!-- Filters Form -->
-          <div class="space-y-6">
+          <div class="space-y-4">
             <!-- Language Filter -->
             <div>
-              <label for="filter-language" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label for="filter-language" class="block text-sm font-medium text-text-base mb-2">
                 Original Language
               </label>
               <select id="filter-language"
-                class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+                class="filter-input w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
                 <option value="">Any Language</option>
                 <option value="en">English</option>
                 <option value="es">Spanish</option>
@@ -255,16 +255,16 @@
                 <option value="ru">Russian</option>
                 <option value="hi">Hindi</option>
               </select>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-text-muted">
                 Filter by the original language of the content
               </p>
             </div>
 
             <!-- Genre Selection -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label class="block text-sm font-medium text-text-base mb-2">
                 Genres
-                <span class="text-xs text-gray-400 dark:text-gray-500 ml-1">(click to include, click again to exclude)</span>
+                <span class="text-xs text-text-muted ml-1">(click to include, click again to exclude)</span>
               </label>
               <div id="genre-checkboxes">
                 <!-- Dynamically populated by JavaScript based on service (movies vs TV) -->
@@ -273,42 +273,42 @@
 
             <!-- Year Range -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label class="block text-sm font-medium text-text-base mb-2">
                 Year Range
               </label>
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label for="filter-year-min" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">From</label>
+                  <label for="filter-year-min" class="block text-xs text-text-muted mb-1">From</label>
                   <input type="number" id="filter-year-min" min="1900" max="2030" placeholder="Any"
-                    class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
+                    class="filter-input w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary" />
                 </div>
                 <div>
-                  <label for="filter-year-max" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">To</label>
+                  <label for="filter-year-max" class="block text-xs text-text-muted mb-1">To</label>
                   <input type="number" id="filter-year-max" min="1900" max="2030" placeholder="Any"
-                    class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
+                    class="filter-input w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary" />
                 </div>
               </div>
             </div>
 
             <!-- Minimum Rating -->
             <div>
-              <label for="filter-rating-min" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label for="filter-rating-min" class="block text-sm font-medium text-text-base mb-2">
                 Minimum Rating
               </label>
               <div class="flex items-center space-x-4">
                 <input type="range" id="filter-rating-min" min="0" max="10" step="0.5" value="0"
-                  class="filter-input w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer" />
-                <span id="rating-value" class="text-sm font-medium text-gray-700 dark:text-gray-300 w-10 text-center">Any</span>
+                  class="filter-input w-full h-2 bg-bg-hover rounded-lg appearance-none cursor-pointer" />
+                <span id="rating-value" class="text-sm font-medium text-text-base w-10 text-center">Any</span>
               </div>
             </div>
 
             <!-- Results Limit -->
             <div>
-              <label for="filter-limit" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label for="filter-limit" class="block text-sm font-medium text-text-base mb-2">
                 Maximum Results
               </label>
               <select id="filter-limit"
-                class="filter-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+                class="filter-input w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
                 <option value="25">25 items</option>
                 <option value="50">50 items</option>
                 <option value="100" selected>100 items (Default)</option>
@@ -316,7 +316,7 @@
                 <option value="500">500 items</option>
                 <option value="1000">MAX (1000)</option>
               </select>
-              <p id="limit-warning" class="hidden mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+              <p id="limit-warning" class="hidden mt-2 text-sm text-warning">
                 <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                 </svg>
@@ -327,15 +327,15 @@
 
           <!-- Preview Section -->
           <div>
-            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Live Preview</h3>
-            <div id="preview-container" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 min-h-[300px]">
+            <h3 class="text-sm font-medium text-text-base mb-2">Live Preview</h3>
+            <div id="preview-container" class="bg-bg-table-head rounded p-4 min-h-[300px]">
               <div id="preview-loading" class="hidden flex items-center justify-center py-8">
                 <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               </div>
-              <div id="preview-empty" class="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+              <div id="preview-empty" class="flex flex-col items-center justify-center py-8 text-text-muted">
                 <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -343,11 +343,11 @@
                 <p class="text-xs mt-1">Adjust filters to see matching results</p>
               </div>
               <div id="preview-error" class="hidden text-center py-8">
-                <svg class="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <svg class="mx-auto h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Preview Error</h3>
-                <p id="preview-error-message" class="mt-1 text-sm text-gray-500 dark:text-gray-400">Failed to load preview</p>
+                <h3 class="mt-2 text-sm font-medium text-text-heading">Preview Error</h3>
+                <p id="preview-error-message" class="mt-1 text-sm text-text-muted">Failed to load preview</p>
               </div>
               <div id="preview-results" class="hidden space-y-2">
                 <!-- Preview items will be inserted here by JavaScript -->
@@ -361,13 +361,13 @@
       <!-- Step 3: Import Settings -->
       <div id="step-3" class="step-content hidden">
         <div class="flex items-center justify-between mb-2">
-          <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Import Settings</h2>
+          <h2 class="text-lg font-medium text-text-heading">Import Settings</h2>
           <!-- Service Badge -->
-          <span id="import-settings-service-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+          <span id="import-settings-service-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-bg-table-head text-text-base">
             <!-- Will be populated by JavaScript -->
           </span>
         </div>
-        <p class="text-gray-500 dark:text-gray-400 mb-6">
+        <p class="text-text-muted mb-4">
           Configure how items will be imported. Leave unchanged to use your default settings.
         </p>
 
@@ -377,21 +377,21 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span class="ml-3 text-gray-500 dark:text-gray-400">Loading import settings...</span>
+          <span class="ml-3 text-text-muted">Loading import settings...</span>
         </div>
 
         <!-- Error State -->
         <div id="import-settings-error" class="hidden">
-          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div class="bg-warning/10 border border-warning/30 rounded p-4">
             <div class="flex items-start">
-              <svg class="w-5 h-5 text-yellow-500 dark:text-yellow-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-warning mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <div>
-                <p id="import-settings-error-message" class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                <p id="import-settings-error-message" class="text-sm text-warning font-medium">
                   Service not configured
                 </p>
-                <p class="text-sm text-yellow-600 dark:text-yellow-300 mt-1">
+                <p class="text-sm text-text-muted mt-1">
                   You can continue, but import will fail until the service is configured in Settings.
                 </p>
               </div>
@@ -400,60 +400,60 @@
         </div>
 
         <!-- Import Settings Form -->
-        <div id="import-settings-form" class="hidden space-y-6">
+        <div id="import-settings-form" class="hidden space-y-4">
           <!-- Quality Profile -->
           <div>
-            <label for="import-quality-profile" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label for="import-quality-profile" class="block text-sm font-medium text-text-base mb-2">
               Quality Profile
             </label>
             <select id="import-quality-profile"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+              class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
               <option value="">Use Default</option>
               <!-- Options populated by JavaScript -->
             </select>
-            <p id="import-quality-profile-default" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p id="import-quality-profile-default" class="mt-1 text-xs text-text-muted">
               <!-- Default value shown here -->
             </p>
           </div>
 
           <!-- Root Folder -->
           <div>
-            <label for="import-root-folder" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label for="import-root-folder" class="block text-sm font-medium text-text-base mb-2">
               Root Folder
             </label>
             <select id="import-root-folder"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+              class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
               <option value="">Use Default</option>
               <!-- Options populated by JavaScript -->
             </select>
-            <p id="import-root-folder-default" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p id="import-root-folder-default" class="mt-1 text-xs text-text-muted">
               <!-- Default value shown here -->
             </p>
           </div>
 
           <!-- Tags -->
           <div>
-            <label for="import-tag" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label for="import-tag" class="block text-sm font-medium text-text-base mb-2">
               Tag
             </label>
             <input type="text" id="import-tag"
               placeholder="Use Default"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
-            <p id="import-tag-default" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary" />
+            <p id="import-tag-default" class="mt-1 text-xs text-text-muted">
               Tag will be created if it doesn't exist. Allowed: letters, numbers, hyphens.
             </p>
           </div>
 
           <!-- Monitored, Search on Add, Season Folder -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Monitored -->
             <div>
               <label class="flex items-center">
                 <input type="checkbox" id="import-monitored"
                   class="rounded text-primary focus:ring-primary h-4 w-4" />
-                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Monitored</span>
+                <span class="ml-2 text-sm font-medium text-text-base">Monitored</span>
               </label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+              <p class="mt-1 text-xs text-text-muted ml-6">
                 Items will be monitored for downloads
               </p>
             </div>
@@ -463,9 +463,9 @@
               <label class="flex items-center">
                 <input type="checkbox" id="import-search-on-add"
                   class="rounded text-primary focus:ring-primary h-4 w-4" />
-                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Search on Add</span>
+                <span class="ml-2 text-sm font-medium text-text-base">Search on Add</span>
               </label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+              <p class="mt-1 text-xs text-text-muted ml-6">
                 Start searching for downloads immediately
               </p>
             </div>
@@ -475,22 +475,22 @@
               <label class="flex items-center">
                 <input type="checkbox" id="import-season-folder"
                   class="rounded text-primary focus:ring-primary h-4 w-4" />
-                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Create Season Folders</span>
+                <span class="ml-2 text-sm font-medium text-text-base">Create Season Folders</span>
               </label>
-              <p id="import-season-folder-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+              <p id="import-season-folder-hint" class="mt-1 text-xs text-text-muted ml-6">
                 Organize episodes into season subfolders
               </p>
             </div>
           </div>
 
           <!-- Info Box -->
-          <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div class="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded p-4">
             <div class="flex items-start">
-              <svg class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-primary mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <p class="text-sm text-blue-800 dark:text-blue-200">
+                <p class="text-sm text-text-base">
                   Settings left as "Use Default" will automatically use your service defaults at import time.
                   This allows changes to your default settings to apply to existing lists.
                 </p>
@@ -502,37 +502,37 @@
 
       <!-- Step 4: Schedule -->
       <div id="step-4" class="step-content hidden">
-        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Schedule</h2>
-        <p class="text-gray-500 dark:text-gray-400 mb-6">Set how often this list should run. Leave as "Manual only" for on-demand execution.</p>
+        <h2 class="text-lg font-medium text-text-heading mb-2">Schedule</h2>
+        <p class="text-text-muted mb-4">Set how often this list should run. Leave as "Manual only" for on-demand execution.</p>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <!-- Schedule Form Fields -->
-          <div class="space-y-6">
+          <div class="space-y-4">
             <!-- List Name -->
             <div>
-              <label for="schedule-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                List Name <span class="text-red-500">*</span>
+              <label for="schedule-name" class="block text-sm font-medium text-text-base mb-2">
+                List Name <span class="text-error">*</span>
               </label>
               <input type="text" id="schedule-name" required
                 placeholder="My Trending Movies"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary" />
-              <p id="schedule-name-error" class="hidden mt-1 text-xs text-red-500">* Name is required</p>
+                class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary" />
+              <p id="schedule-name-error" class="hidden mt-1 text-xs text-error">* Name is required</p>
             </div>
 
             <!-- Schedule Dropdown -->
             <div>
-              <label for="schedule-cron" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label for="schedule-cron" class="block text-sm font-medium text-text-base mb-2">
                 Run Schedule
               </label>
               <select id="schedule-cron"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:ring-primary focus:border-primary">
+                class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
                 <option value="">Manual only</option>
                 <option value="0 * * * *">Every hour</option>
                 <option value="0 */6 * * *">Every 6 hours</option>
                 <option value="0 0 * * *">Daily (midnight)</option>
                 <option value="0 0 * * SUN">Weekly (Sunday midnight)</option>
               </select>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-text-muted">
                 When to automatically refresh and import from this list
               </p>
             </div>
@@ -542,9 +542,9 @@
               <label class="flex items-center">
                 <input type="checkbox" id="schedule-enabled" checked
                   class="rounded text-primary focus:ring-primary h-4 w-4" />
-                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</span>
+                <span class="ml-2 text-sm font-medium text-text-base">Enabled</span>
               </label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+              <p class="mt-1 text-xs text-text-muted ml-6">
                 Start running this list immediately after creation
               </p>
             </div>
@@ -552,27 +552,27 @@
 
           <!-- Summary Section -->
           <div>
-            <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Summary</h3>
-            <div id="creation-summary" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+            <h3 class="text-sm font-medium text-text-base mb-2">Summary</h3>
+            <div id="creation-summary" class="bg-bg-table-head rounded p-4 space-y-3">
               <div class="flex justify-between text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Type:</span>
-                <span id="summary-type" class="text-gray-900 dark:text-gray-100 font-medium">-</span>
+                <span class="text-text-muted">Type:</span>
+                <span id="summary-type" class="text-text-heading font-medium">-</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Service:</span>
-                <span id="summary-service" class="text-gray-900 dark:text-gray-100 font-medium">-</span>
+                <span class="text-text-muted">Service:</span>
+                <span id="summary-service" class="text-text-heading font-medium">-</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Filters:</span>
-                <span id="summary-filters" class="text-gray-900 dark:text-gray-100 font-medium text-right">-</span>
+                <span class="text-text-muted">Filters:</span>
+                <span id="summary-filters" class="text-text-heading font-medium text-right">-</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Import to:</span>
-                <span id="summary-import" class="text-gray-900 dark:text-gray-100 font-medium truncate ml-2 text-right">Default settings</span>
+                <span class="text-text-muted">Import to:</span>
+                <span id="summary-import" class="text-text-heading font-medium truncate ml-2 text-right">Default settings</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-gray-500 dark:text-gray-400">Schedule:</span>
-                <span id="summary-schedule" class="text-gray-900 dark:text-gray-100 font-medium">Manual only</span>
+                <span class="text-text-muted">Schedule:</span>
+                <span id="summary-schedule" class="text-text-heading font-medium">Manual only</span>
               </div>
             </div>
           </div>
@@ -581,18 +581,18 @@
     </div>
 
     <!-- Navigation Buttons -->
-    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+    <div class="px-4 py-3 border-t border-border-subtle flex justify-end space-x-3">
       <button
         type="button"
         id="btn-back"
-        class="hidden px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        class="hidden px-4 py-2 text-sm font-medium bg-btn-secondary-bg text-btn-secondary-text hover:bg-btn-secondary-hover border border-border-subtle rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
       >
         Back
       </button>
       <button
         type="button"
         id="btn-next"
-        class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-indigo-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
       >
         Next
       </button>
