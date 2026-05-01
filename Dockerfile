@@ -71,8 +71,8 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=5)" || exit 1
 
-# Default non-root user (docker-compose overrides to root for bind-mount permission fixing)
-USER listarr
+# Note: no USER directive here - entrypoint starts as root to fix bind-mount permissions,
+# then drops to listarr via su-exec. Setting USER listarr here breaks Unraid deployments.
 
 # Entrypoint handles permissions and privilege drop
 ENTRYPOINT ["/entrypoint.sh"]
