@@ -1,10 +1,36 @@
+<div align="center">
+  <img src=".github/assets/logo/logo-horizontal-700x256.png" alt="Listarr" width="350">
+</div>
+
 # Listarr
 
 Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 [![CI](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml/badge.svg)](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml)
 [![Docker Hub](https://img.shields.io/docker/v/fisherd91/listarr?label=Docker%20Hub)](https://hub.docker.com/r/fisherd91/listarr)
+[![Release](https://img.shields.io/badge/release-v2.0.1-green.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> Listarr is not affiliated with Radarr, Sonarr, the Servarr project, or TMDB. You will need your own API keys for each service.
+
+---
+
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Quick Start](#quick-start)
+  - [Docker Compose](#docker-compose-recommended)
+  - [Unraid](#unraid)
+  - [Development Setup](#development-setup)
+- [Configuration](#configuration)
+- [Environment Variables](#environment-variables)
+- [Known Limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [Support](#support)
+- [Contributing](#contributing)
+- [Built with](#built-with)
+- [License](#license)
 
 ---
 
@@ -41,8 +67,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 **Automation**
 
-- Cron-based scheduling with preset intervals (hourly, daily, weekly, monthly)
-- Custom cron expressions for advanced scheduling requirements
+- Cron-based scheduling with preset intervals (hourly, daily, weekly) or custom cron expressions
 - Global scheduler pause and resume for maintenance windows
 - Pre-flight health checks before each scheduled job execution
 
@@ -50,6 +75,11 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 - Activity page with filtering, pagination, and expandable per-item details
 - Background job execution with activity-based idle timeout
+
+**UI**
+
+- Dark and light themes switchable via a footer toggle
+- Semantic CSS token system — all colours adapt consistently across every page
 
 **Security**
 
@@ -112,6 +142,8 @@ Configure the **App Data** path to a persistent location (e.g. `/mnt/user/appdat
 ---
 
 ### Development Setup
+
+**Prerequisites:** Python 3.11+
 
 1. **Clone the repository**
 
@@ -202,7 +234,7 @@ See [.env.example](.env.example) for a ready-to-use template.
 
 ## Roadmap
 
-v2.0.0 delivers a full UI overhaul with a semantic dark/light theme system, redesigned Lists, Activity, and Settings pages, security hardening, and expanded test coverage.
+v2.0.0 delivered a full UI overhaul with a semantic dark/light theme system, redesigned Lists, Activity, and Settings pages, security hardening, and expanded test coverage. v2.0.1 migrated the Docker base image to Alpine, reducing image size and patching critical CVEs.
 
 Possible future enhancements:
 
@@ -211,6 +243,15 @@ Possible future enhancements:
 - Import history analytics and reporting
 - Webhook-triggered list execution
 - Additional list sources beyond TMDB
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
+
+---
+
+## Support
+
+- **Bug reports and feature requests:** [Open an issue](https://github.com/fisherd80/listarr/issues)
+- **Locked out?** Run `python manage.py --reset-password` to reset your password from the command line.
 
 ---
 
@@ -222,7 +263,7 @@ Contributions are welcome. Please open an issue to discuss the change before sub
 
 ## Built with
 
-Flask, SQLAlchemy, Tailwind CSS, APScheduler, Gunicorn. No third-party API wrappers — all Radarr, Sonarr, and TMDB calls use direct HTTP.
+Python 3.11, Flask, SQLAlchemy, Tailwind CSS (via pytailwindcss), APScheduler, Gunicorn — deployed on Alpine Linux. No third-party API wrappers — all Radarr, Sonarr, and TMDB calls use direct HTTP.
 
 ---
 
