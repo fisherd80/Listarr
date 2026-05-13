@@ -18,6 +18,7 @@ var selectedPreset = null;
 // Debounce timer IDs
 var previewTimer = null;
 var cronValidateTimer = null;
+var cronValidateAbortController = null;
 
 // ---------------------
 // Tab Switching
@@ -538,7 +539,6 @@ function initCronPickerForPanel(panelName) {
   var daySelect = document.getElementById(panelName + '-day');
   var timeRow = document.getElementById(panelName + '-time-row');
   var dayRow = document.getElementById(panelName + '-day-row');
-  var advancedToggle = document.getElementById(panelName + '-advanced-toggle');
   var advancedSection = document.getElementById(panelName + '-cron-advanced');
   var cronRaw = document.getElementById(panelName + '-cron-raw');
   var cronDescription = document.getElementById(panelName + '-cron-description');
@@ -601,8 +601,12 @@ function initCronPickerForPanel(panelName) {
     if (advancedSection) {
       if (freq === 'custom') {
         advancedSection.classList.remove('hidden');
-      } else if (freq !== 'custom') {
-        // Only hide if not toggled manually
+      } else {
+        advancedSection.classList.add('hidden');
+        if (cronDescription) {
+          cronDescription.textContent = '';
+          cronDescription.className = 'text-xs text-text-muted';
+        }
       }
     }
   }
@@ -618,17 +622,6 @@ function initCronPickerForPanel(panelName) {
 
   if (daySelect) {
     daySelect.addEventListener('change', function () { buildCron(); });
-  }
-
-  // Advanced toggle
-  if (advancedToggle && advancedSection) {
-    advancedToggle.addEventListener('click', function () {
-      advancedSection.classList.toggle('hidden');
-      var isVisible = !advancedSection.classList.contains('hidden');
-      advancedToggle.textContent = isVisible
-        ? 'Hide advanced cron expression'
-        : 'Advanced: Enter raw cron expression';
-    });
   }
 
   // Raw cron input validation
@@ -655,23 +648,31 @@ function initCronPickerForPanel(panelName) {
 function validateCronExpression(expr, descEl) {
   if (!expr || !descEl) { return; }
 
+  if (cronValidateAbortController) {
+    cronValidateAbortController.abort();
+  }
+  cronValidateAbortController = new AbortController();
+
   var encoded = encodeURIComponent(expr);
-  fetch('/api/cron/validate?expr=' + encoded)
-  .then(function (response) { return response.json(); })
-  .then(function (data) {
-    if (data.valid && data.description) {
-      descEl.textContent = data.description;
-      descEl.className = 'text-xs text-success';
-    } else if (data.error) {
-      descEl.textContent = data.error;
-      descEl.className = 'text-xs text-error';
-    } else {
-      descEl.textContent = '';
-    }
-  })
-  .catch(function () {
-    descEl.textContent = '';
-  });
+  fetch('/api/cron/validate?expr=' + encoded, { signal: cronValidateAbortController.signal })
+    .then(function (response) { return response.json(); })
+    .then(function (data) {
+      cronValidateAbortController = null;
+      if (data.valid && data.description) {
+        descEl.textContent = data.description;
+        descEl.className = 'text-xs text-success';
+      } else if (data.error) {
+        descEl.textContent = data.error;
+        descEl.className = 'text-xs text-error';
+      } else {
+        descEl.textContent = '';
+      }
+    })
+    .catch(function (err) {
+      if (err.name !== 'AbortError') {
+        descEl.textContent = '';
+      }
+    });
 }
 
 // ---------------------
