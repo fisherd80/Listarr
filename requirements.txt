@@ -20,6 +20,7 @@ cryptography==46.0.7
 
 # HTTP Requests (for external APIs)
 requests==2.33.0
+urllib3>=2.7.0
 
 # Production WSGI Server (required for Docker deployment)
 gunicorn==25.1.0
