@@ -429,6 +429,12 @@ class TestListWizard:
         """Preset trending_movies sets service to radarr and is_preset=True."""
         response = client.get("/lists/wizard?preset=trending_movies")
         assert response.status_code == 200
+        assert (
+            b'id="preview-empty" class="flex flex-col items-center justify-center py-8 text-text-muted"'
+            in response.data
+        )
+        assert b"No results found for this preset." in response.data
+        assert b"Loading preview..." not in response.data
 
     def test_create_mode_with_preset_trending_tv(self, client):
         """Preset trending_tv sets service to sonarr and is_preset=True."""
