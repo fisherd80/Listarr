@@ -407,7 +407,7 @@ def validate_cron_expression(cron_expr):
         result["next_runs"] = next_runs
         result["valid"] = True
 
-    except (ValueError, KeyError) as e:
+    except (ValueError, KeyError, CronSimError) as e:
         result["error"] = str(e)
         result["description"] = "Invalid cron expression"
 

@@ -20,6 +20,9 @@ var previewTimer = null;
 var cronValidateTimer = null;
 var cronValidateAbortController = null;
 
+// Per-panel cron validity state: true = submit allowed, false = blocked
+var cronValid = {};
+
 // ---------------------
 // Tab Switching
 // ---------------------
@@ -517,6 +520,30 @@ function collectFilters() {
 }
 
 // ---------------------
+// Cron Submit Guard
+// ---------------------
+
+function getSubmitButton(panelName) {
+  var btn = document.getElementById(panelName + '-submit-btn');
+  if (!btn && panelName === 'edit') {
+    btn = document.querySelector('form button[type="submit"]');
+  }
+  return btn;
+}
+
+function setCronValid(panelName, valid) {
+  cronValid[panelName] = valid;
+  var btn = getSubmitButton(panelName);
+  if (!btn) { return; }
+  btn.disabled = !valid;
+  if (valid) {
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+  } else {
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+// ---------------------
 // Cron Picker
 // ---------------------
 
@@ -601,12 +628,14 @@ function initCronPickerForPanel(panelName) {
     if (advancedSection) {
       if (freq === 'custom') {
         advancedSection.classList.remove('hidden');
+        setCronValid(panelName, false);
       } else {
         advancedSection.classList.add('hidden');
         if (cronDescription) {
           cronDescription.textContent = '';
           cronDescription.className = 'text-xs text-text-muted';
         }
+        setCronValid(panelName, true);
       }
     }
   }
@@ -628,9 +657,10 @@ function initCronPickerForPanel(panelName) {
   if (cronRaw) {
     cronRaw.addEventListener('input', function () {
       buildCron();
+      setCronValid(panelName, false);
       if (cronValidateTimer) { clearTimeout(cronValidateTimer); }
       cronValidateTimer = setTimeout(function () {
-        validateCronExpression(cronRaw.value, cronDescription);
+        validateCronExpression(cronRaw.value, cronDescription, panelName);
       }, CRON_VALIDATE_DEBOUNCE_MS);
     });
   }
@@ -638,6 +668,11 @@ function initCronPickerForPanel(panelName) {
   // Initialize row visibility and build initial cron
   updateRowVisibility();
   buildCron();
+
+  // Validate any pre-populated custom cron (e.g. edit form loading existing schedule)
+  if (freqSelect.value === 'custom' && cronRaw && cronRaw.value) {
+    validateCronExpression(cronRaw.value, cronDescription, panelName);
+  }
 }
 
 /**
@@ -645,8 +680,11 @@ function initCronPickerForPanel(panelName) {
  * @param {string} expr - cron expression
  * @param {Element} descEl - element to display description in
  */
-function validateCronExpression(expr, descEl) {
-  if (!expr || !descEl) { return; }
+function validateCronExpression(expr, descEl, panelName) {
+  if (!expr || !descEl) {
+    if (panelName) { setCronValid(panelName, false); }
+    return;
+  }
 
   if (cronValidateAbortController) {
     cronValidateAbortController.abort();
@@ -661,16 +699,20 @@ function validateCronExpression(expr, descEl) {
       if (data.valid && data.description) {
         descEl.textContent = data.description;
         descEl.className = 'text-xs text-success';
+        if (panelName) { setCronValid(panelName, true); }
       } else if (data.error) {
         descEl.textContent = data.error;
         descEl.className = 'text-xs text-error';
+        if (panelName) { setCronValid(panelName, false); }
       } else {
         descEl.textContent = '';
+        if (panelName) { setCronValid(panelName, false); }
       }
     })
     .catch(function (err) {
       if (err.name !== 'AbortError') {
         descEl.textContent = '';
+        if (panelName) { setCronValid(panelName, false); }
       }
     });
 }
