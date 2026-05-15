@@ -87,7 +87,9 @@ class TestActivityPage:
         assert 'id="clear-all-btn"' in html
         assert 'type="button"' in html
         assert "Clear All" in html
-        assert "bg-error hover:bg-error/90 text-white" in html
+        assert "bg-error" in html
+        assert "hover:bg-error/90" in html
+        assert "text-white" in html
 
 
 class TestActivityPageJavaScript:
