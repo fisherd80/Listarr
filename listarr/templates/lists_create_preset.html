@@ -2,6 +2,12 @@
 
 <div id="preset-panel-content">
 
+  <!-- Two-column layout: steps left, preview right -->
+  <div class="flex flex-col lg:flex-row gap-4">
+
+    <!-- Left column: accordion steps -->
+    <div class="flex-1 min-w-0 space-y-2">
+
   <!-- Step 1: Choose Template -->
   <div class="accordion-section" data-step="1" data-panel="preset">
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
@@ -75,7 +81,7 @@
   </div>
 
   <!-- Step 2: Target Service & Import Settings -->
-  <div class="accordion-section mt-2" data-step="2" data-panel="preset">
+  <div class="accordion-section" data-step="2" data-panel="preset">
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="2" data-panel="preset">
       <div class="flex items-center gap-3">
@@ -97,17 +103,6 @@
           <input type="hidden" id="preset-service" name="preset_service" value="">
         </div>
 
-        <!-- Live preview for the selected preset -->
-        <div class="bg-bg-table-head border border-border-subtle rounded">
-          <div class="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
-            <h3 class="text-sm font-medium text-text-heading">Preview</h3>
-            <span id="preset-preview-count" class="text-xs text-text-muted"></span>
-          </div>
-          <div id="preset-preview-panel" class="p-3 min-h-48 max-h-96 overflow-y-auto">
-            <div class="text-sm text-text-muted text-center py-8 px-4">Select a template to see a preview.</div>
-          </div>
-        </div>
-
         <!-- Import settings loading area -->
         <div id="preset-import-settings">
           <div class="text-sm text-text-muted italic">Select a template to load import settings.</div>
@@ -124,7 +119,7 @@
   </div>
 
   <!-- Step 3: Schedule -->
-  <div class="accordion-section mt-2" data-step="3" data-panel="preset">
+  <div class="accordion-section" data-step="3" data-panel="preset">
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="3" data-panel="preset">
       <div class="flex items-center gap-3">
@@ -205,7 +200,7 @@
   </div>
 
   <!-- Step 4: Review & Save -->
-  <div class="accordion-section mt-2" data-step="4" data-panel="preset">
+  <div class="accordion-section" data-step="4" data-panel="preset">
     <div class="accordion-header flex items-center justify-between bg-bg-table-head px-4 py-3 cursor-pointer rounded-t border border-border-subtle"
          data-step="4" data-panel="preset">
       <div class="flex items-center gap-3">
@@ -246,5 +241,24 @@
       </div>
     </div>
   </div>
+
+    </div><!-- end left column -->
+
+    <!-- Right column: live preview -->
+    <div class="lg:w-72 xl:w-80 flex-shrink-0">
+      <div class="bg-bg-panel border border-border-subtle rounded sticky top-4">
+        <div class="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+          <h3 class="text-sm font-medium text-text-heading">Preview</h3>
+          <span id="preset-preview-count" class="text-xs text-text-muted"></span>
+        </div>
+        <div id="preset-preview-panel" class="p-3 min-h-48 max-h-96 overflow-y-auto">
+          <div class="text-sm text-text-muted italic text-center py-8">
+            Select a template to see a preview.
+          </div>
+        </div>
+      </div>
+    </div><!-- end right column -->
+
+  </div><!-- end two-column layout -->
 
 </div>

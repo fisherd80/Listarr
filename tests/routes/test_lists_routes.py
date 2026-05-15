@@ -207,6 +207,8 @@ class TestCreateList:
         """Regression guard: GET /lists/create must still return 200 (wizard landing preserved)."""
         response = client.get("/lists/create")
         assert response.status_code == 200
+        assert b"Two-column layout: steps left, preview right" in response.data
+        assert b'class="lg:w-72 xl:w-80 flex-shrink-0"' in response.data
         assert b'id="preset-preview-panel"' in response.data
         assert b'id="preset-preview-count"' in response.data
 
@@ -214,6 +216,8 @@ class TestCreateList:
         """Regression guard: GET /lists/create/preset must still return 200 (preset wizard preserved)."""
         response = client.get("/lists/create/preset")
         assert response.status_code == 200
+        assert b"Two-column layout: steps left, preview right" in response.data
+        assert b'class="lg:w-72 xl:w-80 flex-shrink-0"' in response.data
         assert b'id="preset-preview-panel"' in response.data
         assert b"Select a template to see a preview." in response.data
 
