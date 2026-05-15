@@ -32,6 +32,7 @@ Phase 7 baseline (captured 2026-04-21):
 """
 
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -77,6 +78,44 @@ class TestActivityPage:
         """Activity page renders with 200 status."""
         response = client.get("/activity")
         assert response.status_code == 200
+
+    def test_activity_page_has_clear_all_button(self, client):
+        """Activity page exposes the Clear All control in the header."""
+        response = client.get("/activity")
+        html = response.get_data(as_text=True)
+
+        assert 'id="clear-all-btn"' in html
+        assert 'type="button"' in html
+        assert "Clear All" in html
+        assert "bg-error hover:bg-error/90 text-white" in html
+
+
+class TestActivityPageJavaScript:
+    """Static contract tests for Activity page JavaScript behavior."""
+
+    def test_clear_all_activity_function_contract(self):
+        """clearAllActivity confirms, posts with CSRF, handles JSON, and refreshes."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+
+        function_start = source.index("async function clearAllActivity()")
+        init_start = source.index("function initJobsPage()")
+        clear_all_source = source[function_start:init_start]
+
+        assert "window.confirm(" in clear_all_source
+        assert 'fetch("/api/activity/clear"' in clear_all_source
+        assert '"X-CSRFToken": getCsrfToken()' in clear_all_source
+        assert clear_all_source.index("if (!response.ok)") < clear_all_source.index("var data = await response.json()")
+        assert "if (data.deleted_count > 0)" in clear_all_source
+        assert '"No historical records to clear"' in clear_all_source
+        assert "loadJobs()" in clear_all_source
+
+    def test_init_jobs_page_wires_clear_all_button(self):
+        """initJobsPage wires the Clear All click listener."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+        init_source = source[source.index("function initJobsPage()") :]
+
+        assert 'document.getElementById("clear-all-btn")' in init_source
+        assert 'addEventListener("click", clearAllActivity)' in init_source
 
 
 class TestGetActivity:
