@@ -155,6 +155,59 @@ class TestGetActivity:
         assert data["current_page"] == 1
 
 
+class TestGetActivityListDeleted:
+    """Tests for list_deleted field in GET /api/activity response."""
+
+    def test_list_deleted_true_for_orphaned_job(self, client, app):
+        """Returns true when the job's list_id points to a deleted list."""
+        test_list = _make_list()
+        job = _make_job(test_list)
+        db.session.flush()
+        list_id = test_list.id
+        job_id = job.id
+
+        db.session.delete(test_list)
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["jobs"][0]["id"] == job_id
+        assert data["jobs"][0]["list_deleted"] is True
+        assert data["jobs"][0]["list_id"] == list_id
+
+    def test_list_deleted_false_for_existing_list(self, client, app):
+        """Returns false when the job's list still exists."""
+        test_list = _make_list()
+        _make_job(test_list)
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["jobs"][0]["list_deleted"] is False
+
+    def test_list_deleted_false_for_null_list_id(self, client, app):
+        """Returns false when the job never had a list_id."""
+        job = Job(
+            list_id=None,
+            list_name="Orphan",
+            status="completed",
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["jobs"][0]["list_deleted"] is False
+
+
 class TestGetActivityDetail:
     """Tests for GET /api/activity/<id> endpoint."""
 
