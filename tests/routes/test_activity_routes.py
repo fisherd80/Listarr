@@ -119,6 +119,20 @@ class TestActivityPageJavaScript:
         assert 'document.getElementById("clear-all-btn")' in init_source
         assert 'addEventListener("click", clearAllActivity)' in init_source
 
+    def test_render_job_row_uses_deleted_badge_for_deleted_lists(self):
+        """renderJobRow renders Deleted only for explicit list_deleted true."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+        render_start = source.index("function renderJobRow(job)")
+        render_end = source.index("/**", render_start + 1)
+        render_source = source[render_start:render_end]
+
+        assert "job.list_deleted === true" in render_source
+        assert "bg-bg-hover text-text-muted border border-border-subtle" in render_source
+        assert ">Deleted</span>" in render_source
+        assert "generateServiceBadge(job.target_service)" in render_source
+        assert 'targetCell = "-"' in render_source
+        assert "var targetCell = job.target_service ? generateServiceBadge" not in render_source
+
 
 class TestGetActivity:
     """Tests for GET /api/activity endpoint."""

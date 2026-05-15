@@ -207,7 +207,14 @@ function renderJobRow(job) {
   var statusBadge = renderStatusBadge(displayStatus);
   var result = renderResultCompact(job);
   var actions = renderOverflowMenu(job);
-  var targetCell = job.target_service ? generateServiceBadge(job.target_service) : "-";
+  var targetCell;
+  if (job.list_deleted === true) {
+    targetCell = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-hover text-text-muted border border-border-subtle">Deleted</span>';
+  } else if (job.target_service) {
+    targetCell = generateServiceBadge(job.target_service);
+  } else {
+    targetCell = "-";
+  }
 
   return (
     '<tr data-job-row="' + job.id + '">' +
