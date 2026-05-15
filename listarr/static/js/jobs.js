@@ -207,7 +207,14 @@ function renderJobRow(job) {
   var statusBadge = renderStatusBadge(displayStatus);
   var result = renderResultCompact(job);
   var actions = renderOverflowMenu(job);
-  var targetCell = job.target_service ? generateServiceBadge(job.target_service) : "-";
+  var targetCell;
+  if (job.list_deleted === true) {
+    targetCell = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-hover text-text-muted border border-border-subtle">Deleted</span>';
+  } else if (job.target_service) {
+    targetCell = generateServiceBadge(job.target_service);
+  } else {
+    targetCell = "-";
+  }
 
   return (
     '<tr data-job-row="' + job.id + '">' +
@@ -536,6 +543,57 @@ function showEmpty() {
 }
 
 /**
+ * Clear all historical activity after user confirmation.
+ */
+async function clearAllActivity() {
+  var confirmed = window.confirm("Clear all activity history? Running jobs will not be removed. This cannot be undone.");
+  if (!confirmed) return;
+
+  var button = document.getElementById("clear-all-btn");
+  var originalText = button ? button.textContent : "Clear All";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Clearing...";
+  }
+
+  try {
+    var response = await fetch("/api/activity/clear", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+    });
+
+    if (!response.ok) {
+      var errorData = await response.json().catch(function () { return {}; });
+      throw new Error(errorData.message || "HTTP " + response.status);
+    }
+    var data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.message || "Failed to clear activity");
+    }
+
+    if (data.deleted_count > 0) {
+      showToast("Cleared " + data.deleted_count + " record" + (data.deleted_count !== 1 ? "s" : ""), "success");
+    } else if (data.deleted_count === 0) {
+      showToast("No historical records to clear", "info");
+    }
+    state.currentPage = 1;
+    loadJobs();
+  } catch (error) {
+    console.error("Error clearing activity:", error);
+    showToast(error.message || "Failed to clear activity", "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
+/**
  * Initialize the jobs page.
  */
 function initJobsPage() {
@@ -550,6 +608,8 @@ function initJobsPage() {
   var filterStatus = document.getElementById("filter-status");
   if (filterList) filterList.addEventListener("change", applyFilters);
   if (filterStatus) filterStatus.addEventListener("change", applyFilters);
+  var clearBtn = document.getElementById("clear-all-btn");
+  if (clearBtn) clearBtn.addEventListener("click", clearAllActivity);
 }
 
 // Initialize when DOM is ready
