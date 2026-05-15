@@ -615,6 +615,10 @@ async function fetchPreview() {
 
         if (!data.items || data.items.length === 0) {
             // Show empty state
+            const emptyMessageEl = emptyEl.querySelector("p.text-sm");
+            if (emptyMessageEl) {
+                emptyMessageEl.textContent = "No results found for this preset.";
+            }
             emptyEl.classList.remove("hidden");
             return;
         }
