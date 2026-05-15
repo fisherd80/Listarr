@@ -27,129 +27,133 @@
 
     <!-- Sub-panel: Radarr -->
     <div id="service-panel-radarr" class="service-panel">
-      <div id="radarr-connection-form" data-configured="{{ 'true' if radarr.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
-        <h2 class="text-lg font-semibold text-text-heading mb-4">Radarr Connection</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div id="radarr-connection-form" data-configured="{{ 'true' if radarr.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4">
+          <h2 class="text-lg font-semibold text-text-heading mb-4">Radarr Connection</h2>
 
-        <!-- Connection form -->
-        <div class="space-y-4">
-          <div>
-            <label for="radarr-url" class="block text-sm font-medium text-text-base mb-1">Radarr URL</label>
-            <input type="url" id="radarr-url" placeholder="http://localhost:7878"
-              value="{{ radarr.base_url or '' }}"
-              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
-          </div>
-          <div>
-            <label for="radarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
-            <div class="relative">
-              <input type="password" id="radarr-api-key"
-                {% if radarr.configured and radarr.api_key %}value="{{ radarr.api_key }}"{% endif %}
-                placeholder="Enter API key"
-                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
-              <button type="button" onclick="togglePasswordVisibility('radarr-api-key', this)"
-                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
-                title="Show/hide API key">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              </button>
+          <!-- Connection form -->
+          <div class="space-y-4">
+            <div>
+              <label for="radarr-url" class="block text-sm font-medium text-text-base mb-1">Radarr URL</label>
+              <input type="url" id="radarr-url" placeholder="http://localhost:7878"
+                value="{{ radarr.base_url or '' }}"
+                class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
             </div>
-            {% if radarr.configured %}
-            <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
-            {% endif %}
+            <div>
+              <label for="radarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
+              <div class="relative">
+                <input type="password" id="radarr-api-key"
+                  {% if radarr.configured and radarr.api_key %}value="{{ radarr.api_key }}"{% endif %}
+                  placeholder="Enter API key"
+                  class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
+                <button type="button" onclick="togglePasswordVisibility('radarr-api-key', this)"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
+                  title="Show/hide API key">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </div>
+              {% if radarr.configured %}
+              <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
+              {% endif %}
+            </div>
           </div>
+
+          <!-- Action buttons -->
+          <div class="flex items-center gap-3 mt-4">
+            <button type="button" id="radarr-test-btn" onclick="testConnection('radarr')"
+              class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
+              Test Connection
+            </button>
+            <button type="button" id="radarr-save-btn" onclick="saveConnection('radarr')"
+              class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
+              Save
+            </button>
+            <button type="button" id="radarr-force-save-btn" onclick="saveConnectionForce('radarr')"
+              class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
+              Save Anyway
+            </button>
+          </div>
+
+          <!-- Status display -->
+          <div id="radarr-status" class="mt-3 text-sm"></div>
         </div>
 
-        <!-- Action buttons -->
-        <div class="flex items-center gap-3 mt-4">
-          <button type="button" id="radarr-test-btn" onclick="testConnection('radarr')"
-            class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
-            Test Connection
-          </button>
-          <button type="button" id="radarr-save-btn" onclick="saveConnection('radarr')"
-            class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
-            Save
-          </button>
-          <button type="button" id="radarr-force-save-btn" onclick="saveConnectionForce('radarr')"
-            class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
-            Save Anyway
-          </button>
-        </div>
-
-        <!-- Status display -->
-        <div id="radarr-status" class="mt-3 text-sm"></div>
-      </div>
-
-      <!-- Import defaults panel -->
-      {% from 'macros/forms.html' import import_settings_form %}
-      <div id="radarr-import-defaults" class="mt-6 max-w-2xl {% if not radarr.configured %}hidden{% endif %}">
-        <div class="bg-bg-panel border border-border-subtle rounded p-4">
-          <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
-          {{ import_settings_form('radarr', show_season_folder=false, inline=true) }}
+        <!-- Import defaults panel -->
+        {% from 'macros/forms.html' import import_settings_form %}
+        <div id="radarr-import-defaults" class="self-start {% if not radarr.configured %}hidden{% endif %}">
+          <div class="bg-bg-panel border border-border-subtle rounded p-4">
+            <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
+            {{ import_settings_form('radarr', show_season_folder=false, inline=true) }}
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Sub-panel: Sonarr -->
     <div id="service-panel-sonarr" class="service-panel hidden">
-      <div id="sonarr-connection-form" data-configured="{{ 'true' if sonarr.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
-        <h2 class="text-lg font-semibold text-text-heading mb-4">Sonarr Connection</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div id="sonarr-connection-form" data-configured="{{ 'true' if sonarr.configured else 'false' }}" class="bg-bg-panel border border-border-subtle rounded p-4">
+          <h2 class="text-lg font-semibold text-text-heading mb-4">Sonarr Connection</h2>
 
-        <!-- Connection form -->
-        <div class="space-y-4">
-          <div>
-            <label for="sonarr-url" class="block text-sm font-medium text-text-base mb-1">Sonarr URL</label>
-            <input type="url" id="sonarr-url" placeholder="http://localhost:8989"
-              value="{{ sonarr.base_url or '' }}"
-              class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
-          </div>
-          <div>
-            <label for="sonarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
-            <div class="relative">
-              <input type="password" id="sonarr-api-key"
-                {% if sonarr.configured and sonarr.api_key %}value="{{ sonarr.api_key }}"{% endif %}
-                placeholder="Enter API key"
-                class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
-              <button type="button" onclick="togglePasswordVisibility('sonarr-api-key', this)"
-                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
-                title="Show/hide API key">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              </button>
+          <!-- Connection form -->
+          <div class="space-y-4">
+            <div>
+              <label for="sonarr-url" class="block text-sm font-medium text-text-base mb-1">Sonarr URL</label>
+              <input type="url" id="sonarr-url" placeholder="http://localhost:8989"
+                value="{{ sonarr.base_url or '' }}"
+                class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
             </div>
-            {% if sonarr.configured %}
-            <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
-            {% endif %}
+            <div>
+              <label for="sonarr-api-key" class="block text-sm font-medium text-text-base mb-1">API Key</label>
+              <div class="relative">
+                <input type="password" id="sonarr-api-key"
+                  {% if sonarr.configured and sonarr.api_key %}value="{{ sonarr.api_key }}"{% endif %}
+                  placeholder="Enter API key"
+                  class="block w-full px-3 py-2 pr-10 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
+                <button type="button" onclick="togglePasswordVisibility('sonarr-api-key', this)"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-heading"
+                  title="Show/hide API key">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </div>
+              {% if sonarr.configured %}
+              <p class="mt-1 text-xs text-text-muted">Use the eye icon to reveal the stored key.</p>
+              {% endif %}
+            </div>
           </div>
+
+          <!-- Action buttons -->
+          <div class="flex items-center gap-3 mt-4">
+            <button type="button" id="sonarr-test-btn" onclick="testConnection('sonarr')"
+              class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
+              Test Connection
+            </button>
+            <button type="button" id="sonarr-save-btn" onclick="saveConnection('sonarr')"
+              class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
+              Save
+            </button>
+            <button type="button" id="sonarr-force-save-btn" onclick="saveConnectionForce('sonarr')"
+              class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
+              Save Anyway
+            </button>
+          </div>
+
+          <!-- Status display -->
+          <div id="sonarr-status" class="mt-3 text-sm"></div>
         </div>
 
-        <!-- Action buttons -->
-        <div class="flex items-center gap-3 mt-4">
-          <button type="button" id="sonarr-test-btn" onclick="testConnection('sonarr')"
-            class="px-4 py-2 bg-btn-secondary-bg text-btn-secondary-text rounded hover:bg-btn-secondary-hover border border-border-subtle text-sm font-medium">
-            Test Connection
-          </button>
-          <button type="button" id="sonarr-save-btn" onclick="saveConnection('sonarr')"
-            class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover text-sm font-medium">
-            Save
-          </button>
-          <button type="button" id="sonarr-force-save-btn" onclick="saveConnectionForce('sonarr')"
-            class="hidden px-4 py-2 bg-warning text-white rounded hover:bg-warning/90 text-sm font-medium">
-            Save Anyway
-          </button>
-        </div>
-
-        <!-- Status display -->
-        <div id="sonarr-status" class="mt-3 text-sm"></div>
-      </div>
-
-      <!-- Import defaults panel -->
-      <div id="sonarr-import-defaults" class="mt-6 max-w-2xl {% if not sonarr.configured %}hidden{% endif %}">
-        <div class="bg-bg-panel border border-border-subtle rounded p-4">
-          <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
-          {{ import_settings_form('sonarr', show_season_folder=true, inline=true) }}
+        <!-- Import defaults panel -->
+        <div id="sonarr-import-defaults" class="self-start {% if not sonarr.configured %}hidden{% endif %}">
+          <div class="bg-bg-panel border border-border-subtle rounded p-4">
+            <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
+            {{ import_settings_form('sonarr', show_season_folder=true, inline=true) }}
+          </div>
         </div>
       </div>
     </div>
