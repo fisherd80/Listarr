@@ -97,6 +97,17 @@
           <input type="hidden" id="preset-service" name="preset_service" value="">
         </div>
 
+        <!-- Live preview for the selected preset -->
+        <div class="bg-bg-table-head border border-border-subtle rounded">
+          <div class="flex items-center justify-between px-3 py-2 border-b border-border-subtle">
+            <h3 class="text-sm font-medium text-text-heading">Preview</h3>
+            <span id="preset-preview-count" class="text-xs text-text-muted"></span>
+          </div>
+          <div id="preset-preview-panel" class="p-3 min-h-48 max-h-96 overflow-y-auto">
+            <div class="text-sm text-text-muted text-center py-8 px-4">Select a template to see a preview.</div>
+          </div>
+        </div>
+
         <!-- Import settings loading area -->
         <div id="preset-import-settings">
           <div class="text-sm text-text-muted italic">Select a template to load import settings.</div>

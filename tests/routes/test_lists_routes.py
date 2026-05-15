@@ -207,11 +207,15 @@ class TestCreateList:
         """Regression guard: GET /lists/create must still return 200 (wizard landing preserved)."""
         response = client.get("/lists/create")
         assert response.status_code == 200
+        assert b'id="preset-preview-panel"' in response.data
+        assert b'id="preset-preview-count"' in response.data
 
     def test_get_lists_create_preset_still_renders(self, client):
         """Regression guard: GET /lists/create/preset must still return 200 (preset wizard preserved)."""
         response = client.get("/lists/create/preset")
         assert response.status_code == 200
+        assert b'id="preset-preview-panel"' in response.data
+        assert b"Select a template to see a preview." in response.data
 
     def test_get_lists_create_custom_still_renders(self, client):
         """Regression guard: GET /lists/create/custom must still return 200 (custom wizard preserved)."""

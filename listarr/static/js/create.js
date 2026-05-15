@@ -413,20 +413,22 @@ function schedulePreview(panelName) {
  * @param {string} panelName - 'preset' or 'custom'
  */
 function fetchPreview(panelName) {
-  // Custom panel preview only (preset panel uses the preset endpoint)
-  if (panelName === 'preset') {
-    // For presets we don't show a separate preview panel — skip
+  var isPresetPanel = panelName === 'preset';
+  var previewPanel = document.getElementById(isPresetPanel ? 'preset-preview-panel' : 'custom-preview-panel');
+  var previewCount = document.getElementById(isPresetPanel ? 'preset-preview-count' : 'custom-preview-count');
+  if (!previewPanel) { return; }
+
+  var serviceInput = document.getElementById(isPresetPanel ? 'preset-service' : 'custom-service');
+  var service = serviceInput ? serviceInput.value : 'radarr';
+  var preset = isPresetPanel ? selectedPreset : null;
+
+  if (isPresetPanel && !preset) {
+    previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">Select a template to see a preview.</div>';
+    if (previewCount) { previewCount.textContent = ''; }
     return;
   }
 
-  var previewPanel = document.getElementById('custom-preview-panel');
-  var previewCount = document.getElementById('custom-preview-count');
-  if (!previewPanel) { return; }
-
-  var serviceInput = document.getElementById('custom-service');
-  var service = serviceInput ? serviceInput.value : 'radarr';
-
-  var filters = collectFilters();
+  var filters = isPresetPanel ? {} : collectFilters();
 
   // Show loading state
   previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8">Loading...</div>';
@@ -440,7 +442,7 @@ function fetchPreview(panelName) {
     },
     body: JSON.stringify({
       service: service,
-      preset: null,
+      preset: preset,
       filters: filters
     })
   })
@@ -454,7 +456,9 @@ function fetchPreview(panelName) {
     var items = data.items || [];
 
     if (items.length === 0) {
-      previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">No titles match these filters. Try broadening your criteria.</div>';
+      previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">' +
+        (isPresetPanel ? 'No results found for this preset.' : 'No titles match these filters. Try broadening your criteria.') +
+        '</div>';
       if (previewCount) { previewCount.textContent = '0 results'; }
       return;
     }
