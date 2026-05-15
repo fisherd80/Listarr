@@ -122,6 +122,20 @@ def create_app(test_config=None):
 
     app.register_blueprint(main_bp)
 
+    @app.context_processor
+    def inject_app_version():
+        repo_root = "https://github.com/fisherd80/Listarr"
+        release_base = f"{repo_root}/releases/tag/"
+        normalized_version = ""
+
+        if __version__:
+            normalized_version = __version__ if __version__.startswith("v") else f"v{__version__}"
+
+        return {
+            "app_version": normalized_version,
+            "app_version_url": f"{release_base}{normalized_version}" if normalized_version else repo_root,
+        }
+
     @app.after_request
     def add_security_headers(response):
         """Add security headers to all responses."""
