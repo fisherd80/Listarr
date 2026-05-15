@@ -207,11 +207,19 @@ class TestCreateList:
         """Regression guard: GET /lists/create must still return 200 (wizard landing preserved)."""
         response = client.get("/lists/create")
         assert response.status_code == 200
+        assert b"Two-column layout: steps left, preview right" in response.data
+        assert b'class="lg:w-72 xl:w-80 flex-shrink-0"' in response.data
+        assert b'id="preset-preview-panel"' in response.data
+        assert b'id="preset-preview-count"' in response.data
 
     def test_get_lists_create_preset_still_renders(self, client):
         """Regression guard: GET /lists/create/preset must still return 200 (preset wizard preserved)."""
         response = client.get("/lists/create/preset")
         assert response.status_code == 200
+        assert b"Two-column layout: steps left, preview right" in response.data
+        assert b'class="lg:w-72 xl:w-80 flex-shrink-0"' in response.data
+        assert b'id="preset-preview-panel"' in response.data
+        assert b"Select a template to see a preview." in response.data
 
     def test_get_lists_create_custom_still_renders(self, client):
         """Regression guard: GET /lists/create/custom must still return 200 (custom wizard preserved)."""
@@ -429,6 +437,12 @@ class TestListWizard:
         """Preset trending_movies sets service to radarr and is_preset=True."""
         response = client.get("/lists/wizard?preset=trending_movies")
         assert response.status_code == 200
+        assert (
+            b'id="preview-empty" class="flex flex-col items-center justify-center py-8 text-text-muted"'
+            in response.data
+        )
+        assert b"No results found for this preset." in response.data
+        assert b"Loading preview..." not in response.data
 
     def test_create_mode_with_preset_trending_tv(self, client):
         """Preset trending_tv sets service to sonarr and is_preset=True."""

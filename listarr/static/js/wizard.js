@@ -559,8 +559,8 @@ function onFiltersChanged() {
  * Fetch TMDB preview results based on current filters
  */
 async function fetchPreview() {
-    // Only fetch preview if on step 2 and service is selected
-    if (wizardState.currentStep !== 2 || !wizardState.service) {
+    // Only fetch preview if service is selected and preview DOM is present
+    if (!wizardState.service) {
         return;
     }
 
@@ -569,8 +569,8 @@ async function fetchPreview() {
     const errorEl = document.getElementById("preview-error");
     const resultsEl = document.getElementById("preview-results");
 
-    // If elements don't exist (preset mode), skip
-    if (!loadingEl || !resultsEl) {
+    // Preview is optional on non-wizard renders, but all preview states must exist when active.
+    if (!loadingEl || !emptyEl || !errorEl || !resultsEl) {
         return;
     }
 
@@ -615,6 +615,10 @@ async function fetchPreview() {
 
         if (!data.items || data.items.length === 0) {
             // Show empty state
+            const emptyMessageEl = emptyEl.querySelector("p.text-sm");
+            if (emptyMessageEl) {
+                emptyMessageEl.textContent = "No results found for this preset.";
+            }
             emptyEl.classList.remove("hidden");
             return;
         }
@@ -629,9 +633,9 @@ async function fetchPreview() {
         const errorMsgEl = document.getElementById("preview-error-message");
         if (errorMsgEl) {
             if (error.name === "TimeoutError" || error.message.includes("timed out")) {
-                errorMsgEl.textContent = "TMDB request timed out - please try again";
+                errorMsgEl.textContent = "TMDB request timed out — try again in a moment.";
             } else {
-                errorMsgEl.textContent = "Network error - please try again";
+                errorMsgEl.textContent = "Network error — please try again.";
             }
         }
         errorEl.classList.remove("hidden");
