@@ -569,8 +569,8 @@ async function fetchPreview() {
     const errorEl = document.getElementById("preview-error");
     const resultsEl = document.getElementById("preview-results");
 
-    // If elements don't exist (preset mode), skip
-    if (!loadingEl || !resultsEl) {
+    // Preview is optional on non-wizard renders, but all preview states must exist when active.
+    if (!loadingEl || !emptyEl || !errorEl || !resultsEl) {
         return;
     }
 
