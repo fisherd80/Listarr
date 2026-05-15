@@ -166,7 +166,7 @@ class TestGetActivityListDeleted:
         list_id = test_list.id
         job_id = job.id
 
-        db.session.delete(test_list)
+        List.query.filter_by(id=list_id).delete(synchronize_session=False)
         db.session.commit()
 
         response = client.get("/api/activity")
