@@ -6,6 +6,7 @@ Manages APScheduler for automated list imports with cron schedules.
 import atexit
 import logging
 import os
+import re
 import zoneinfo
 from datetime import datetime
 
@@ -30,6 +31,30 @@ logger = logging.getLogger(__name__)
 # Module-level scheduler instance (singleton pattern like job_executor)
 _scheduler = None
 _app = None
+
+# POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
+# Converting to name strings avoids the ambiguity entirely.
+_POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
+
+
+def _posix_cron_to_apscheduler(cron_expr):
+    """Translate POSIX day-of-week numbers to name strings before handing to APScheduler.
+
+    APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python weekday),
+    while POSIX cron uses 0=Sunday. '0 2 * * 1' would fire Tuesday in APScheduler
+    but Monday in every standard cron tool. Name strings ('mon', 'tue', …) are
+    unambiguous in both systems.
+
+    Wildcards and step-only expressions (*/N) are left unchanged.
+    """
+    parts = cron_expr.split()
+    if len(parts) != 5:
+        return cron_expr
+    dow = parts[4]
+    if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
+        return cron_expr
+    parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), dow)
+    return " ".join(parts)
 
 
 def _get_scheduler_timezone():
@@ -155,7 +180,7 @@ def schedule_list(list_id, cron_expression):
 
     # Add job with cron trigger
     try:
-        trigger = CronTrigger.from_crontab(cron_expression, timezone=_scheduler.timezone)
+        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=_scheduler.timezone)
         _scheduler.add_job(
             _run_scheduled_import,
             trigger=trigger,
