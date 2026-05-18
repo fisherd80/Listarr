@@ -136,10 +136,10 @@ def schedule_list(list_id, cron_expression):
 
     Raises:
         ValueError: If cron expression is invalid
-        RuntimeError: If scheduler not initialized
     """
     if _scheduler is None:
-        raise RuntimeError("Scheduler not initialized")
+        logger.debug("Scheduler not running in this worker — schedule saved to DB, skipping in-process update")
+        return
 
     # Validate cron expression
     validation = validate_cron_expression(cron_expression)
