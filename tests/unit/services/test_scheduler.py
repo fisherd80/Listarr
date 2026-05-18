@@ -471,7 +471,7 @@ class TestSchedulerTimezone:
 
         schedule_list(1, "0 9 * * 1")
 
-        mock_cron_trigger.from_crontab.assert_called_once_with("0 9 * * 1", timezone=expected_tz)
+        mock_cron_trigger.from_crontab.assert_called_once_with("0 9 * * mon", timezone=expected_tz)
 
     @patch.dict("os.environ", {"TZ": "America/New_York"})
     @patch("listarr.services.scheduler._scheduler", None)
