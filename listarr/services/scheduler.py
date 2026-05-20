@@ -104,7 +104,7 @@ def init_scheduler(app):
         job_defaults={
             "coalesce": True,  # Combine multiple missed runs into one
             "max_instances": 1,  # Only one instance of each job at a time
-            "misfire_grace_time": 60,  # Jobs can run up to 60s late
+            "misfire_grace_time": 3600,  # Jobs can run up to 1h late (handles container restarts)
         },
     )
 
