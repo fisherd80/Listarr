@@ -8,7 +8,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 [![CI](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml/badge.svg)](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml)
 [![Docker Hub](https://img.shields.io/docker/v/fisherd91/listarr?label=Docker%20Hub)](https://hub.docker.com/r/fisherd91/listarr)
-[![Release](https://img.shields.io/badge/release-v2.0.1-green.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v2.1.0-green.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > Listarr is not affiliated with Radarr, Sonarr, the Servarr project, or TMDB. You will need your own API keys for each service.
@@ -234,15 +234,18 @@ See [.env.example](.env.example) for a ready-to-use template.
 
 ## Roadmap
 
+v2.1.0 fixed the APScheduler cron timezone bug, polished the cron expression UX (live description, crontab.guru link, removed redundant toggle), added activity page improvements (Clear All, Deleted badge for orphaned rows), and fixed the preset wizard preview, settings layout, and footer version link.
+
 v2.0.0 delivered a full UI overhaul with a semantic dark/light theme system, redesigned Lists, Activity, and Settings pages, security hardening, and expanded test coverage. v2.0.1 migrated the Docker base image to Alpine, reducing image size and patching critical CVEs.
 
 Possible future enhancements:
 
+- User-configurable timezone and application name via a General settings tab
+- Tag management UI (view, create, and delete Radarr/Sonarr tags from within Listarr)
+- Additional list sources beyond TMDB (Trakt, IMDb)
 - Multi-service instance support (multiple Radarr or Sonarr instances)
 - Advanced TMDB filtering (cast, crew, collection-based lists)
-- Import history analytics and reporting
 - Webhook-triggered list execution
-- Additional list sources beyond TMDB
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 

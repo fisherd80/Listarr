@@ -5,6 +5,36 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.1.0] - 2026-05-15
+
+### Added
+
+- **Clear All** button on the Activity page — removes all historical run records after a confirmation dialog, with toast feedback and instant table reload
+- **Deleted badge** on activity rows whose associated list has been removed — clearly distinguishes orphaned records from active list activity
+- **Live cron description** — custom cron expressions show a human-readable translation as you type (e.g. "Every Monday at 9:00 AM"), powered by the existing `/api/cron/validate` endpoint with debounce and request cancellation
+- **crontab.guru link** adjacent to the custom cron expression input on all schedule forms (create wizard and edit page)
+
+### Changed
+
+- Custom cron expression input is now always visible when "Custom (cron expression)" frequency is selected — the redundant "Advanced Cron Expression / Hide Cron Expression" toggle has been removed from all schedule forms
+- Import Defaults settings for Radarr and Sonarr are now displayed in a responsive two-column layout directly beside their respective connection blocks on the Settings page
+- Footer version number now links to the exact GitHub release tag for the running version
+
+### Fixed
+
+- Scheduled cron jobs now fire on the correct day — `CronTrigger` now receives the configured scheduler timezone instead of defaulting to UTC, eliminating the day-offset bug
+- Preset list creation wizard now shows the content preview panel on Step 2 — a step-number guard that incorrectly blocked preview fetching has been removed
+- Invalid cron expressions now show an error message and disable the save button until corrected
+- `schedule_list` no longer raises an exception in non-scheduler Gunicorn workers — it silently skips scheduling instead
+- POSIX day-of-week integers (0 = Monday) are now converted to named values before being passed to APScheduler
+- APScheduler `misfire_grace_time` raised from 60 seconds to 1 hour — prevents queued jobs from being silently dropped after container restarts
+
+### Security
+
+- urllib3 upgraded to 2.7.0 (CVE-2026-44431, CVE-2026-44432)
+
+---
+
 ## [2.0.1] - 2026-04-30
 
 ### Changed
