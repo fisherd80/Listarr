@@ -32,6 +32,7 @@ Phase 7 baseline (captured 2026-04-21):
 """
 
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -77,6 +78,60 @@ class TestActivityPage:
         """Activity page renders with 200 status."""
         response = client.get("/activity")
         assert response.status_code == 200
+
+    def test_activity_page_has_clear_all_button(self, client):
+        """Activity page exposes the Clear All control in the header."""
+        response = client.get("/activity")
+        html = response.get_data(as_text=True)
+
+        assert 'id="clear-all-btn"' in html
+        assert 'type="button"' in html
+        assert "Clear All" in html
+        assert "bg-error" in html
+        assert "hover:bg-error/90" in html
+        assert "text-white" in html
+
+
+class TestActivityPageJavaScript:
+    """Static contract tests for Activity page JavaScript behavior."""
+
+    def test_clear_all_activity_function_contract(self):
+        """clearAllActivity confirms, posts with CSRF, handles JSON, and refreshes."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+
+        function_start = source.index("async function clearAllActivity()")
+        init_start = source.index("function initJobsPage()")
+        clear_all_source = source[function_start:init_start]
+
+        assert "window.confirm(" in clear_all_source
+        assert 'fetch("/api/activity/clear"' in clear_all_source
+        assert '"X-CSRFToken": getCsrfToken()' in clear_all_source
+        assert clear_all_source.index("if (!response.ok)") < clear_all_source.index("var data = await response.json()")
+        assert "if (data.deleted_count > 0)" in clear_all_source
+        assert '"No historical records to clear"' in clear_all_source
+        assert "loadJobs()" in clear_all_source
+
+    def test_init_jobs_page_wires_clear_all_button(self):
+        """initJobsPage wires the Clear All click listener."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+        init_source = source[source.index("function initJobsPage()") :]
+
+        assert 'document.getElementById("clear-all-btn")' in init_source
+        assert 'addEventListener("click", clearAllActivity)' in init_source
+
+    def test_render_job_row_uses_deleted_badge_for_deleted_lists(self):
+        """renderJobRow renders Deleted only for explicit list_deleted true."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+        render_start = source.index("function renderJobRow(job)")
+        render_end = source.index("/**", render_start + 1)
+        render_source = source[render_start:render_end]
+
+        assert "job.list_deleted === true" in render_source
+        assert "bg-bg-hover text-text-muted border border-border-subtle" in render_source
+        assert ">Deleted</span>" in render_source
+        assert "generateServiceBadge(job.target_service)" in render_source
+        assert 'targetCell = "-"' in render_source
+        assert "var targetCell = job.target_service ? generateServiceBadge" not in render_source
 
 
 class TestGetActivity:
@@ -153,6 +208,59 @@ class TestGetActivity:
         data = response.get_json()
         assert len(data["jobs"]) == 25
         assert data["current_page"] == 1
+
+
+class TestGetActivityListDeleted:
+    """Tests for list_deleted field in GET /api/activity response."""
+
+    def test_list_deleted_true_for_orphaned_job(self, client, app):
+        """Returns true when the job's list_id points to a deleted list."""
+        test_list = _make_list()
+        job = _make_job(test_list)
+        db.session.flush()
+        list_id = test_list.id
+        job_id = job.id
+
+        List.query.filter_by(id=list_id).delete(synchronize_session=False)
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["jobs"][0]["id"] == job_id
+        assert data["jobs"][0]["list_deleted"] is True
+        assert data["jobs"][0]["list_id"] == list_id
+
+    def test_list_deleted_false_for_existing_list(self, client, app):
+        """Returns false when the job's list still exists."""
+        test_list = _make_list()
+        _make_job(test_list)
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["jobs"][0]["list_deleted"] is False
+
+    def test_list_deleted_false_for_null_list_id(self, client, app):
+        """Returns false when the job never had a list_id."""
+        job = Job(
+            list_id=None,
+            list_name="Orphan",
+            status="completed",
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["jobs"][0]["list_deleted"] is False
 
 
 class TestGetActivityDetail:

@@ -6,7 +6,9 @@ Manages APScheduler for automated list imports with cron schedules.
 import atexit
 import logging
 import os
-from datetime import datetime, timezone
+import re
+import zoneinfo
+from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -29,6 +31,42 @@ logger = logging.getLogger(__name__)
 # Module-level scheduler instance (singleton pattern like job_executor)
 _scheduler = None
 _app = None
+
+# POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
+# Converting to name strings avoids the ambiguity entirely.
+_POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
+
+
+def _posix_cron_to_apscheduler(cron_expr):
+    """Translate POSIX day-of-week numbers to name strings before handing to APScheduler.
+
+    APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python weekday),
+    while POSIX cron uses 0=Sunday. '0 2 * * 1' would fire Tuesday in APScheduler
+    but Monday in every standard cron tool. Name strings ('mon', 'tue', …) are
+    unambiguous in both systems.
+
+    Wildcards and step-only expressions (*/N) are left unchanged.
+    """
+    parts = cron_expr.split()
+    if len(parts) != 5:
+        return cron_expr
+    dow = parts[4]
+    if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
+        return cron_expr
+    parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), dow)
+    return " ".join(parts)
+
+
+def _get_scheduler_timezone():
+    """Return the configured scheduler timezone.
+
+    Uses the live scheduler timezone when available. In non-scheduler workers,
+    falls back to the TZ environment variable, matching init_scheduler().
+    """
+    if _scheduler is not None:
+        return _scheduler.timezone
+    tz_str = os.environ.get("TZ", "UTC")
+    return zoneinfo.ZoneInfo(tz_str)
 
 
 def init_scheduler(app):
@@ -66,7 +104,7 @@ def init_scheduler(app):
         job_defaults={
             "coalesce": True,  # Combine multiple missed runs into one
             "max_instances": 1,  # Only one instance of each job at a time
-            "misfire_grace_time": 60,  # Jobs can run up to 60s late
+            "misfire_grace_time": 3600,  # Jobs can run up to 1h late (handles container restarts)
         },
     )
 
@@ -123,10 +161,10 @@ def schedule_list(list_id, cron_expression):
 
     Raises:
         ValueError: If cron expression is invalid
-        RuntimeError: If scheduler not initialized
     """
     if _scheduler is None:
-        raise RuntimeError("Scheduler not initialized")
+        logger.debug("Scheduler not running in this worker — schedule saved to DB, skipping in-process update")
+        return
 
     # Validate cron expression
     validation = validate_cron_expression(cron_expression)
@@ -142,7 +180,7 @@ def schedule_list(list_id, cron_expression):
 
     # Add job with cron trigger
     try:
-        trigger = CronTrigger.from_crontab(cron_expression)
+        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=_scheduler.timezone)
         _scheduler.add_job(
             _run_scheduled_import,
             trigger=trigger,
@@ -339,8 +377,12 @@ def get_next_run_time(list_id):
             return None
 
         # Calculate next run time using CronSim
-        cron = CronSim(list_obj.schedule_cron, datetime.now(timezone.utc))
+        scheduler_tz = _get_scheduler_timezone()
+        cron = CronSim(list_obj.schedule_cron, datetime.now(scheduler_tz))
         cron.advance()
+        # CronSim strips ZoneInfo tzinfo from non-UTC seeds; reattach it.
+        if cron.dt.tzinfo is None:
+            return cron.dt.replace(tzinfo=scheduler_tz)
         return cron.dt
     except (ValueError, StopIteration, CronSimError) as e:
         logger.debug(f"Failed to calculate next run time for list {list_id}: {e}")
@@ -360,12 +402,14 @@ def validate_cron_expression(cron_expr):
             - error (str or None): Error message if invalid
             - description (str): Human-readable description
             - next_runs (list): Next 3 run times as ISO strings
+            next_runs values use isoformat() with UTC offset when the scheduler timezone is non-UTC.
     """
     result = {"valid": False, "error": None, "description": "", "next_runs": []}
 
     try:
         # Validate with cronsim
-        cron = CronSim(cron_expr, datetime.now(timezone.utc))
+        scheduler_tz = _get_scheduler_timezone()
+        cron = CronSim(cron_expr, datetime.now(scheduler_tz))
 
         # Get human-readable description
         try:
@@ -378,14 +422,17 @@ def validate_cron_expression(cron_expr):
         next_runs = []
         for _ in range(3):
             cron.advance()
-            next_runs.append(cron.dt.isoformat())
+            dt = cron.dt
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=scheduler_tz)
+            next_runs.append(dt.isoformat())
             # Move forward 1 second to get the next occurrence
             cron.tick()
 
         result["next_runs"] = next_runs
         result["valid"] = True
 
-    except (ValueError, KeyError) as e:
+    except (ValueError, KeyError, CronSimError) as e:
         result["error"] = str(e)
         result["description"] = "Invalid cron expression"
 

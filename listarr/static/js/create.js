@@ -18,6 +18,10 @@ var selectedPreset = null;
 // Debounce timer IDs
 var previewTimer = null;
 var cronValidateTimer = null;
+var cronValidateAbortController = null;
+
+// Per-panel cron validity state: true = submit allowed, false = blocked
+var cronValid = {};
 
 // ---------------------
 // Tab Switching
@@ -409,20 +413,22 @@ function schedulePreview(panelName) {
  * @param {string} panelName - 'preset' or 'custom'
  */
 function fetchPreview(panelName) {
-  // Custom panel preview only (preset panel uses the preset endpoint)
-  if (panelName === 'preset') {
-    // For presets we don't show a separate preview panel — skip
+  var isPresetPanel = panelName === 'preset';
+  var previewPanel = document.getElementById(isPresetPanel ? 'preset-preview-panel' : 'custom-preview-panel');
+  var previewCount = document.getElementById(isPresetPanel ? 'preset-preview-count' : 'custom-preview-count');
+  if (!previewPanel) { return; }
+
+  var serviceInput = document.getElementById(isPresetPanel ? 'preset-service' : 'custom-service');
+  var service = serviceInput ? serviceInput.value : 'radarr';
+  var preset = isPresetPanel ? selectedPreset : null;
+
+  if (isPresetPanel && !preset) {
+    previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">Select a template to see a preview.</div>';
+    if (previewCount) { previewCount.textContent = ''; }
     return;
   }
 
-  var previewPanel = document.getElementById('custom-preview-panel');
-  var previewCount = document.getElementById('custom-preview-count');
-  if (!previewPanel) { return; }
-
-  var serviceInput = document.getElementById('custom-service');
-  var service = serviceInput ? serviceInput.value : 'radarr';
-
-  var filters = collectFilters();
+  var filters = isPresetPanel ? {} : collectFilters();
 
   // Show loading state
   previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8">Loading...</div>';
@@ -436,7 +442,7 @@ function fetchPreview(panelName) {
     },
     body: JSON.stringify({
       service: service,
-      preset: null,
+      preset: preset,
       filters: filters
     })
   })
@@ -450,7 +456,9 @@ function fetchPreview(panelName) {
     var items = data.items || [];
 
     if (items.length === 0) {
-      previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">No titles match these filters. Try broadening your criteria.</div>';
+      previewPanel.innerHTML = '<div class="text-sm text-text-muted text-center py-8 px-4">' +
+        (isPresetPanel ? 'No results found for this preset.' : 'No titles match these filters. Try broadening your criteria.') +
+        '</div>';
       if (previewCount) { previewCount.textContent = '0 results'; }
       return;
     }
@@ -516,6 +524,30 @@ function collectFilters() {
 }
 
 // ---------------------
+// Cron Submit Guard
+// ---------------------
+
+function getSubmitButton(panelName) {
+  var btn = document.getElementById(panelName + '-submit-btn');
+  if (!btn && panelName === 'edit') {
+    btn = document.querySelector('form button[type="submit"]');
+  }
+  return btn;
+}
+
+function setCronValid(panelName, valid) {
+  cronValid[panelName] = valid;
+  var btn = getSubmitButton(panelName);
+  if (!btn) { return; }
+  btn.disabled = !valid;
+  if (valid) {
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+  } else {
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+// ---------------------
 // Cron Picker
 // ---------------------
 
@@ -538,7 +570,6 @@ function initCronPickerForPanel(panelName) {
   var daySelect = document.getElementById(panelName + '-day');
   var timeRow = document.getElementById(panelName + '-time-row');
   var dayRow = document.getElementById(panelName + '-day-row');
-  var advancedToggle = document.getElementById(panelName + '-advanced-toggle');
   var advancedSection = document.getElementById(panelName + '-cron-advanced');
   var cronRaw = document.getElementById(panelName + '-cron-raw');
   var cronDescription = document.getElementById(panelName + '-cron-description');
@@ -601,8 +632,14 @@ function initCronPickerForPanel(panelName) {
     if (advancedSection) {
       if (freq === 'custom') {
         advancedSection.classList.remove('hidden');
-      } else if (freq !== 'custom') {
-        // Only hide if not toggled manually
+        setCronValid(panelName, false);
+      } else {
+        advancedSection.classList.add('hidden');
+        if (cronDescription) {
+          cronDescription.textContent = '';
+          cronDescription.className = 'text-xs text-text-muted';
+        }
+        setCronValid(panelName, true);
       }
     }
   }
@@ -620,24 +657,14 @@ function initCronPickerForPanel(panelName) {
     daySelect.addEventListener('change', function () { buildCron(); });
   }
 
-  // Advanced toggle
-  if (advancedToggle && advancedSection) {
-    advancedToggle.addEventListener('click', function () {
-      advancedSection.classList.toggle('hidden');
-      var isVisible = !advancedSection.classList.contains('hidden');
-      advancedToggle.textContent = isVisible
-        ? 'Hide advanced cron expression'
-        : 'Advanced: Enter raw cron expression';
-    });
-  }
-
   // Raw cron input validation
   if (cronRaw) {
     cronRaw.addEventListener('input', function () {
       buildCron();
+      setCronValid(panelName, false);
       if (cronValidateTimer) { clearTimeout(cronValidateTimer); }
       cronValidateTimer = setTimeout(function () {
-        validateCronExpression(cronRaw.value, cronDescription);
+        validateCronExpression(cronRaw.value, cronDescription, panelName);
       }, CRON_VALIDATE_DEBOUNCE_MS);
     });
   }
@@ -645,6 +672,11 @@ function initCronPickerForPanel(panelName) {
   // Initialize row visibility and build initial cron
   updateRowVisibility();
   buildCron();
+
+  // Validate any pre-populated custom cron (e.g. edit form loading existing schedule)
+  if (freqSelect.value === 'custom' && cronRaw && cronRaw.value) {
+    validateCronExpression(cronRaw.value, cronDescription, panelName);
+  }
 }
 
 /**
@@ -652,26 +684,41 @@ function initCronPickerForPanel(panelName) {
  * @param {string} expr - cron expression
  * @param {Element} descEl - element to display description in
  */
-function validateCronExpression(expr, descEl) {
-  if (!expr || !descEl) { return; }
+function validateCronExpression(expr, descEl, panelName) {
+  if (!expr || !descEl) {
+    if (panelName) { setCronValid(panelName, false); }
+    return;
+  }
+
+  if (cronValidateAbortController) {
+    cronValidateAbortController.abort();
+  }
+  cronValidateAbortController = new AbortController();
 
   var encoded = encodeURIComponent(expr);
-  fetch('/api/cron/validate?expr=' + encoded)
-  .then(function (response) { return response.json(); })
-  .then(function (data) {
-    if (data.valid && data.description) {
-      descEl.textContent = data.description;
-      descEl.className = 'text-xs text-success';
-    } else if (data.error) {
-      descEl.textContent = data.error;
-      descEl.className = 'text-xs text-error';
-    } else {
-      descEl.textContent = '';
-    }
-  })
-  .catch(function () {
-    descEl.textContent = '';
-  });
+  fetch('/api/cron/validate?expr=' + encoded, { signal: cronValidateAbortController.signal })
+    .then(function (response) { return response.json(); })
+    .then(function (data) {
+      cronValidateAbortController = null;
+      if (data.valid && data.description) {
+        descEl.textContent = data.description;
+        descEl.className = 'text-xs text-success';
+        if (panelName) { setCronValid(panelName, true); }
+      } else if (data.error) {
+        descEl.textContent = data.error;
+        descEl.className = 'text-xs text-error';
+        if (panelName) { setCronValid(panelName, false); }
+      } else {
+        descEl.textContent = '';
+        if (panelName) { setCronValid(panelName, false); }
+      }
+    })
+    .catch(function (err) {
+      if (err.name !== 'AbortError') {
+        descEl.textContent = '';
+        if (panelName) { setCronValid(panelName, false); }
+      }
+    });
 }
 
 // ---------------------

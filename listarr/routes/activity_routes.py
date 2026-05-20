@@ -64,6 +64,7 @@ def get_activity():
         job_dict = job.to_dict()
         list_obj = List.query.get(job.list_id) if job.list_id else None
         job_dict["target_service"] = list_obj.target_service if list_obj else None
+        job_dict["list_deleted"] = job.list_id is not None and list_obj is None
         result.append(job_dict)
 
     return jsonify(

@@ -9,13 +9,20 @@ Tests cover:
 - get_next_run_time() fallback for non-scheduler workers
 """
 
+import zoneinfo
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from listarr.services.scheduler import _run_scheduled_import, get_next_run_time
+from listarr.services.scheduler import (
+    _get_scheduler_timezone,
+    _run_scheduled_import,
+    get_next_run_time,
+    schedule_list,
+    validate_cron_expression,
+)
 
 
 class TestRunScheduledImportHealthCheck:
@@ -421,3 +428,76 @@ class TestGetNextRunTimeFallback:
 
         # Assert submit_job was NOT called
         mock_submit_job.assert_not_called()
+
+
+class TestSchedulerTimezone:
+    """Tests for timezone propagation fixes in scheduler.py (BUG-01)."""
+
+    @patch("listarr.services.scheduler._scheduler")
+    def test_get_scheduler_timezone_uses_live_scheduler(self, mock_scheduler):
+        """_get_scheduler_timezone() returns scheduler timezone when scheduler is live."""
+        # Setup mock scheduler timezone
+        expected_tz = zoneinfo.ZoneInfo("America/New_York")
+        mock_scheduler.timezone = expected_tz
+
+        result = _get_scheduler_timezone()
+
+        assert result == expected_tz
+
+    @patch.dict("os.environ", {"TZ": "America/Chicago"})
+    @patch("listarr.services.scheduler._scheduler", None)
+    def test_get_scheduler_timezone_falls_back_to_env(self):
+        """_get_scheduler_timezone() falls back to TZ env var when scheduler is unavailable."""
+        result = _get_scheduler_timezone()
+
+        assert result == zoneinfo.ZoneInfo("America/Chicago")
+
+    @patch("listarr.services.scheduler.validate_cron_expression")
+    @patch("listarr.services.scheduler.CronTrigger")
+    @patch("listarr.services.scheduler._scheduler")
+    def test_schedule_list_passes_scheduler_timezone_to_cron_trigger(
+        self,
+        mock_scheduler,
+        mock_cron_trigger,
+        mock_validate_expr,
+    ):
+        """schedule_list() passes scheduler timezone to CronTrigger.from_crontab()."""
+        # Setup scheduler with configured timezone
+        expected_tz = zoneinfo.ZoneInfo("America/New_York")
+        mock_scheduler.timezone = expected_tz
+        mock_scheduler.get_job.return_value = None
+        mock_scheduler.add_job = MagicMock()
+        mock_validate_expr.return_value = {"valid": True}
+
+        schedule_list(1, "0 9 * * 1")
+
+        mock_cron_trigger.from_crontab.assert_called_once_with("0 9 * * mon", timezone=expected_tz)
+
+    @patch.dict("os.environ", {"TZ": "America/New_York"})
+    @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.List")
+    def test_get_next_run_time_fallback_uses_scheduler_timezone(self, mock_list_class):
+        """get_next_run_time() fallback returns a datetime in scheduler timezone."""
+        # Setup list with valid cron expression
+        mock_list_obj = MagicMock()
+        mock_list_obj.schedule_cron = "0 9 * * 1"
+        mock_list_obj.is_active = True
+        mock_list_class.query.get.return_value = mock_list_obj
+
+        result = get_next_run_time(1)
+
+        assert result is not None
+        assert result.tzinfo is not None
+        assert result.tzinfo == zoneinfo.ZoneInfo("America/New_York")
+
+    @patch.dict("os.environ", {"TZ": "America/New_York"})
+    @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_uses_scheduler_timezone(self):
+        """validate_cron_expression() returns next runs with scheduler timezone offsets."""
+        result = validate_cron_expression("0 9 * * 1")
+
+        assert result["valid"] is True
+        assert len(result["next_runs"]) == 3
+        for next_run in result["next_runs"]:
+            assert "Z" not in next_run
+            assert next_run[-6] in {"+", "-"}

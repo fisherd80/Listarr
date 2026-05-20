@@ -267,18 +267,13 @@
           </select>
         </div>
 
-        <!-- Advanced toggle -->
-        <div>
-          <button type="button" id="edit-advanced-toggle"
-                  class="text-xs text-primary hover:text-primary-hover underline focus:outline-none"
-                  data-panel="edit">
-            Advanced: Enter raw cron expression
-          </button>
-        </div>
-
         <!-- Raw cron input (hidden until advanced) -->
         <div id="edit-cron-advanced" class="hidden space-y-2">
-          <label for="edit-cron-raw" class="block text-xs font-medium text-text-base">Cron Expression</label>
+          <div class="flex items-center justify-between mb-1">
+            <label for="edit-cron-raw" class="text-xs font-medium text-text-base">Cron Expression</label>
+            <a href="https://crontab.guru" target="_blank" rel="noopener noreferrer"
+               class="text-xs text-primary underline">crontab.guru</a>
+          </div>
           <input type="text" id="edit-cron-raw" placeholder="0 0 * * *"
                  class="cron-raw-input w-full text-sm bg-input-bg border border-input-border text-text-base rounded px-3 py-1.5 font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                  data-panel="edit">
@@ -294,7 +289,7 @@
          class="px-4 py-2 text-sm font-medium bg-btn-secondary-bg text-btn-secondary-text hover:bg-btn-secondary-hover border border-border-subtle rounded transition-colors focus:outline-none">
         Cancel
       </a>
-      <button type="submit"
+      <button type="submit" id="edit-submit-btn"
               class="px-5 py-2 text-sm font-medium text-white bg-primary rounded hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
         Save Changes
       </button>
@@ -323,7 +318,6 @@
     var dayEl = document.getElementById('edit-day');
     var cronRawEl = document.getElementById('edit-cron-raw');
     var advancedSection = document.getElementById('edit-cron-advanced');
-    var advancedToggle = document.getElementById('edit-advanced-toggle');
 
     if (!freqEl || !existingCron) {
       return;
@@ -373,7 +367,6 @@
         freqEl.value = 'custom';
         if (cronRawEl) { cronRawEl.value = existingCron; }
         if (advancedSection) { advancedSection.classList.remove('hidden'); }
-        if (advancedToggle) { advancedToggle.textContent = 'Hide advanced cron expression'; }
       }
     }
 

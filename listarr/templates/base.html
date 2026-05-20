@@ -171,7 +171,12 @@
         <div class="w-10"></div>
         <!-- Center: Version + GitHub -->
         <div class="flex items-center gap-3">
-          <span>v1.0.0</span>
+          <a
+            href="{{ app_version_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-text-muted hover:text-text-heading transition-colors text-sm"
+          >{{ app_version }}</a>
           <a
             href="https://github.com/fisherd80/Listarr"
             target="_blank"
