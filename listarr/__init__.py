@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import timedelta
 
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager
@@ -126,10 +126,13 @@ def create_app(test_config=None):
     def inject_app_version():
         repo_root = "https://github.com/fisherd80/Listarr"
         release_base = f"{repo_root}/releases/tag/"
+        # APP_VERSION env var is set at Docker build time from the git tag (e.g. 2.1.0).
+        # Falls back to __version__ for local dev runs outside Docker.
+        raw_version = os.environ.get("APP_VERSION") or __version__
         normalized_version = ""
 
-        if __version__:
-            normalized_version = __version__ if __version__.startswith("v") else f"v{__version__}"
+        if raw_version and raw_version != "dev":
+            normalized_version = raw_version if raw_version.startswith("v") else f"v{raw_version}"
 
         return {
             "app_version": normalized_version,
