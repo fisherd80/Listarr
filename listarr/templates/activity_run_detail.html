@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "macros/ui.html" import loading_spinner, empty_state %}
+{% block title %}Run Detail - Listarr{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='js/activity_detail.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="space-y-4">
+  <div id="run-id-anchor" data-run-id="{{ run_id }}"></div>
+
+  <div class="flex justify-between items-center">
+    <h1 class="text-2xl font-semibold text-text-heading">Run Detail</h1>
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('main.activity_page') }}"
+         class="inline-flex items-center px-3 py-1.5 text-sm text-text-muted hover:text-text-base border border-border-subtle rounded hover:border-input-border transition-colors">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to Activity
+      </a>
+      <div id="detail-rerun-area"></div>
+    </div>
+  </div>
+
+  <div id="detail-loading" class="text-center py-12">
+    {{ loading_spinner("Loading run detail...") }}
+  </div>
+
+  <div id="detail-error-banner"
+       class="hidden mb-4 bg-error/10 border border-error/30 rounded p-4 text-error text-sm">
+  </div>
+
+  <div id="detail-summary"
+       class="hidden mb-4 bg-bg-panel border border-border-subtle rounded p-3 text-sm text-text-base">
+  </div>
+
+  <div id="detail-items"
+       class="hidden bg-bg-panel border border-border-subtle rounded overflow-hidden">
+  </div>
+</div>
+{% endblock %}

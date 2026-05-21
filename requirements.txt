@@ -1,0 +1,32 @@
+# Core Flask Framework
+Flask==3.1.3
+
+# Database ORM
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.46
+
+# Forms and CSRF Protection
+Flask-WTF==1.2.2
+WTForms==3.2.1
+
+# Authentication
+Flask-Login==0.6.3
+
+# Caching
+cachetools>=5.3.0
+
+# Encryption
+cryptography==46.0.7
+
+# HTTP Requests (for external APIs)
+requests==2.33.0
+urllib3>=2.7.0
+idna>=3.15
+
+# Production WSGI Server (required for Docker deployment)
+gunicorn==25.1.0
+
+# Scheduler
+APScheduler==3.11.2
+cronsim==2.7
+cron-descriptor==2.0.6

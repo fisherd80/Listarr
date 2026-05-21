@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+    />
+    <meta charset="UTF-8" />
+    <script>
+      (function () {
+        var theme = localStorage.getItem('theme');
+        if (theme === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Server Error - Listarr</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+  </head>
+  <body class="bg-bg-base text-text-base">
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="text-center">
+        <h1 class="text-3xl font-bold text-primary mb-2">Listarr</h1>
+        <p class="text-8xl font-bold text-text-muted">500</p>
+        <p class="mt-4 text-xl text-text-muted">Something went wrong</p>
+        <a href="/" class="mt-6 inline-block text-primary hover:text-primary-hover">
+          Go to Lists
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

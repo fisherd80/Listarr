@@ -1,0 +1,11 @@
+ruff
+pre-commit
+pytest
+pytest-flask>=1.2.0
+pytest-cov
+pytest-mock>=3.11.1
+bandit
+pip-audit
+pytailwindcss==0.3.0
+responses>=0.23.0
+freezegun>=1.2.0

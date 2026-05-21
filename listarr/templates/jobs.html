@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from 'macros/ui.html' import loading_spinner, empty_state %}
+{% block title %}Activity - Listarr{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/jobs.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="space-y-4">
+  <!-- Page Header -->
+  <div class="flex justify-between items-center">
+    <div>
+      <h1 class="text-2xl font-semibold text-text-heading">
+        Activity
+      </h1>
+      <p class="mt-1 text-sm text-text-muted">
+        View import run history across all lists.
+      </p>
+    </div>
+    <div>
+      <button
+        id="clear-all-btn"
+        type="button"
+        class="px-4 py-2 text-sm font-medium text-white bg-error hover:bg-error/90 rounded focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2"
+      >
+        Clear All
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="bg-bg-panel border border-border-subtle rounded p-3">
+    <div class="flex flex-wrap items-end gap-4">
+      <!-- List Filter -->
+      <div class="flex-1 min-w-[200px]">
+        <label for="filter-list" class="block text-sm font-medium text-text-base mb-1">
+          List
+        </label>
+        <select
+          id="filter-list"
+          class="block w-full rounded border border-input-border bg-input-bg text-text-base focus:border-primary focus:ring-primary text-sm py-2"
+        >
+          <option value="">All Lists</option>
+          <!-- Populated by JavaScript -->
+        </select>
+      </div>
+
+      <!-- Status Filter -->
+      <div class="flex-1 min-w-[150px]">
+        <label for="filter-status" class="block text-sm font-medium text-text-base mb-1">
+          Status
+        </label>
+        <select
+          id="filter-status"
+          class="block w-full rounded border border-input-border bg-input-bg text-text-base focus:border-primary focus:ring-primary text-sm py-2"
+        >
+          <option value="">All Statuses</option>
+          <option value="running">Running</option>
+          <option value="completed">Success</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobs Table -->
+  <div class="bg-bg-panel border border-border-subtle rounded overflow-hidden">
+    <!-- Loading State -->
+    <div id="jobs-loading" class="text-center py-12">
+      {{ loading_spinner('Loading activity...') }}
+    </div>
+
+    <!-- Empty State -->
+    <div id="jobs-empty" class="text-center py-12 hidden">
+      {{ empty_state('No activity found', 'Run history will appear here after lists are imported.') }}
+    </div>
+
+    <!-- Jobs Table Content -->
+    <div id="jobs-table-container" class="hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-border-subtle">
+          <thead class="bg-bg-table-head">
+            <tr>
+              <th
+                scope="col"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                List Name
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                Target
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                Started
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                Duration
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                Result
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                Status
+              </th>
+              <th
+                scope="col"
+                class="px-4 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider"
+              >
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody id="jobs-tbody" class="bg-bg-panel divide-y divide-border-subtle">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination-container" class="px-4 py-3 border-t border-border-subtle">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-text-muted">
+            Showing <span id="pagination-start">0</span> to <span id="pagination-end">0</span> of <span id="pagination-total">0</span> jobs
+          </div>
+          <!-- Rendered by renderPaginationButtons() in jobs.js -->
+          <div id="pagination-buttons" class="flex items-center space-x-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

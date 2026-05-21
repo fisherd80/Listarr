@@ -1,0 +1,41 @@
+{# Status badge macro - renders a colored pill badge for any status #}
+{% macro status_badge(status, label=none, size='xs', animate=false) %}
+{%- set colors = {
+  'online':         'bg-success/15 text-success border border-success/30',
+  'connected':      'bg-success/15 text-success border border-success/30',
+  'active':         'bg-success/15 text-success border border-success/30',
+  'completed':      'bg-success/15 text-success border border-success/30',
+  'scheduled':      'bg-success/15 text-success border border-success/30',
+  'running':        'bg-primary/15 text-primary border border-primary/30',
+  'pending':        'bg-warning/15 text-warning border border-warning/30',
+  'paused':         'bg-warning/15 text-warning border border-warning/30',
+  'failed':         'bg-error/15 text-error border border-error/30',
+  'offline':        'bg-error/15 text-error border border-error/30',
+  'inactive':       'bg-bg-hover text-text-muted border border-border-subtle',
+  'not_configured': 'bg-bg-hover text-text-muted border border-border-subtle',
+  'manual_only':    'bg-bg-hover text-text-muted border border-border-subtle',
+} -%}
+{%- set color = colors.get(status|lower, 'bg-bg-hover text-text-muted border border-border-subtle') -%}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-{{ size }} font-medium {{ color }}">
+  {%- if animate and status|lower == 'running' %}
+  <svg class="animate-spin -ml-1 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+  {%- endif %}
+  {{ label if label else status|replace('_', ' ')|title }}
+</span>
+{% endmacro %}
+
+{# Service badge macro - renders radarr (movie) or sonarr (tv) pill #}
+{% macro service_badge(service) %}
+{%- if service|lower == 'radarr' -%}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-badge-movie/15 text-badge-movie border border-badge-movie/30">
+  {{ service|title }}
+</span>
+{%- else -%}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-badge-tv/15 text-badge-tv border border-badge-tv/30">
+  {{ service|title }}
+</span>
+{%- endif -%}
+{% endmacro %}

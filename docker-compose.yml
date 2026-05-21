@@ -1,0 +1,26 @@
+services:
+  listarr:
+    image: fisherd91/listarr:latest
+    container_name: listarr
+    ports:
+      - "5000:5000"
+    user: root  # Entrypoint starts as root to fix bind-mount permissions, then drops to listarr via su-exec
+    volumes:
+      - ./instance:/app/instance  # Bind mount - entrypoint fixes permissions
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - TZ=${TZ:-UTC}                    # Server timezone for cron schedule interpretation
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}     # Python logging level (DEBUG, INFO, WARNING, ERROR)
+      - FLASK_DEBUG=${FLASK_DEBUG:-false}
+      # SECRET_KEY auto-generated to instance/.secret_key on first run
+      # LISTARR_SECRET_KEY=your_override_here  # Optional override
+      # SECURE_COOKIES=true  # Enable when serving over HTTPS (reverse proxy)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3

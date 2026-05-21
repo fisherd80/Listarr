@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='favicon.ico') }}"
+    />
+    <meta charset="UTF-8" />
+    <!-- FOUC prevention: apply dark class before first paint -->
+    <script>
+      (function () {
+        var theme = localStorage.getItem('theme');
+        if (theme === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+
+    <title>Setup - Listarr</title>
+
+    <!-- Compiled Tailwind CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+  </head>
+
+  <body class="bg-bg-base text-text-base">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-md w-full">
+        <!-- Card -->
+        <div class="bg-bg-panel border border-border-subtle rounded px-8 py-10">
+          <!-- Logo / Brand -->
+          <div class="text-center mb-8">
+            <img src="{{ url_for('static', filename='logo-icon.png') }}" alt="Listarr" class="h-16 w-16 mx-auto mb-3" />
+            <h1 class="text-3xl font-bold text-primary">Listarr</h1>
+            <p class="mt-2 text-sm text-text-muted">
+              Media Discovery &amp; List Management
+            </p>
+            <p class="mt-4 text-lg font-medium">
+              Welcome! Create your account
+            </p>
+          </div>
+
+          <!-- Setup Form -->
+          <form method="POST" action="{{ url_for('main.setup_page') }}">
+            {{ form.hidden_tag() }}
+
+            <!-- Username Field -->
+            <div class="mb-4">
+              <label for="username" class="block text-sm font-medium mb-2">
+                Username
+              </label>
+              {{ form.username(class="w-full px-3 py-2 border border-input-border rounded bg-input-bg text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="username") }}
+              {% if form.username.errors %}
+                {% for error in form.username.errors %}
+                  <p class="text-error text-xs mt-1">{{ error }}</p>
+                {% endfor %}
+              {% endif %}
+            </div>
+
+            <!-- Password Field -->
+            <div class="mb-4">
+              <label for="password" class="block text-sm font-medium mb-2">
+                Password
+              </label>
+              <div class="relative">
+                {{ form.password(class="w-full px-3 py-2 border border-input-border rounded bg-input-bg text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="password") }}
+                <button
+                  type="button"
+                  onclick="togglePasswordVisibility('password', 'password-eye')"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-heading"
+                >
+                  <svg id="password-eye" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </div>
+              {% if form.password.errors %}
+                {% for error in form.password.errors %}
+                  <p class="text-error text-xs mt-1">{{ error }}</p>
+                {% endfor %}
+              {% endif %}
+            </div>
+
+            <!-- Confirm Password Field -->
+            <div class="mb-6">
+              <label for="password_confirm" class="block text-sm font-medium mb-2">
+                Confirm Password
+              </label>
+              <div class="relative">
+                {{ form.password_confirm(class="w-full px-3 py-2 border border-input-border rounded bg-input-bg text-text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent", id="password_confirm") }}
+                <button
+                  type="button"
+                  onclick="togglePasswordVisibility('password_confirm', 'password-confirm-eye')"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-heading"
+                >
+                  <svg id="password-confirm-eye" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </div>
+              {% if form.password_confirm.errors %}
+                {% for error in form.password_confirm.errors %}
+                  <p class="text-error text-xs mt-1">{{ error }}</p>
+                {% endfor %}
+              {% endif %}
+            </div>
+
+            <!-- Submit Button -->
+            <div>
+              {{ form.submit(class="w-full bg-primary text-white py-2 px-4 rounded hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 font-medium") }}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password Toggle Script -->
+    <script>
+      function togglePasswordVisibility(inputId, iconId) {
+        var input = document.getElementById(inputId);
+        var icon = document.getElementById(iconId);
+        var eyePath = 'M15 12a3 3 0 11-6 0 3 3 0 016 0z';
+        var eyePath2 = 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z';
+        var eyeOffPath = 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21';
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.querySelectorAll('path')[0].setAttribute('d', eyeOffPath);
+          if (icon.querySelectorAll('path').length > 1) { icon.querySelectorAll('path')[1].setAttribute('d', ''); }
+        } else {
+          input.type = 'password';
+          icon.querySelectorAll('path')[0].setAttribute('d', eyePath);
+          if (icon.querySelectorAll('path').length > 1) { icon.querySelectorAll('path')[1].setAttribute('d', eyePath2); }
+        }
+      }
+    </script>
+  </body>
+</html>
