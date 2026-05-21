@@ -6,9 +6,9 @@
 
 Automated media discovery and import for Radarr/Sonarr via TMDB.
 
-[![CI](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml/badge.svg)](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml)
+[![CI](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml/badge.svg?branch=main)](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml)
 [![Docker Hub](https://img.shields.io/docker/v/fisherd91/listarr?label=Docker%20Hub)](https://hub.docker.com/r/fisherd91/listarr)
-[![Release](https://img.shields.io/badge/release-v2.1.0-green.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v2.1.1-green.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > Listarr is not affiliated with Radarr, Sonarr, the Servarr project, or TMDB. You will need your own API keys for each service.
@@ -233,6 +233,8 @@ See [.env.example](.env.example) for a ready-to-use template.
 ---
 
 ## Roadmap
+
+v2.1.1 is a micro release patching CVE-2026-45409 (idna upgraded to 3.15), fixing stale "Go to Dashboard" link text on error pages, and removing dead code.
 
 v2.1.0 fixed the APScheduler cron timezone bug, polished the cron expression UX (live description, crontab.guru link, removed redundant toggle), added activity page improvements (Clear All, Deleted badge for orphaned rows), and fixed the preset wizard preview, settings layout, and footer version link.
 

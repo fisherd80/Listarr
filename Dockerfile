@@ -25,11 +25,16 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
 # ===========================
 FROM python:3-alpine
 
+# Version injected at build time for tag releases (e.g. --build-arg APP_VERSION=2.1.0)
+ARG APP_VERSION=dev
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     FLASK_APP=listarr \
     PORT=5000
+
+ENV APP_VERSION=${APP_VERSION}
 
 # Upgrade base packages, compile su-exec, then remove build deps
 RUN apk upgrade --no-cache && \

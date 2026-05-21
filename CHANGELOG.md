@@ -5,6 +5,19 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.1.1] - 2026-05-21
+
+### Fixed
+
+- Error pages (404, 500) now link to "Go to Lists" instead of the removed Dashboard
+- Removed orphaned `config.js` static file (dead code, not loaded by any template)
+
+### Security
+
+- idna upgraded to 3.15 (CVE-2026-45409)
+
+---
+
 ## [2.1.0] - 2026-05-15
 
 ### Added
