@@ -305,8 +305,8 @@ def db_session(request):
     """
     Ensure each test starts with a clean database state (test data tables empty).
 
-    Truncates all test data tables before and after each test runs. Also resets
-    the in-memory dashboard cache so tests see a clean unconfigured state.
+    Truncates all test data tables before and after each test runs to ensure
+    each test sees a clean, unconfigured state.
 
     Only activates for tests that use the session-scoped app fixtures.
 
