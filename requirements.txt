@@ -30,3 +30,5 @@ gunicorn==25.1.0
 APScheduler==3.11.2
 cronsim==2.7
 cron-descriptor==2.0.6
+# IANA tz database for zoneinfo on Windows / Alpine (no system /usr/share/zoneinfo)
+tzdata==2026.3
