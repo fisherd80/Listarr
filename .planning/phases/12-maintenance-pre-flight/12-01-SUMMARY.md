@@ -94,6 +94,14 @@ None - no external service configuration required.
 - The `pip-audit` RED state is documented and explicitly deferred to plan 12-03 (`cryptography==50.0.1`).
 - Caveat for downstream: coverage baseline and lint/format/bandit green were established on Python 3.14.3, not the 3.11 target runtime. Plan 12-06's in-container run on `python:3.11-alpine` is the authoritative fresh-install proof (D-01).
 
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/12-maintenance-pre-flight/12-NOTES.md`
+- FOUND: `.planning/phases/12-maintenance-pre-flight/12-01-SUMMARY.md`
+- FOUND commit `9e89849` (Task 1)
+- FOUND commit `a522ce6` (Task 2)
+- FOUND commit `f9df922` (SUMMARY)
+
 ---
 *Phase: 12-maintenance-pre-flight*
 *Completed: 2026-09-02*
