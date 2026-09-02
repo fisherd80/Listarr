@@ -15,15 +15,158 @@ _Coverage TOTAL % on an untouched tree plus a verbatim snapshot of all five qual
 
 ### Environment
 
-_(pending)_
+| Property | Value |
+|----------|-------|
+| Recorded | 2026-09-02 (UTC) |
+| Git short SHA | `9e89849` (tree state: `requirements.txt`, `Dockerfile`, `tests/` all untouched — confirmed `git status --porcelain requirements.txt Dockerfile tests/` empty before measuring) |
+| Python | `Python 3.14.3` (`python -V`) |
+| pip | `pip 26.1.1 from C:\Program Files\Python314\Lib\site-packages\pip (python 3.14)` |
+| Platform | `Windows-11-10.0.26200-SP0` (`platform.platform()`) |
+| Test env | Host global interpreter (`C:\Program Files\Python314\python.exe`), not a project venv |
+
+> **Interpreter note (recorded honestly, not a Phase 12 change):** the planning docs
+> (12-CONTEXT / 12-RESEARCH) assume a Python 3.11 project venv. The baseline above was
+> taken on the host global **Python 3.14.3** install, which is what is available on this
+> machine. Consequences for downstream comparison:
+> - Bare `pip-audit` (no `-r`) scans the whole global site-packages and therefore reports
+>   35 findings across 6 packages (`pillow`, `pypdf`, `pip`, `click`, `msgpack`, `cryptography`) —
+>   only the 5 `cryptography` rows are Listarr runtime dependencies. The lockfile-scoped
+>   `pip-audit -r requirements.txt` (5 findings, 1 package) is the **finding of record** for
+>   this project and is the number plan 12-03 must clear.
+> - The coverage TOTAL below (73.29%) was produced by CPython 3.14. Plan 12-06's Docker
+>   proof runs on `python:3.11-alpine`; a small interpreter-driven delta is possible.
+>   D-04's intent is "a drop is a red flag that a bump disabled a code path" — evaluate
+>   the 12-06 number against 73.29% with that intent, allowing for the interpreter change.
 
 ### Gate Results
 
-_(pending)_
+Pre-change state of all five quality gates, measured on the tree at commit `9e89849`
+(no Phase 12 edits to `requirements.txt` / `Dockerfile` / `tests/`):
+
+| Gate | Command | Exit code | Result |
+|------|---------|-----------|--------|
+| Dependency audit | `pip-audit` (bare, global env) | 1 | RED — 35 findings / 6 pkgs; only 5 `cryptography==46.0.7` rows are Listarr deps (rest are unrelated global packages) |
+| Dependency audit | `pip-audit -r requirements.txt` (lockfile, finding of record) | 1 | RED (expected — resolved by plan 12-03 per D-16/D-12) — 5 findings in 1 package: `cryptography==46.0.7` |
+| Lint | `ruff check .` | 0 | GREEN — `All checks passed!` |
+| Format | `ruff format --check .` | 0 | GREEN — `56 files already formatted` |
+| Test suite + coverage | `pytest --cov=listarr --cov-report=term-missing` | 0 | GREEN — `599 passed in 175.15s`, `TOTAL` coverage `73.29%` |
+| Security scan | `bandit -r listarr -ll` | 0 | GREEN — `No issues identified.` (1 Low-severity item exists but is below the `-ll` medium threshold) |
+
+Only `pip-audit` is RED, exactly as anticipated by D-16. `ruff`, `pytest`, and `bandit`
+are all green — the phase starts from the expected clean state and no pre-existing
+non-`pip-audit` baseline failure needs to be surfaced.
+
+#### `pip-audit` — verbatim output (finding of record: `pip-audit -r requirements.txt`)
+
+```
+$ pip-audit -r requirements.txt
+Found 5 known vulnerabilities in 1 package
+Name         Version ID                  Fix Versions
+------------ ------- ------------------- ------------
+cryptography 46.0.7  PYSEC-2026-3554     49.0.0
+cryptography 46.0.7  PYSEC-2026-3552     50.0.0
+cryptography 46.0.7  PYSEC-2026-3553     49.0.0
+cryptography 46.0.7  PYSEC-2026-3554     49.0.0
+cryptography 46.0.7  GHSA-537c-gmf6-5ccf 48.0.1
+EXIT=1
+```
+
+Findings of record: **PYSEC-2026-3552** (fixed in `cryptography==50.0.0`), PYSEC-2026-3553
+(fixed in 49.0.0), PYSEC-2026-3554 (fixed in 49.0.0, listed twice), GHSA-537c-gmf6-5ccf
+(fixed in 48.0.1). Only `cryptography==50.0.1` clears all five (per D-16). **Not fixed in
+this plan** — plan 12-03 pins `cryptography==50.0.1` and validates with `pytest -m encryption`.
+The non-zero exit here is expected and is NOT a task failure.
+
+#### `pip-audit` — verbatim output (bare, whole global environment)
+
+```
+$ pip-audit
+Found 35 known vulnerabilities in 6 packages
+Name         Version ID                  Fix Versions
+------------ ------- ------------------- ------------
+click        8.3.2   PYSEC-2026-2132     8.3.3
+cryptography 46.0.7  PYSEC-2026-3554     49.0.0
+cryptography 46.0.7  PYSEC-2026-3552     50.0.0
+cryptography 46.0.7  PYSEC-2026-3553     49.0.0
+cryptography 46.0.7  PYSEC-2026-3554     49.0.0
+cryptography 46.0.7  GHSA-537c-gmf6-5ccf 48.0.1
+msgpack      1.1.2   PYSEC-2026-3625     1.2.1
+pillow       12.2.0  PYSEC-2026-2253     12.3.0
+pillow       12.2.0  PYSEC-2026-2255     12.3.0
+pillow       12.2.0  PYSEC-2026-2257     12.3.0
+pillow       12.2.0  PYSEC-2026-2256     12.3.0
+pillow       12.2.0  PYSEC-2026-2254     12.3.0
+pillow       12.2.0  PYSEC-2026-3453     12.3.0
+pillow       12.2.0  PYSEC-2026-3451     12.3.0
+pillow       12.2.0  PYSEC-2026-3452     12.3.0
+pillow       12.2.0  PYSEC-2026-2254     12.3.0
+pillow       12.2.0  PYSEC-2026-2253     12.3.0
+pillow       12.2.0  PYSEC-2026-2256     12.3.0
+pillow       12.2.0  PYSEC-2026-2255     12.3.0
+pillow       12.2.0  PYSEC-2026-3451     12.3.0
+pillow       12.2.0  PYSEC-2026-3452     12.3.0
+pillow       12.2.0  PYSEC-2026-3453     12.3.0
+pillow       12.2.0  PYSEC-2026-3454     12.3.0
+pillow       12.2.0  PYSEC-2026-3495     12.3.0
+pillow       12.2.0  PYSEC-2026-3496     12.3.0
+pillow       12.2.0  PYSEC-2026-3494     12.3.0
+pillow       12.2.0  PYSEC-2026-3493     12.3.0
+pip          26.1.1  PYSEC-2026-196      26.1.2
+pip          26.1.1  PYSEC-2026-196      26.1.2
+pip          26.1.1  PYSEC-2026-3721     26.2
+pypdf        6.14.2  PYSEC-2026-3655     6.15.0
+pypdf        6.14.2  PYSEC-2026-3656     6.15.0
+pypdf        6.14.2  CVE-2026-84309      6.16.0
+pypdf        6.14.2  CVE-2026-84310      6.16.1
+pypdf        6.14.2  CVE-2026-84311      6.16.1
+EXIT=1
+```
+
+`click`, `msgpack`, `pillow`, `pypdf`, `pip` are **not** in `requirements.txt` — they are
+pre-existing packages in the shared host interpreter and out of scope for Phase 12
+(and for Listarr entirely). The lockfile-scoped scan above is the authoritative baseline.
+
+#### `ruff` / `bandit` — output excerpts
+
+```
+$ ruff check .
+All checks passed!
+EXIT=0
+
+$ ruff format --check .
+56 files already formatted
+EXIT=0
+
+$ bandit -r listarr -ll
+Test results:
+	No issues identified.
+Code scanned:
+	Total lines of code: 4812
+Run metrics:
+	Total issues (by severity): Low: 1, Medium: 0, High: 0
+EXIT=0
+```
+
+#### `pytest --cov=listarr` — summary + TOTAL line
+
+```
+$ pytest --cov=listarr --cov-report=term-missing
+...
+Name                                     Stmts   Miss   Cover   Missing
+-----------------------------------------------------------------------
+TOTAL                                     2894    773  73.29%
+======================= 599 passed in 175.15s (0:02:55) =======================
+EXIT=0
+```
 
 ### Baseline coverage TOTAL
 
-_(pending)_
+Baseline coverage TOTAL: 73.29% (recorded 2026-09-02, commit 9e89849)
+
+This is the D-04 comparison target. Plan 12-06 re-runs `pytest --cov=listarr` and asserts
+the fresh `TOTAL` is `>= 73.29%` and `>= 60%` (criterion 5, non-negative delta). Phase 12
+changes zero application code, so any drop below 73.29% signals a dependency bump silently
+disabled a code path (subject to the interpreter-change caveat in the Environment note above).
 
 ---
 
