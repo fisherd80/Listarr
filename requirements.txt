@@ -16,7 +16,7 @@ Flask-Login==0.6.3
 cachetools>=5.3.0
 
 # Encryption
-cryptography==46.0.7
+cryptography==50.0.1  # forced by pip-audit (D-12/D-16): clears PYSEC-2026-3552/-3553/-3554 + GHSA-537c-gmf6-5ccf; see .planning/phases/12-maintenance-pre-flight/12-NOTES.md §4
 
 # HTTP Requests (for external APIs)
 requests==2.33.0
