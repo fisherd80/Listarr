@@ -3,7 +3,7 @@ Flask==3.1.3
 
 # Database ORM
 Flask-SQLAlchemy==3.1.1
-SQLAlchemy==2.0.46
+SQLAlchemy==2.0.52
 
 # Forms and CSRF Protection
 Flask-WTF==1.2.2
@@ -27,8 +27,8 @@ idna>=3.15
 gunicorn==25.1.0
 
 # Scheduler
-APScheduler==3.11.2
+APScheduler==3.11.3
 cronsim==2.7
-cron-descriptor==2.0.6
+cron-descriptor==2.1.0
 # IANA tz database for zoneinfo on Windows / Alpine (no system /usr/share/zoneinfo)
 tzdata==2026.3
