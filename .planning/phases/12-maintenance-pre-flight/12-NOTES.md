@@ -181,7 +181,34 @@ D-09 rationale (recorded in writing): the `<4` / `<2.1` language in success crit
 exact `==` pins for all runtime dependencies, matching the existing `requirements.txt`
 convention. No range operators are introduced.
 
-_(pending)_
+### Review table
+
+| Package | Pre-Phase-12 pin | Latest | Checked | Action | Changelog summary |
+|---------|------------------|--------|---------|--------|-------------------|
+| APScheduler | `==3.11.2` | `3.11.3` | 2026-09-02 | bumped | `3.11.3` is exactly two bug fixes over `3.11.2`: a DST spring-forward correction for sub-minute `IntervalTrigger` jobs evaluated under `ZoneInfo`, and a fix for imported-job store links. Neither touches this codebase's APScheduler surface — `BackgroundScheduler(timezone=<str>)`, `job_defaults`, `CronTrigger.from_crontab`, `job.next_run_time`. Listarr registers only cron triggers (no `IntervalTrigger`) and runs the default `MemoryJobStore` (no imported/persisted jobs), so both fixes are inert here. Stays in the `3.11.x` line, far below the `4.x` rewrite. Verified against the GitHub release notes. |
+| SQLAlchemy | `==2.0.46` | `2.0.52` | 2026-09-02 | bumped | The crossed range `2.0.47`–`2.0.52` contains no change to `TypeDecorator`, `cache_ok`, `DateTime` result processing, or the legacy `Query.get()` API — the surfaces `listarr/models/custom_types.py:TZDateTime` and the ~69 legacy call sites depend on. The range is bug fixes plus added Python 3.14/3.15 support. `TZDateTime.cache_ok = True` stays valid: the compiled-cache key contract for `TypeDecorator` is unchanged across the range. Stays in the `2.0.x` line, below the `2.1` boundary. Verified against the official `changelog_20.html`. |
+| Flask-SQLAlchemy | `==3.1.1` | `3.1.1` | 2026-09-02 | already current — no bump | `3.1.1` is the newest release on PyPI as of the checked date. Its requirement floor (`flask>=2.2.5`, `sqlalchemy>=2.0.16`) is satisfied by `Flask==3.1.3` and the bumped `SQLAlchemy==2.0.52`. Reviewed no-op per D-10 — no newer version exists to cross. |
+| cronsim | `==2.7` | `2.7` | 2026-09-02 | already current — no bump | `2.7` (released 2025-10-21) is the newest release on PyPI as of the checked date. `requires_python >=3.10` is compatible with the `py311` target. Feeds `validate_cron_expression()` / `get_next_run_time()`; no newer version exists to review. Reviewed no-op per D-10. |
+| cron-descriptor | `==2.0.6` | `2.1.0` | 2026-09-02 | bumped | `2.1.0` (2026-06-02) is a minor/feature release. The one packaging-relevant change is a new **`typing_extensions`** runtime dependency that `2.0.6` did not declare — pure-Python, python-core maintained, resolved as `typing_extensions==4.15.0` in this environment. Recorded here so the Phase 15 pin sweep treats it as accounted-for rather than a mystery dependency (Pitfall 6). The consumed surface — `get_description()` inside `validate_cron_expression()` — is unchanged; descriptions for the cron expressions Listarr generates are unaffected. |
+| tzdata | *(absent)* | `2026.3` | 2026-09-02 | added | Added `tzdata==2026.3` to the `# Scheduler` block under an explanatory comment. Supplies the IANA tz database to `zoneinfo.ZoneInfo(...)` when the system `TZPATH` is empty (Alpine musl) or absent (Windows). `tzdata` is a rolling `YYYY.n` data release, so the exact `==` pin (required by D-09 / D-10b — no ranges) will need manual bumps in future maintenance phases as IANA publishes new rules. Referenced by the CPython `zoneinfo` docs as the first-party fallback data source. |
+
+_The `cryptography` row is intentionally omitted here — plan 12-03 adds it under D-16._
+
+### Verification posture (D-02)
+
+The fast inner loop for iterating on these bumps is a throwaway host venv
+(`python -m venv` + `pip install -r requirements.txt`); `ruff`, `pytest`, and `bandit`
+are not runtime-environment-sensitive so a host run is a valid signal for them. It is **not**
+the authoritative proof. Per D-01 the authoritative fresh-install proof — a clean `pip install`
+against a musl base with no system `/usr/share/zoneinfo`, plus `pip-audit`, the
+`ZoneInfo('America/New_York')` assertion, and full `pytest` — is the Docker image build in
+plan 12-06, not this host. The host here is Python 3.14.3 and already carries a `tzdata`
+package, so a local `zoneinfo` check false-greens; only the 12-06 container run is decisive.
+
+For this plan's changes specifically: after the Task 2 bumps, `pip install -r requirements.txt`
+succeeded, the full suite ran `599 passed` with coverage `TOTAL 73.29%` (identical to the
+section 1 baseline), and `ruff check .` / `ruff format --check .` / `bandit -r listarr -ll`
+were all green. No test broke, so no non-mechanical change was required (see section 5).
 
 ---
 
@@ -212,7 +239,10 @@ _Every behaviour-adjacent fix made anywhere in Phase 12 gets one line here: what
 changed, why it is behaviour-preserving. An empty log is distinguishable from an unfilled one
 by the explicit marker below._
 
-_(none so far)_
+- **Plan 12-02 (tzdata add + scheduler/ORM bumps):** no non-mechanical changes required. The
+  `tzdata==2026.3` add and the `SQLAlchemy 2.0.46→2.0.52` / `APScheduler 3.11.2→3.11.3` /
+  `cron-descriptor 2.0.6→2.1.0` bumps were purely mechanical pin edits; the full suite stayed
+  `599 passed` at `73.29%` coverage with no test or call-site touched.
 
 ---
 
