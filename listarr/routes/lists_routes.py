@@ -31,7 +31,7 @@ from listarr.services.scheduler import (
     unschedule_list,
     validate_cron_expression,
 )
-from listarr.services.sonarr_service import MONITOR_MODE_TOKENS
+from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, MONITOR_MODE_TOKENS
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -954,18 +954,25 @@ def wizard_defaults(service):
         tags = get_tags(base_url, api_key)
     except RequestException as e:
         current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
+        monitor_mode_default = MONITOR_MODE_DEFAULT
+        if service == "sonarr" and import_settings and import_settings.sonarr_monitor_mode in MONITOR_MODE_TOKENS:
+            monitor_mode_default = import_settings.sonarr_monitor_mode
+        defaults_payload = {
+            "root_folder": import_settings.root_folder if import_settings else None,
+            "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+            "monitored": import_settings.monitored if import_settings else True,
+            "search_on_add": import_settings.search_on_add if import_settings else True,
+            "tag_id": import_settings.default_tag_id if import_settings else None,
+        }
+        if service == "sonarr":
+            defaults_payload["monitor_mode"] = monitor_mode_default
+
         # Return partial data - service is configured but options fetch failed
         return jsonify(
             {
                 "configured": True,
                 "error": f"Failed to fetch options from {service.title()}",
-                "defaults": {
-                    "root_folder": import_settings.root_folder if import_settings else None,
-                    "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                    "monitored": import_settings.monitored if import_settings else True,
-                    "search_on_add": import_settings.search_on_add if import_settings else True,
-                    "tag_id": import_settings.default_tag_id if import_settings else None,
-                },
+                "defaults": defaults_payload,
                 "options": {
                     "quality_profiles": [],
                     "root_folders": [],
@@ -978,18 +985,24 @@ def wizard_defaults(service):
     season_folder_default = True  # Sonarr default
     if import_settings and hasattr(import_settings, "season_folder") and import_settings.season_folder is not None:
         season_folder_default = import_settings.season_folder
+    monitor_mode_default = MONITOR_MODE_DEFAULT
+    if service == "sonarr" and import_settings and import_settings.sonarr_monitor_mode in MONITOR_MODE_TOKENS:
+        monitor_mode_default = import_settings.sonarr_monitor_mode
+    defaults_payload = {
+        "root_folder": import_settings.root_folder if import_settings else None,
+        "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+        "monitored": import_settings.monitored if import_settings else True,
+        "search_on_add": import_settings.search_on_add if import_settings else True,
+        "tag_id": import_settings.default_tag_id if import_settings else None,
+        "season_folder": season_folder_default if service == "sonarr" else None,
+    }
+    if service == "sonarr":
+        defaults_payload["monitor_mode"] = monitor_mode_default
 
     return jsonify(
         {
             "configured": True,
-            "defaults": {
-                "root_folder": import_settings.root_folder if import_settings else None,
-                "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                "monitored": import_settings.monitored if import_settings else True,
-                "search_on_add": import_settings.search_on_add if import_settings else True,
-                "tag_id": import_settings.default_tag_id if import_settings else None,
-                "season_folder": season_folder_default if service == "sonarr" else None,
-            },
+            "defaults": defaults_payload,
             "options": {
                 "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
                 "root_folders": [{"path": f["path"], "id": f.get("id")} for f in root_folders],

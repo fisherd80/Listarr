@@ -804,20 +804,118 @@ function loadImportDefaults(service, panelName) {
     html += '<label for="' + prefix + '-monitored" class="text-sm text-text-base">Monitor items</label>';
     html += '</div>';
 
+    // Monitor Mode select (Sonarr only)
+    if (service === 'sonarr') {
+      html += '<div>';
+      html += '<label for="' + prefix + '-monitor-mode" class="block text-sm font-medium text-text-base mb-2">Monitor Mode</label>';
+      html += '<select id="' + prefix + '-monitor-mode" class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">';
+      html += '<option value="" selected>Use Default</option>';
+      html += '<option value="all">All episodes</option>';
+      html += '<option value="firstSeason">First season</option>';
+      html += '<option value="lastSeason">Latest season</option>';
+      html += '<option value="pilot">Pilot</option>';
+      html += '<option value="none">None</option>';
+      html += '</select>';
+      html += '<p id="' + prefix + '-monitor-mode-help" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>';
+      html += '</div>';
+    }
+
     // Search on add checkbox
     var searchChecked = (defaults.search_on_add !== false) ? ' checked' : '';
+    html += '<div>';
     html += '<div class="flex items-center gap-3">';
     html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary">';
     html += '<label for="' + prefix + '-search-on-add" class="text-sm text-text-base">Search on add</label>';
+    html += '</div>';
+    html += '<p id="' + prefix + '-search-on-add-help" class="mt-1 text-xs text-text-muted ml-6"></p>';
     html += '</div>';
 
     html += '</div>';
 
     container.innerHTML = html;
+    initCreateMonitorModeGating(panelName);
   })
   .catch(function (err) {
     container.innerHTML = '<div class="text-sm text-error">Failed to load import settings.</div>';
   });
+}
+
+/**
+ * Wire and apply Sonarr monitor/search gating in the live create surfaces.
+ * @param {string} panelName - 'preset' or 'custom'
+ */
+function initCreateMonitorModeGating(panelName) {
+  var prefix = panelName + '-import';
+  var monitoredEl = document.getElementById(prefix + '-monitored');
+  var monitorModeEl = document.getElementById(prefix + '-monitor-mode');
+  var monitorModeHelp = document.getElementById(prefix + '-monitor-mode-help');
+  var searchEl = document.getElementById(prefix + '-search-on-add');
+  var searchHelp = document.getElementById(prefix + '-search-on-add-help');
+
+  if (!monitoredEl || !searchEl) { return; }
+
+  var defaultMonitorHelp = 'How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.';
+  var unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
+  var noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
+
+  function setDisabledState(el, disabled) {
+    if (!el) { return; }
+    el.disabled = disabled;
+    el.classList.toggle('opacity-50', disabled);
+    el.classList.toggle('cursor-not-allowed', disabled);
+  }
+
+  function rememberSearchValue() {
+    if (!searchEl.disabled) {
+      searchEl.dataset.restoreChecked = searchEl.checked ? 'true' : 'false';
+    }
+  }
+
+  function restoreSearchValue() {
+    if (searchEl.dataset.restoreChecked) {
+      searchEl.checked = searchEl.dataset.restoreChecked === 'true';
+    }
+  }
+
+  function applyCreateMonitorModeGating() {
+    if (!monitorModeEl) {
+      setDisabledState(searchEl, false);
+      if (searchHelp) { searchHelp.textContent = ''; }
+      return;
+    }
+
+    if (!monitoredEl.checked) {
+      rememberSearchValue();
+      setDisabledState(monitorModeEl, true);
+      if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
+      searchEl.checked = false;
+      setDisabledState(searchEl, true);
+      if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
+      return;
+    }
+
+    setDisabledState(monitorModeEl, false);
+    if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
+
+    if (monitorModeEl.value === 'none') {
+      rememberSearchValue();
+      searchEl.checked = false;
+      setDisabledState(searchEl, true);
+      if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
+    } else {
+      setDisabledState(searchEl, false);
+      restoreSearchValue();
+      if (searchHelp) { searchHelp.textContent = ''; }
+    }
+  }
+
+  monitoredEl.addEventListener('change', applyCreateMonitorModeGating);
+  searchEl.addEventListener('change', rememberSearchValue);
+  if (monitorModeEl) {
+    monitorModeEl.addEventListener('change', applyCreateMonitorModeGating);
+  }
+  rememberSearchValue();
+  applyCreateMonitorModeGating();
 }
 
 // ---------------------
@@ -876,6 +974,7 @@ function submitList(panelName) {
     var folderEl = document.getElementById(prefix + '-folder');
     var tagEl = document.getElementById(prefix + '-tag');
     var monitoredEl = document.getElementById(prefix + '-monitored');
+    var monitorModeEl = document.getElementById(prefix + '-monitor-mode');
     var searchEl = document.getElementById(prefix + '-search-on-add');
 
     payload = {
@@ -900,6 +999,9 @@ function submitList(panelName) {
         is_active: isActiveInput ? isActiveInput.checked : true
       }
     };
+    if (monitorModeEl) {
+      payload.import_settings.monitor_mode = monitorModeEl.value || null;
+    }
 
   } else {
     // Custom panel
@@ -921,6 +1023,7 @@ function submitList(panelName) {
     var cfEl = document.getElementById(customPrefix + '-folder');
     var ctEl = document.getElementById(customPrefix + '-tag');
     var cmEl = document.getElementById(customPrefix + '-monitored');
+    var cmmEl = document.getElementById(customPrefix + '-monitor-mode');
     var csEl = document.getElementById(customPrefix + '-search-on-add');
 
     payload = {
@@ -941,6 +1044,9 @@ function submitList(panelName) {
         is_active: customIsActive ? customIsActive.checked : true
       }
     };
+    if (cmmEl) {
+      payload.import_settings.monitor_mode = cmmEl.value || null;
+    }
   }
 
   // Disable button during submit

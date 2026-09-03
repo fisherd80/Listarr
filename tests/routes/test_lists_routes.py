@@ -226,6 +226,15 @@ class TestCreateList:
         response = client.get("/lists/create/custom")
         assert response.status_code == 200
 
+    def test_live_create_js_renders_monitor_mode_selector(self, client):
+        """The create pages build import settings from create.js, so guard that asset."""
+        response = client.get("/static/js/create.js")
+
+        assert response.status_code == 200
+        assert b"initCreateMonitorModeGating" in response.data
+        assert b"monitor_mode" in response.data
+        assert b"Use Default" in response.data
+
 
 # ---------------------------------------------------------------------------
 # 4 & 5. GET /lists/edit/<id> and POST /lists/edit/<id>
@@ -1058,6 +1067,44 @@ class TestWizardDefaults:
         assert data["defaults"]["quality_profile_id"] == 1
         assert data["defaults"]["monitored"] is True
         assert data["defaults"]["search_on_add"] is False
+        assert "monitor_mode" not in data["defaults"]
+
+    def test_sonarr_defaults_include_monitor_mode(self, client, db_session, temp_instance_path):
+        """Returns Sonarr monitor_mode for create flows using the defaults endpoint."""
+        from listarr.services.crypto_utils import encrypt_data
+
+        encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="SONARR",
+            base_url="http://localhost:8989",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+
+        import_settings = MediaImportSettings(
+            service="SONARR",
+            root_folder="/tv",
+            quality_profile_id=2,
+            monitored=True,
+            search_on_add=True,
+            season_folder=True,
+        )
+        import_settings.sonarr_monitor_mode = "pilot"
+        db.session.add(import_settings)
+        db.session.commit()
+
+        with (
+            patch("listarr.routes.lists_routes.decrypt_data", return_value="sonarr_key"),
+            patch("listarr.services.sonarr_service.get_quality_profiles", return_value=[]),
+            patch("listarr.services.sonarr_service.get_root_folders", return_value=[]),
+            patch("listarr.services.sonarr_service.get_tags", return_value=[]),
+        ):
+            response = client.get("/lists/wizard/defaults/sonarr")
+
+        data = response.get_json()
+        assert data["defaults"]["root_folder"] == "/tv"
+        assert data["defaults"]["quality_profile_id"] == 2
+        assert data["defaults"]["monitor_mode"] == "pilot"
 
     def test_handles_api_error_gracefully(self, client, db_session, temp_instance_path):
         """Returns configured=True with empty options when API call fails."""
