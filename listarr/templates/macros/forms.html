@@ -1,4 +1,4 @@
-{% macro import_settings_form(service, show_season_folder=false, inline=false) %}
+{% macro import_settings_form(service, show_season_folder=false, show_monitor_mode=false, inline=false) %}
 {% if not inline %}
 <div class="border-t border-border-subtle pt-4 mt-4 max-w-lg">
   <button
@@ -22,6 +22,9 @@
       <div class="h-10 bg-bg-hover rounded w-full"></div>
       <div class="h-10 bg-bg-hover rounded w-full"></div>
       <div class="h-10 bg-bg-hover rounded w-full"></div>
+      {% if show_monitor_mode %}
+      <div class="h-10 bg-bg-hover rounded w-full"></div>
+      {% endif %}
       {% if show_season_folder %}
       <div class="h-10 bg-bg-hover rounded w-full"></div>
       {% endif %}
@@ -60,6 +63,22 @@
       </select>
     </div>
 
+    {% if show_monitor_mode %}
+    {# Monitor Mode (Sonarr only) #}
+    <div>
+      <label for="{{ service }}-monitor-mode" class="block text-sm font-medium text-text-base mb-1">Monitor Mode</label>
+      <select id="{{ service }}-monitor-mode" name="{{ service }}_monitor_mode"
+        class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary">
+        <option value="all" selected>All episodes</option>
+        <option value="firstSeason">First season</option>
+        <option value="lastSeason">Latest season</option>
+        <option value="pilot">Pilot</option>
+        <option value="none">None</option>
+      </select>
+      <p id="{{ service }}-monitor-mode-help" class="mt-1 text-xs text-text-muted">The monitor mode applied to every Sonarr list that hasn't set its own override. Only affects series at the moment Listarr adds them.</p>
+    </div>
+    {% endif %}
+
     {% if show_season_folder %}
     {# Season Folder (Sonarr only) #}
     <div>
@@ -82,6 +101,7 @@
         <option value="true">Yes</option>
         <option value="false">No</option>
       </select>
+      <p id="{{ service }}-search-on-add-help" class="mt-1 text-xs text-text-muted"></p>
     </div>
 
     {# Tags #}

@@ -537,17 +537,84 @@ function loadImportDefaults(service) {
         if (seasonSelect && s.season_folder !== null && s.season_folder !== undefined) {
           seasonSelect.value = String(s.season_folder);
         }
+        var monitorModeSelect = document.getElementById(service + '-monitor-mode');
+        if (monitorModeSelect && s.monitor_mode) {
+          monitorModeSelect.value = s.monitor_mode;
+        }
       }
 
       // Hide skeleton, show form
       if (skeletonEl) skeletonEl.classList.add('hidden');
       formEl.classList.remove('hidden');
+      applyMonitorModeGating(service);
     })
     .catch(function (err) {
       if (skeletonEl) skeletonEl.classList.add('hidden');
       formEl.classList.remove('hidden');
+      applyMonitorModeGating(service);
       console.error('loadImportDefaults error for ' + service + ':', err);
     });
+}
+
+/**
+ * Apply Sonarr import-default monitor/search gating in Settings.
+ * @param {string} service - 'radarr' or 'sonarr'
+ */
+function applyMonitorModeGating(service) {
+  var monitorSelect = document.getElementById(service + '-monitor');
+  var monitorModeSelect = document.getElementById(service + '-monitor-mode');
+  var monitorModeHelp = document.getElementById(service + '-monitor-mode-help');
+  var searchSelect = document.getElementById(service + '-search-on-add');
+  var searchHelp = document.getElementById(service + '-search-on-add-help');
+
+  if (!monitorModeSelect || !monitorSelect || !searchSelect) { return; }
+
+  var defaultMonitorHelp = "The monitor mode applied to every Sonarr list that hasn't set its own override. Only affects series at the moment Listarr adds them.";
+  var unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
+  var noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
+
+  function setDisabledState(el, disabled) {
+    if (!el) { return; }
+    el.disabled = disabled;
+    el.classList.toggle('opacity-50', disabled);
+    el.classList.toggle('cursor-not-allowed', disabled);
+  }
+
+  function rememberSearchValue() {
+    if (!searchSelect.disabled) {
+      searchSelect.dataset.restoreValue = searchSelect.value || 'false';
+    }
+  }
+
+  function restoreSearchValue() {
+    if (searchSelect.dataset.restoreValue) {
+      searchSelect.value = searchSelect.dataset.restoreValue;
+    }
+  }
+
+  if (monitorSelect.value === 'false') {
+    rememberSearchValue();
+    setDisabledState(monitorModeSelect, true);
+    if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
+    searchSelect.value = 'false';
+    setDisabledState(searchSelect, true);
+    if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
+    return;
+  }
+
+  setDisabledState(monitorModeSelect, false);
+  if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
+
+  if (monitorModeSelect.value === 'none') {
+    rememberSearchValue();
+    searchSelect.value = 'false';
+    setDisabledState(searchSelect, true);
+    if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
+  } else {
+    setDisabledState(searchSelect, false);
+    restoreSearchValue();
+    if (searchHelp) { searchHelp.textContent = ''; }
+  }
 }
 
 /**
@@ -569,6 +636,10 @@ function saveImportSettings(service) {
   var seasonEl = document.getElementById(service + '-season-folder');
   if (seasonEl) {
     body.season_folder = seasonEl.value === 'true';
+  }
+  var monitorModeEl = document.getElementById(service + '-monitor-mode');
+  if (monitorModeEl) {
+    body.monitor_mode = monitorModeEl.value;
   }
 
   if (saveBtn) {
@@ -648,6 +719,26 @@ function initImportSettingsButtons() {
     if (btn) {
       btn.addEventListener('click', function () {
         saveImportSettings(service);
+      });
+    }
+    var monitorSelect = document.getElementById(service + '-monitor');
+    if (monitorSelect) {
+      monitorSelect.addEventListener('change', function () {
+        applyMonitorModeGating(service);
+      });
+    }
+    var monitorModeSelect = document.getElementById(service + '-monitor-mode');
+    if (monitorModeSelect) {
+      monitorModeSelect.addEventListener('change', function () {
+        applyMonitorModeGating(service);
+      });
+    }
+    var searchSelect = document.getElementById(service + '-search-on-add');
+    if (searchSelect) {
+      searchSelect.addEventListener('change', function () {
+        if (!searchSelect.disabled) {
+          searchSelect.dataset.restoreValue = searchSelect.value || 'false';
+        }
       });
     }
   });

@@ -48,6 +48,15 @@ class TestSettingsPage:
         assert b"Account" in response.data
         assert b"General" not in response.data
 
+    def test_settings_page_renders_sonarr_monitor_mode_only(self, client):
+        """Sonarr Import Defaults renders Monitor Mode; Radarr remains unchanged."""
+        response = client.get("/settings")
+
+        assert response.status_code == 200
+        assert b'id="sonarr-monitor-mode"' in response.data
+        assert b'name="sonarr_monitor_mode"' in response.data
+        assert b'id="radarr-monitor-mode"' not in response.data
+
 
 class TestTmdbApiTest:
     """Tests for POST /settings/test_tmdb_api endpoint."""

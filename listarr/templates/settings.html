@@ -152,7 +152,7 @@
         <div id="sonarr-import-defaults" class="self-start {% if not sonarr.configured %}hidden{% endif %}">
           <div class="bg-bg-panel border border-border-subtle rounded p-4">
             <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>
-            {{ import_settings_form('sonarr', show_season_folder=true, inline=true) }}
+            {{ import_settings_form('sonarr', show_season_folder=true, show_monitor_mode=true, inline=true) }}
           </div>
         </div>
       </div>
