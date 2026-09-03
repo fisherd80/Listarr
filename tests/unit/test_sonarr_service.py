@@ -575,3 +575,61 @@ class TestBulkAddSeries:
         call_args = mock_session.post.call_args
         assert call_args[1]["timeout"] == BULK_TIMEOUT
         assert call_args[1]["timeout"] == 300
+
+
+class TestMonitorModeTokenMap:
+    """MON-03: the monitor-mode tokens Listarr emits are verified against the
+    pinned Sonarr v3 MonitorTypes schema at build time — a fast, offline guard.
+
+    The live-instance confirmation is the 13-08 spike; this class does no network I/O.
+    """
+
+    # Pinned copy of the Sonarr v3 MonitorTypes enum (camelCase serialization).
+    # Source: Sonarr/Sonarr src/Sonarr.Api.V3/openapi.json "MonitorTypes" — verified 2026-09-03.
+    V3_MONITOR_TYPES = frozenset(
+        {
+            "unknown",
+            "all",
+            "future",
+            "missing",
+            "existing",
+            "firstSeason",
+            "lastSeason",
+            "latestSeason",
+            "pilot",
+            "recent",
+            "monitorSpecials",
+            "unmonitorSpecials",
+            "none",
+            "skip",
+        }
+    )
+
+    def test_pinned_v3_schema_shape(self):
+        # Guards the pin itself: exactly the 14 v3 members, obsolete token present here.
+        assert len(self.V3_MONITOR_TYPES) == 14
+        assert "latestSeason" in self.V3_MONITOR_TYPES
+
+    def test_monitor_token_map_subset_of_v3_schema(self):
+        from listarr.services.sonarr_service import MONITOR_MODE_TOKENS
+
+        emitted = set(MONITOR_MODE_TOKENS.values())
+        assert emitted <= self.V3_MONITOR_TYPES
+
+    def test_monitor_token_map_excludes_obsolete_latest_season(self):
+        from listarr.services.sonarr_service import MONITOR_MODE_TOKENS
+
+        tokens = set(MONITOR_MODE_TOKENS) | set(MONITOR_MODE_TOKENS.values())
+        assert "latestSeason" not in tokens
+
+    def test_monitor_token_map_exact_set(self):
+        from listarr.services.sonarr_service import MONITOR_MODE_TOKENS
+
+        assert set(MONITOR_MODE_TOKENS.values()) == {"all", "firstSeason", "lastSeason", "pilot", "none"}
+        assert set(MONITOR_MODE_TOKENS) == {"all", "firstSeason", "lastSeason", "pilot", "none"}
+
+    def test_monitor_token_map_choices_alignment(self):
+        from listarr.services.sonarr_service import MONITOR_MODE_CHOICES, MONITOR_MODE_TOKENS
+
+        # The UI can never offer a value the emitter cannot map.
+        assert [value for value, _ in MONITOR_MODE_CHOICES] == list(MONITOR_MODE_TOKENS)
