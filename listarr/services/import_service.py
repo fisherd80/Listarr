@@ -470,6 +470,18 @@ def _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_t
                     }
                 )
         logger.info(f"Batch complete: {len(added_tvdb_ids)} added, {len(batch_meta) - len(added_tvdb_ids)} skipped")
+        # D-14 breadcrumb: record the monitor token and monitored-season count of the first
+        # payload in this batch. In-memory read of batch[0] only - no re-fetch from Sonarr,
+        # no warning on mismatch, no effect on control flow. DEBUG is off in production.
+        if batch:
+            first_monitor = batch[0].get("addOptions", {}).get("monitor")
+            monitored_season_count = sum(1 for s in batch[0].get("seasons", []) if s.get("monitored"))
+            logger.debug(
+                "Series batch flushed: %r monitor=%s monitored_seasons=%d",
+                batch[0].get("title"),
+                first_monitor,
+                monitored_season_count,
+            )
     except Exception as e:
         logger.error(f"Bulk import batch failed: {e}", exc_info=True)
         for meta in batch_meta:
@@ -620,7 +632,12 @@ def _import_series(
             "rootFolderPath": settings["root_folder"],
             "monitored": settings["monitored"],
             "seasonFolder": settings["season_folder"],
-            "addOptions": {"searchForMissingEpisodes": settings["search_on_add"]},
+            "addOptions": {
+                "monitor": MONITOR_MODE_TOKENS[settings["monitor_mode"]],
+                # D-06 already forced this to False for mode "none" and for unmonitored
+                # series inside resolve_import_settings (D-08) - no branching belongs here.
+                "searchForMissingEpisodes": settings["search_on_add"],
+            },
             "tags": settings["tags"],
         }
 

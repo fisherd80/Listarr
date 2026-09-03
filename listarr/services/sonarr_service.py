@@ -219,6 +219,7 @@ def add_series(
     monitored: bool = True,
     season_folder: bool = True,
     search_on_add: bool = True,
+    monitor_mode: str = MONITOR_MODE_DEFAULT,
     tags: list[int] = None,
 ) -> dict:
     """
@@ -233,6 +234,8 @@ def add_series(
         monitored: Whether to monitor the series (default: True).
         season_folder: Whether to use season folders (default: True).
         search_on_add: Whether to search for missing episodes after adding (default: True).
+        monitor_mode: Sonarr `addOptions.monitor` token; one of `all`, `firstSeason`,
+            `lastSeason`, `pilot`, `none` (default: `all`).
         tags: List of tag IDs (optional).
 
     Returns:
@@ -259,7 +262,13 @@ def add_series(
         "rootFolderPath": root_folder,
         "monitored": monitored,
         "seasonFolder": season_folder,
-        "addOptions": {"searchForMissingEpisodes": search_on_add},
+        "addOptions": {
+            # Defensive `.get` with the default: this helper is callable with an arbitrary
+            # argument by any future caller, so an unknown mode degrades to `all` rather
+            # than raising or forwarding a caller-chosen string (T-13-10).
+            "monitor": MONITOR_MODE_TOKENS.get(monitor_mode, MONITOR_MODE_DEFAULT),
+            "searchForMissingEpisodes": search_on_add,
+        },
         "tags": tags or [],
     }
 

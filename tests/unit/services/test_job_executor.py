@@ -536,6 +536,7 @@ class TestImportStopEvent:
             "monitored": True,
             "search_on_add": True,
             "season_folder": True,
+            "monitor_mode": "all",
             "tags": [],
         }
 
