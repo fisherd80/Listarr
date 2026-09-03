@@ -6,7 +6,7 @@
 # ===========================
 # Stage 1: Build Stage
 # ===========================
-FROM python:3-alpine AS builder
+FROM python:3.11-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
 # ===========================
 # Stage 2: Production Stage
 # ===========================
-FROM python:3-alpine
+FROM python:3.11-alpine
 
 # Version injected at build time for tag releases (e.g. --build-arg APP_VERSION=2.1.0)
 ARG APP_VERSION=dev

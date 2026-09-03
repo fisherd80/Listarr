@@ -24,6 +24,10 @@ from listarr.services.crypto_utils import (
     load_encryption_key,
 )
 
+# The designated crypto guard for dependency bumps (see CLAUDE.md, plan 12-03).
+# Marks the whole Fernet key/encrypt/decrypt/roundtrip suite so `pytest -m encryption` selects it.
+pytestmark = pytest.mark.encryption
+
 
 class TestKeyGeneration:
     """Tests for encryption key generation."""

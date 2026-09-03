@@ -3,7 +3,7 @@ Flask==3.1.3
 
 # Database ORM
 Flask-SQLAlchemy==3.1.1
-SQLAlchemy==2.0.46
+SQLAlchemy==2.0.52
 
 # Forms and CSRF Protection
 Flask-WTF==1.2.2
@@ -16,7 +16,7 @@ Flask-Login==0.6.3
 cachetools>=5.3.0
 
 # Encryption
-cryptography==46.0.7
+cryptography==50.0.1  # forced by pip-audit (D-12/D-16): clears PYSEC-2026-3552/-3553/-3554 + GHSA-537c-gmf6-5ccf; see .planning/phases/12-maintenance-pre-flight/12-NOTES.md §4
 
 # HTTP Requests (for external APIs)
 requests==2.33.0
@@ -27,6 +27,8 @@ idna>=3.15
 gunicorn==25.1.0
 
 # Scheduler
-APScheduler==3.11.2
+APScheduler==3.11.3
 cronsim==2.7
-cron-descriptor==2.0.6
+cron-descriptor==2.1.0
+# IANA tz database for zoneinfo on Windows / Alpine (no system /usr/share/zoneinfo)
+tzdata==2026.3
