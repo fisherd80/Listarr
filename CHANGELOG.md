@@ -5,6 +5,26 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.2.DEV-1] - 2026-09-03
+
+_Development checkpoint on `develop` — not a release. First phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
+
+### Security
+
+- `cryptography` upgraded 46.0.7 → 50.0.1, clearing PYSEC-2026-3552, PYSEC-2026-3553, PYSEC-2026-3554 and GHSA-537c-gmf6-5ccf; the Fernet key-encryption round-trip is unaffected (`pytest -m encryption` green)
+
+### Changed
+
+- Scheduler/ORM dependency baseline settled ahead of the v2.2 timezone work: `SQLAlchemy` 2.0.46 → 2.0.52, `APScheduler` 3.11.2 → 3.11.3, `cron-descriptor` 2.0.6 → 2.1.0 (all exact pins, still within their current major)
+- `tzdata` added as an explicit runtime dependency so `zoneinfo` resolves inside the Alpine container (no system zone database on musl)
+- Docker base image tag corrected from the floating `python:3-alpine` to `python:3.11-alpine`, aligning the image with the CI Python version
+
+### Added
+
+- Permanent `tests/integration/test_scheduler_bump_smoke.py` — exercises a real (unmocked) APScheduler `BackgroundScheduler` and a real SQLite `TZDateTime` round-trip, so a future dependency bump that breaks job registration, timezone-aware `next_run_time`, or UTC-at-rest storage fails loudly
+
+---
+
 ## [2.1.1] - 2026-05-21
 
 ### Fixed
