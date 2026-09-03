@@ -333,6 +333,9 @@ def edit_list(list_id):
             season_value = form.override_season_folder.data
             list_obj.override_season_folder = int(season_value) if season_value else None
 
+            # Sonarr monitor mode: allow-list via the converter (form has validate_choice=False)
+            list_obj.sonarr_monitor_mode = _form_to_monitor_mode(form.sonarr_monitor_mode.data)
+
             # Handle limit (list size)
             limit_str = request.form.get("limit")
             if limit_str:
@@ -412,6 +415,7 @@ def edit_list(list_id):
         form.override_monitored.data = _db_to_form_str(list_obj.override_monitored)
         form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
         form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
+        form.sonarr_monitor_mode.data = _monitor_mode_to_form(list_obj.sonarr_monitor_mode)
 
     return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags)
 
@@ -511,6 +515,7 @@ def list_wizard():
                 "monitored": _db_to_bool(list_obj.override_monitored),
                 "search_on_add": _db_to_bool(list_obj.override_search_on_add),
                 "season_folder": _db_to_bool(list_obj.override_season_folder),
+                "monitor_mode": list_obj.sonarr_monitor_mode,
             },
             "schedule": {
                 "cron": list_obj.schedule_cron,
@@ -832,6 +837,9 @@ def wizard_submit():
             list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
             list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
             list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
+            # This endpoint is shared by the custom builder and the preset wizard; the preset
+            # wizard sends no monitor_mode, so this resolves to None (D-11). Allow-listed here.
+            list_obj.sonarr_monitor_mode = _form_to_monitor_mode(import_settings.get("monitor_mode"))
             list_obj.schedule_cron = schedule.get("cron") or None
             list_obj.is_active = schedule.get("is_active", True)
         else:
@@ -848,6 +856,9 @@ def wizard_submit():
                 override_monitored=_bool_to_db(import_settings.get("monitored")),
                 override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
                 override_season_folder=_bool_to_db(import_settings.get("season_folder")),
+                # Shared endpoint (custom builder + preset wizard); presets send no
+                # monitor_mode so this is deliberately None (D-11). Explicit kwarg for clarity.
+                sonarr_monitor_mode=_form_to_monitor_mode(import_settings.get("monitor_mode")),
                 schedule_cron=schedule.get("cron") or None,
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
