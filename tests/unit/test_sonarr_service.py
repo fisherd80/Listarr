@@ -19,6 +19,8 @@ import pytest
 import requests
 
 from listarr.services.sonarr_service import (
+    MONITOR_MODE_TOKENS,
+    add_series,
     bulk_add_series,
     get_exclusions,
     get_missing_series_count,
@@ -575,6 +577,54 @@ class TestBulkAddSeries:
         call_args = mock_session.post.call_args
         assert call_args[1]["timeout"] == BULK_TIMEOUT
         assert call_args[1]["timeout"] == 300
+
+
+class TestAddSeriesMonitorMode:
+    """Tests for add_series addOptions.monitor parity with the bulk import path."""
+
+    SERIES_DATA = {
+        "title": "Breaking Bad",
+        "tvdbId": 81189,
+        "year": 2008,
+        "titleSlug": "breaking-bad",
+        "images": [],
+        "seasons": [{"seasonNumber": 1, "monitored": True}],
+    }
+
+    @staticmethod
+    def _successful_response():
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {"tvdbId": 81189, "title": "Breaking Bad"}
+        return mock_response
+
+    @pytest.mark.parametrize("monitor_mode", tuple(MONITOR_MODE_TOKENS))
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_add_series_monitor_mode_payload_matches_token(self, mock_session, monitor_mode):
+        """Each supported monitor mode is emitted as addOptions.monitor."""
+        mock_session.post.return_value = self._successful_response()
+
+        add_series(
+            "http://localhost:8989",
+            "test_key",
+            self.SERIES_DATA,
+            "/tv",
+            1,
+            monitor_mode=monitor_mode,
+        )
+
+        payload = mock_session.post.call_args.kwargs["json"]
+        assert payload["addOptions"]["monitor"] == monitor_mode
+
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_add_series_monitor_mode_defaults_to_all(self, mock_session):
+        """The parity path defaults addOptions.monitor to all."""
+        mock_session.post.return_value = self._successful_response()
+
+        add_series("http://localhost:8989", "test_key", self.SERIES_DATA, "/tv", 1)
+
+        payload = mock_session.post.call_args.kwargs["json"]
+        assert payload["addOptions"]["monitor"] == "all"
 
 
 class TestMonitorModeTokenMap:
