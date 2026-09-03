@@ -14,6 +14,7 @@ from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services import radarr_service, sonarr_service, tmdb_service
 from listarr.services.crypto_utils import decrypt_data
+from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, MONITOR_MODE_TOKENS
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -93,7 +94,7 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
 
     Returns:
         dict with keys: root_folder, quality_profile_id, monitored, search_on_add,
-                        season_folder (Sonarr only), tags
+                        season_folder (Sonarr only), monitor_mode (Sonarr only), tags
     """
     # Resolve root folder
     if list_obj.override_root_folder:
@@ -125,6 +126,41 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
     else:
         season_folder = import_settings.season_folder if import_settings else True
 
+    # Resolve sonarr monitor_mode (Sonarr only): list override -> Import Default -> "all" (D-02, MON-02).
+    # The elif deliberately uses truthiness (not `is not None`) so an empty-string / NULL import-default
+    # row - possible on a database migrated without the DEFAULT 'all' clause - falls through to "all"
+    # (RESEARCH Assumption A3, belt-and-suspenders half).
+    if list_obj.sonarr_monitor_mode is not None:
+        monitor_mode = list_obj.sonarr_monitor_mode
+    elif import_settings and import_settings.sonarr_monitor_mode:
+        monitor_mode = import_settings.sonarr_monitor_mode
+    else:
+        monitor_mode = MONITOR_MODE_DEFAULT
+
+    # Allow-list guard (security V5, T-13-05): a value outside the five legal Sonarr v3 tokens
+    # never leaves the resolver - it is coerced to the default and logged, never raised.
+    if monitor_mode not in MONITOR_MODE_TOKENS:
+        logger.warning(
+            "List %s has an invalid Sonarr monitor mode %r; coercing to %r",
+            list_obj.name,
+            monitor_mode,
+            MONITOR_MODE_DEFAULT,
+        )
+        monitor_mode = MONITOR_MODE_DEFAULT
+
+    # D-06 reconciliation against the already-resolved `monitored` / `search_on_add` locals.
+    # The ordering is load-bearing - do NOT reorder or "clean up":
+    #   Rule 1: an unmonitored series can never emit a monitoring or searching payload.
+    #   Rule 2: an explicit "none" mode forces search-on-add off (D-08), regardless of the
+    #           list or import-default search setting.
+    #   Rule 3 (implicit else): the other four modes keep honouring the independently
+    #           resolved `search_on_add` (D-01 independence preserved).
+    if not monitored:
+        monitor_mode = "none"
+        search_on_add = False
+    elif monitor_mode == "none":
+        search_on_add = False
+
     # Resolve tags - override REPLACES default (not merges)
     tags = []
     if list_obj.override_tag_id:
@@ -141,6 +177,7 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
         "monitored": monitored,
         "search_on_add": search_on_add,
         "season_folder": season_folder,
+        "monitor_mode": monitor_mode,
         "tags": tags,
     }
 
