@@ -31,6 +31,7 @@ from listarr.services.scheduler import (
     unschedule_list,
     validate_cron_expression,
 )
+from listarr.services.sonarr_service import MONITOR_MODE_TOKENS
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -153,6 +154,32 @@ def _db_to_form_str(value):
     """Convert database tri-state (0/1/None) to form string ("0"/"1"/"")."""
     if value is not None:
         return str(value)
+    return ""
+
+
+def _form_to_monitor_mode(value):
+    """Convert a submitted Sonarr monitor-mode string to its stored value or None.
+
+    This is the server-side allow-list for the sonarr_monitor_mode field. The WTForms
+    SelectField uses validate_choice=False, so this converter is the only gate on the
+    list write paths: a value is returned only when it is a key of MONITOR_MODE_TOKENS,
+    otherwise None (covers "", None, the obsolete "latestSeason" token, and injection
+    strings). Must not be routed through the _db_to_* tri-state helpers.
+    """
+    if isinstance(value, str) and value in MONITOR_MODE_TOKENS:
+        return value
+    return None
+
+
+def _monitor_mode_to_form(value):
+    """Convert a stored Sonarr monitor-mode value to its form string.
+
+    Returns the value when it is a key of MONITOR_MODE_TOKENS, otherwise "" so a
+    corrupted or hand-edited row renders as "Use Default" rather than echoing an
+    unvalidated value back into the form.
+    """
+    if isinstance(value, str) and value in MONITOR_MODE_TOKENS:
+        return value
     return ""
 
 
