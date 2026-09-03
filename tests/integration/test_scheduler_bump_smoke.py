@@ -7,8 +7,9 @@ to a ``MagicMock``. That is fast, but it means the unit suite can never notice w
 APScheduler upgrade changes the real ``BackgroundScheduler`` API, how a bare timezone
 string is resolved and stored, or how ``CronTrigger.from_crontab`` computes
 ``next_run_time``. Likewise, no existing test exercises
-``listarr.models.custom_types.TZDateTime`` directly, so a SQLAlchemy upgrade that
-invalidates its ``cache_ok = True`` contract would fail silently.
+``listarr.models.custom_types.TZDateTime`` directly against a real database, so a SQLAlchemy
+upgrade that broke its bind/result processing (or its ``cache_ok = True`` contract) would
+fail silently.
 
 This module drives:
 
@@ -24,7 +25,7 @@ is mocked; there is no ``time.sleep``, no sub-second ``IntervalTrigger``, and no
 """
 
 import zoneinfo
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -48,13 +49,17 @@ PROD_JOB_DEFAULTS = {
 # A named, non-UTC zone so the timezone plumbing is actually exercised (not a UTC no-op).
 SCHEDULER_TZ = "America/New_York"
 
+# 02:00 every Monday. Shared by the List row and the schedule_list() call so the
+# "Monday" / "hour 2" intent stays synced with the assertions below.
+SMOKE_CRON = "0 2 * * 1"
+
 
 def _make_real_scheduler():
     """Build a real BackgroundScheduler configured exactly like the production one."""
     return BackgroundScheduler(timezone=SCHEDULER_TZ, job_defaults=dict(PROD_JOB_DEFAULTS))
 
 
-def _make_list_row(cron="0 2 * * 1"):
+def _make_list_row(cron=SMOKE_CRON):
     """Insert a real List row and return its id. Cleaned up by the autouse db_session fixture."""
     lst = List(
         name="bump-smoke",
@@ -73,8 +78,11 @@ def test_real_scheduler_registers_job_and_runs_import_synchronously(app, monkeyp
     """schedule_list registers a tz-aware future job on a real scheduler; _run_scheduled_import
     reaches submit_job when called synchronously with only the Arr HTTP boundary mocked."""
     scheduler = _make_real_scheduler()
-    scheduler.start(paused=True)  # real jobstore + next_run_time computation, but nothing fires
     try:
+        # real jobstore + next_run_time computation, but nothing fires. Inside the try so a
+        # failure during start() still hits the finally and never leaks a scheduler thread.
+        scheduler.start(paused=True)
+
         # Real instance patched onto the module singleton (module-attribute patching, the
         # convention in test_scheduler.py). monkeypatch auto-reverts cleanly with a real object.
         monkeypatch.setattr(sched, "_scheduler", scheduler)
@@ -92,7 +100,7 @@ def test_real_scheduler_registers_job_and_runs_import_synchronously(app, monkeyp
         monkeypatch.setattr(sched, "submit_job", submit_job)
 
         with app.app_context():
-            list_id = _make_list_row("0 2 * * 1")
+            list_id = _make_list_row(SMOKE_CRON)
             db.session.add(
                 ServiceConfig(
                     service="RADARR",
@@ -103,24 +111,33 @@ def test_real_scheduler_registers_job_and_runs_import_synchronously(app, monkeyp
             db.session.commit()
 
             # --- schedule_list against the REAL scheduler ---------------------------------
-            sched.schedule_list(list_id, "0 2 * * 1")
+            sched.schedule_list(list_id, SMOKE_CRON)
 
             job = scheduler.get_job(f"list_{list_id}")
             assert job is not None, "schedule_list did not register a job under list_{id}"
 
             tz = sched._get_scheduler_timezone()
             assert tz is not None
-            now = datetime.now(tz)  # the resolved tz must be usable as a datetime tzinfo
+            # the resolved tz must be usable as a datetime tzinfo
+            assert datetime.now(tz).tzinfo is not None
 
             next_run = job.next_run_time
             assert next_run is not None
             assert isinstance(next_run, datetime)
             assert next_run.tzinfo is not None
-            assert next_run > now, "next_run_time is not in the future"
+            assert next_run > datetime.now(timezone.utc), "next_run_time is not in the future"
             # POSIX day-of-week 1 == Monday. APScheduler's numeric DOW 1 would be Tuesday, so a
             # Monday next_run_time proves _posix_cron_to_apscheduler translated "1" -> "mon" and
             # CronTrigger.from_crontab consumed that translated expression.
             assert next_run.weekday() == 0, f"expected Monday, got weekday {next_run.weekday()}"
+            # The trigger must have fired in America/New_York, NOT UTC — if the bare tz string
+            # silently resolved to UTC these would fail (WR-01): NY keeps the 02:00 cron hour
+            # local, and its offset is EST (-5h) or EDT (-4h), never zero.
+            assert next_run.hour == 2, f"cron hour not preserved in local tz: got {next_run.hour}"
+            assert next_run.utcoffset() in (
+                timedelta(hours=-5),
+                timedelta(hours=-4),
+            ), f"next_run_time not in America/New_York (offset {next_run.utcoffset()})"
 
             # --- _run_scheduled_import synchronously (no interval trigger, no sleep) -------
             sched._run_scheduled_import(list_id)
@@ -131,12 +148,17 @@ def test_real_scheduler_registers_job_and_runs_import_synchronously(app, monkeyp
             assert call.args[0] == list_id
             assert call.kwargs.get("triggered_by") == "scheduled"
     finally:
-        scheduler.shutdown(wait=False)  # never leak a live scheduler thread into the session
+        # guard: shutdown() raises if start() never succeeded
+        if scheduler.running:
+            scheduler.shutdown(wait=False)  # never leak a live scheduler thread into the session
 
 
 def test_tzdatetime_round_trips_non_utc_aware_datetime_through_real_sqlite(app):
-    """D-08a: a non-UTC tz-aware datetime written through TZDateTime is stored as UTC and read
-    back tz-aware for the same instant — guards the cache_ok = True silent-failure point."""
+    """D-08a: a non-UTC tz-aware datetime written through TZDateTime comes back tz-aware at the
+    same instant, with a zero UTC offset on the loaded value — exercises process_bind_param and
+    process_result_value end-to-end against real SQLite, the paths a TypeDecorator/result-
+    processing regression in a SQLAlchemy bump would break (the ``cache_ok = True`` contract
+    included, though this test does not isolate it)."""
     with app.app_context():
         list_id = _make_list_row()
 
