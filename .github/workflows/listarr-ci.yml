@@ -113,7 +113,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          # setuptools upgraded past PYSEC-2026-3447 — it ships with the runner's
+          # Python, is not a declared Listarr dependency, and pip-audit scans the
+          # whole environment. Upgrading at the source keeps the env-wide scan
+          # intact without an --ignore-vuln suppression.
+          python -m pip install --upgrade pip setuptools
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
