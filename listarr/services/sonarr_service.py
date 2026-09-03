@@ -32,6 +32,30 @@ from listarr.services.http_client import ADD_TIMEOUT, BULK_TIMEOUT, DEFAULT_TIME
 
 logger = logging.getLogger(__name__)
 
+# Monitor-mode constants (D-05). Listarr stores the raw Sonarr v3 MonitorTypes token as the
+# column value, so MONITOR_MODE_TOKENS is an identity map that also doubles as the emit-time
+# allow-list. The obsolete "latestSeason" token is [Obsolete] in Sonarr source and is
+# deliberately absent — "Latest Season" sends "lastSeason".
+MONITOR_MODE_TOKENS = {
+    "all": "all",
+    "firstSeason": "firstSeason",
+    "lastSeason": "lastSeason",
+    "pilot": "pilot",
+    "none": "none",
+}
+
+# Ordered (value, label) pairs for WTForms and the settings <select>.
+# Labels are locked verbatim by 13-UI-SPEC.md "Option labels — VERBATIM".
+MONITOR_MODE_CHOICES = [
+    ("all", "All episodes"),
+    ("firstSeason", "First season"),
+    ("lastSeason", "Latest season"),
+    ("pilot", "Pilot"),
+    ("none", "None"),
+]
+
+MONITOR_MODE_DEFAULT = "all"
+
 
 def validate_sonarr_api_key(base_url: str, api_key: str) -> bool:
     """
