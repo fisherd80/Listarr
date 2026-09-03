@@ -100,6 +100,7 @@ const wizardState = {
         monitored: null,           // null = use default
         search_on_add: null,
         season_folder: null,       // null = use default (Sonarr only)
+        monitor_mode: null,         // null = use default (Sonarr only)
     },
     schedule: {
         name: "",
@@ -231,6 +232,7 @@ function loadExistingListData() {
             wizardState.importSettings.monitored = existingList.import_settings.monitored;
             wizardState.importSettings.search_on_add = existingList.import_settings.search_on_add;
             wizardState.importSettings.season_folder = existingList.import_settings.season_folder;
+            wizardState.importSettings.monitor_mode = existingList.import_settings.monitor_mode || null;
         }
 
         // Populate schedule
@@ -1010,6 +1012,12 @@ function initImportSettings() {
     if (seasonFolderCheckbox) {
         seasonFolderCheckbox.addEventListener("change", handleSeasonFolderChange);
     }
+
+    // Monitor Mode (Sonarr only)
+    const monitorModeSelect = document.getElementById("import-monitor-mode");
+    if (monitorModeSelect) {
+        monitorModeSelect.addEventListener("change", handleMonitorModeChange);
+    }
 }
 
 /**
@@ -1218,10 +1226,25 @@ function populateImportSettings(defaults, options) {
         }
     }
 
+    // Monitor Mode select (Sonarr only)
+    const monitorModeContainer = document.getElementById("import-monitor-mode-container");
+    const monitorModeSelect = document.getElementById("import-monitor-mode");
+    if (monitorModeContainer && monitorModeSelect) {
+        if (wizardState.service === "sonarr") {
+            monitorModeContainer.classList.remove("hidden");
+            monitorModeSelect.dataset.defaultValue = defaults.monitor_mode || "all";
+        } else {
+            monitorModeContainer.classList.add("hidden");
+            monitorModeSelect.value = "";
+        }
+    }
+
     // In edit mode, apply existing list override values
     if (wizardState.editMode) {
         populateStep3EditMode(options);
     }
+
+    applyMonitorModeGating();
 }
 
 /**
@@ -1286,6 +1309,12 @@ function populateStep3EditMode(options) {
         if (seasonFolderCheckbox) {
             seasonFolderCheckbox.checked = wizardState.importSettings.season_folder;
         }
+    }
+
+    // Monitor Mode (Sonarr only)
+    const monitorModeSelect = document.getElementById("import-monitor-mode");
+    if (monitorModeSelect && wizardState.service === "sonarr") {
+        monitorModeSelect.value = wizardState.importSettings.monitor_mode || "";
     }
 }
 
@@ -1359,6 +1388,8 @@ function handleMonitoredChange() {
     } else {
         wizardState.importSettings.monitored = value;
     }
+
+    applyMonitorModeGating();
 }
 
 /**
@@ -1396,6 +1427,80 @@ function handleSeasonFolderChange() {
         wizardState.importSettings.season_folder = null;
     } else {
         wizardState.importSettings.season_folder = value;
+    }
+}
+
+/**
+ * Handle Monitor Mode selection change (Sonarr only)
+ */
+function handleMonitorModeChange() {
+    const select = document.getElementById("import-monitor-mode");
+    if (!select) return;
+
+    const value = select.value;
+    wizardState.importSettings.monitor_mode = value || null;
+
+    applyMonitorModeGating();
+}
+
+/**
+ * Apply client-side D-07 monitor/search gating. Server-side resolution remains authoritative.
+ */
+function applyMonitorModeGating() {
+    const monitoredCheckbox = document.getElementById("import-monitored");
+    const monitorModeSelect = document.getElementById("import-monitor-mode");
+    const monitorModeHelp = document.getElementById("import-monitor-mode-help");
+    const searchOnAddCheckbox = document.getElementById("import-search-on-add");
+    const searchOnAddHelp = document.getElementById("import-search-on-add-help");
+    if (!monitoredCheckbox || !monitorModeSelect || !searchOnAddCheckbox) return;
+
+    const defaultMonitorHelp = 'How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.';
+    const defaultSearchHelp = "Start searching for downloads immediately";
+    const unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
+    const noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
+
+    function setDisabledState(el, disabled) {
+        el.disabled = disabled;
+        el.classList.toggle("opacity-50", disabled);
+        el.classList.toggle("cursor-not-allowed", disabled);
+    }
+
+    function restoreSearchOnAdd() {
+        const defaults = wizardState._importDefaults;
+        if (wizardState.importSettings.search_on_add !== null) {
+            searchOnAddCheckbox.checked = wizardState.importSettings.search_on_add;
+        } else {
+            searchOnAddCheckbox.checked = defaults ? defaults.search_on_add !== false : true;
+        }
+    }
+
+    if (wizardState.service !== "sonarr") {
+        setDisabledState(monitorModeSelect, false);
+        setDisabledState(searchOnAddCheckbox, false);
+        restoreSearchOnAdd();
+        return;
+    }
+
+    if (!monitoredCheckbox.checked) {
+        setDisabledState(monitorModeSelect, true);
+        if (monitorModeHelp) monitorModeHelp.textContent = unmonitoredHelp;
+        searchOnAddCheckbox.checked = false;
+        setDisabledState(searchOnAddCheckbox, true);
+        if (searchOnAddHelp) searchOnAddHelp.textContent = unmonitoredHelp;
+        return;
+    }
+
+    setDisabledState(monitorModeSelect, false);
+    if (monitorModeHelp) monitorModeHelp.textContent = defaultMonitorHelp;
+
+    if (monitorModeSelect.value === "none") {
+        searchOnAddCheckbox.checked = false;
+        setDisabledState(searchOnAddCheckbox, true);
+        if (searchOnAddHelp) searchOnAddHelp.textContent = noneSearchHelp;
+    } else {
+        setDisabledState(searchOnAddCheckbox, false);
+        restoreSearchOnAdd();
+        if (searchOnAddHelp) searchOnAddHelp.textContent = defaultSearchHelp;
     }
 }
 
@@ -1749,6 +1854,7 @@ async function submitWizard() {
             monitored: wizardState.importSettings.monitored,
             search_on_add: wizardState.importSettings.search_on_add,
             season_folder: wizardState.importSettings.season_folder,
+            monitor_mode: wizardState.importSettings.monitor_mode,
         },
         schedule: {
             cron: wizardState.schedule.cron,

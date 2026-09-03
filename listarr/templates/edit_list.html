@@ -189,10 +189,20 @@
             {{ form.override_monitored(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_monitored") }}
           </div>
 
+          <!-- Sonarr monitor selector -->
+          {% if service_type == 'SONARR' %}
+          <div>
+            <label for="sonarr_monitor_mode" class="block text-xs font-medium text-text-base mb-1">Monitor Mode</label>
+            {{ form.sonarr_monitor_mode(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="sonarr_monitor_mode") }}
+            <p id="sonarr-monitor-mode-help" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>
+          </div>
+          {% endif %}
+
           <!-- Search on Add -->
           <div>
             <label for="override_search_on_add" class="block text-xs font-medium text-text-base mb-1">Search on Add</label>
             {{ form.override_search_on_add(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_search_on_add") }}
+            <p id="override-search-on-add-help" class="mt-1 text-xs text-text-muted"></p>
           </div>
 
           <!-- Season Folder (Sonarr only) -->
@@ -319,61 +329,109 @@
     var cronRawEl = document.getElementById('edit-cron-raw');
     var advancedSection = document.getElementById('edit-cron-advanced');
 
-    if (!freqEl || !existingCron) {
-      return;
+    if (freqEl && existingCron) {
+      // Parse cron string to determine which frequency preset it matches
+      var parts = existingCron.trim().split(/\s+/);
+
+      if (parts.length === 5) {
+        var minute = parts[0];
+        var hour = parts[1];
+        var dom = parts[2];
+        var month = parts[3];
+        var dow = parts[4];
+
+        var matched = false;
+
+        // Hourly: 0 * * * *
+        if (minute === '0' && hour === '*' && dom === '*' && month === '*' && dow === '*') {
+          freqEl.value = 'hourly';
+          matched = true;
+        }
+        // Daily: 0 H * * *
+        else if (minute === '0' && hour !== '*' && dom === '*' && month === '*' && dow === '*') {
+          freqEl.value = 'daily';
+          var hourNum = parseInt(hour, 10);
+          if (!isNaN(hourNum) && timeEl) {
+            timeEl.value = (hourNum < 10 ? '0' : '') + hourNum;
+          }
+          matched = true;
+        }
+        // Weekly: 0 H * * D
+        else if (minute === '0' && hour !== '*' && dom === '*' && month === '*' && dow !== '*') {
+          freqEl.value = 'weekly';
+          var wHourNum = parseInt(hour, 10);
+          if (!isNaN(wHourNum) && timeEl) {
+            timeEl.value = (wHourNum < 10 ? '0' : '') + wHourNum;
+          }
+          if (dayEl) {
+            dayEl.value = dow;
+          }
+          matched = true;
+        }
+
+        // If no preset matched, use advanced/custom mode
+        if (!matched) {
+          freqEl.value = 'custom';
+          if (cronRawEl) { cronRawEl.value = existingCron; }
+          if (advancedSection) { advancedSection.classList.remove('hidden'); }
+        }
+      }
+
+      // Trigger change event to update row visibility and rebuild cron value
+      // This works because initCronPickerForPanel('edit') above already attached
+      // the change listener to freqEl
+      freqEl.dispatchEvent(new Event('change'));
     }
 
-    // Parse cron string to determine which frequency preset it matches
-    var parts = existingCron.trim().split(/\s+/);
+    var monitoredEl = document.getElementById('override_monitored');
+    var monitorModeEl = document.getElementById('sonarr_monitor_mode');
+    var monitorModeHelp = document.getElementById('sonarr-monitor-mode-help');
+    var searchEl = document.getElementById('override_search_on_add');
+    var searchHelp = document.getElementById('override-search-on-add-help');
+    var defaultMonitorHelp = 'How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.';
+    var unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
+    var noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
 
-    if (parts.length === 5) {
-      var minute = parts[0];
-      var hour = parts[1];
-      var dom = parts[2];
-      var month = parts[3];
-      var dow = parts[4];
+    function setDisabledState(el, disabled) {
+      if (!el) { return; }
+      el.disabled = disabled;
+      el.classList.toggle('opacity-50', disabled);
+      el.classList.toggle('cursor-not-allowed', disabled);
+    }
 
-      var matched = false;
+    function applyEditMonitorModeGating() {
+      if (!monitoredEl || !monitorModeEl || !searchEl) { return; }
 
-      // Hourly: 0 * * * *
-      if (minute === '0' && hour === '*' && dom === '*' && month === '*' && dow === '*') {
-        freqEl.value = 'hourly';
-        matched = true;
-      }
-      // Daily: 0 H * * *
-      else if (minute === '0' && hour !== '*' && dom === '*' && month === '*' && dow === '*') {
-        freqEl.value = 'daily';
-        var hourNum = parseInt(hour, 10);
-        if (!isNaN(hourNum) && timeEl) {
-          timeEl.value = (hourNum < 10 ? '0' : '') + hourNum;
-        }
-        matched = true;
-      }
-      // Weekly: 0 H * * D
-      else if (minute === '0' && hour !== '*' && dom === '*' && month === '*' && dow !== '*') {
-        freqEl.value = 'weekly';
-        var wHourNum = parseInt(hour, 10);
-        if (!isNaN(wHourNum) && timeEl) {
-          timeEl.value = (wHourNum < 10 ? '0' : '') + wHourNum;
-        }
-        if (dayEl) {
-          dayEl.value = dow;
-        }
-        matched = true;
+      var monitoredNo = monitoredEl.value === '0';
+      var monitorNone = monitorModeEl.value === 'none';
+
+      if (monitoredNo) {
+        setDisabledState(monitorModeEl, true);
+        if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
+        searchEl.value = '0';
+        setDisabledState(searchEl, true);
+        if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
+        return;
       }
 
-      // If no preset matched, use advanced/custom mode
-      if (!matched) {
-        freqEl.value = 'custom';
-        if (cronRawEl) { cronRawEl.value = existingCron; }
-        if (advancedSection) { advancedSection.classList.remove('hidden'); }
+      setDisabledState(monitorModeEl, false);
+      if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
+
+      if (monitorNone) {
+        searchEl.value = '0';
+        setDisabledState(searchEl, true);
+        if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
+      } else {
+        setDisabledState(searchEl, false);
+        if (searchHelp) { searchHelp.textContent = ''; }
       }
     }
 
-    // Trigger change event to update row visibility and rebuild cron value
-    // This works because initCronPickerForPanel('edit') above already attached
-    // the change listener to freqEl
-    freqEl.dispatchEvent(new Event('change'));
+    if (monitoredEl && monitorModeEl) {
+      monitoredEl.addEventListener('change', applyEditMonitorModeGating);
+      monitorModeEl.addEventListener('change', applyEditMonitorModeGating);
+      applyEditMonitorModeGating();
+    }
   });
 }());
 </script>
