@@ -27,6 +27,7 @@ from listarr.services.arr_service import (
     validate_api_key,
 )
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
+from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, MONITOR_MODE_TOKENS
 from listarr.services.tmdb_service import validate_tmdb_api_key
 
 # ---------------------------------------------------------------------------
@@ -508,6 +509,8 @@ def fetch_import_settings(service):
 
     if service_upper == "SONARR":
         settings_dict["season_folder"] = import_settings.season_folder
+        stored_mode = import_settings.sonarr_monitor_mode
+        settings_dict["monitor_mode"] = stored_mode if stored_mode in MONITOR_MODE_TOKENS else MONITOR_MODE_DEFAULT
 
     return jsonify({"success": True, "settings": settings_dict})
 
@@ -537,10 +540,17 @@ def save_import_settings(service):
         return jsonify({"success": False, "message": "Search on Add option is required."}), 400
 
     season_folder = None
+    monitor_mode = None
     if service_upper == "SONARR":
         season_folder = data.get("season_folder")
         if season_folder is None:
             return jsonify({"success": False, "message": "Season Folder option is required."}), 400
+
+        monitor_mode = data.get("monitor_mode")
+        if monitor_mode is None:
+            return jsonify({"success": False, "message": "Monitor Mode option is required."}), 400
+        if monitor_mode not in MONITOR_MODE_TOKENS:
+            return jsonify({"success": False, "message": "Monitor Mode option is invalid."}), 400
 
     service_config = ServiceConfig.query.filter_by(service=service_upper).first()
     if not service_config or not service_config.api_key_encrypted:
@@ -599,6 +609,7 @@ def save_import_settings(service):
             import_settings.default_tag_id = tag_id
             if service_upper == "SONARR":
                 import_settings.season_folder = bool(season_folder)
+                import_settings.sonarr_monitor_mode = monitor_mode
         else:
             import_settings = MediaImportSettings(
                 service=service_upper,
@@ -610,6 +621,7 @@ def save_import_settings(service):
             )
             if service_upper == "SONARR":
                 import_settings.season_folder = bool(season_folder)
+                import_settings.sonarr_monitor_mode = monitor_mode
             db.session.add(import_settings)
 
         db.session.commit()

@@ -941,6 +941,7 @@ class TestSonarrImportSettingsEndpoints:
                 "monitored": True,
                 "season_folder": True,
                 "search_on_add": False,
+                "monitor_mode": "all",
             },
             content_type="application/json",
         )
@@ -1028,6 +1029,7 @@ class TestSonarrImportSettingsEndpoints:
                 "monitored": False,
                 "season_folder": False,
                 "search_on_add": False,
+                "monitor_mode": "all",
             },
             content_type="application/json",
         )
@@ -1064,6 +1066,7 @@ class TestSonarrImportSettingsEndpoints:
                     "monitored": True,
                     "season_folder": True,
                     "search_on_add": False,
+                    "monitor_mode": "all",
                 },
                 content_type="application/json",
             )
