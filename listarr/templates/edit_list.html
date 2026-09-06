@@ -405,10 +405,14 @@
       var monitoredNo = monitoredEl.value === '0';
       var monitorNone = monitorModeEl.value === 'none';
 
+      // NOTE: this gating only disables the controls for clarity; it never mutates their
+      // `.value`. The stored override (including a blank "use default") must survive an
+      // unrelated edit. Forcing searchEl.value = '0' here would turn an inherit-default
+      // into an explicit "No" once the submit handler below re-enables the field (IN-03).
+
       if (monitoredNo) {
         setDisabledState(monitorModeEl, true);
         if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
-        searchEl.value = '0';
         setDisabledState(searchEl, true);
         if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
         return;
@@ -418,7 +422,6 @@
       if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
 
       if (monitorNone) {
-        searchEl.value = '0';
         setDisabledState(searchEl, true);
         if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
       } else {
@@ -431,6 +434,18 @@
       monitoredEl.addEventListener('change', applyEditMonitorModeGating);
       monitorModeEl.addEventListener('change', applyEditMonitorModeGating);
       applyEditMonitorModeGating();
+
+      // CR-01: disabled form controls are omitted from the POST body, so a disabled
+      // <select> would submit as empty and wipe the saved sonarr_monitor_mode /
+      // override_search_on_add values. Re-enable both immediately before submit so
+      // their current DOM values serialize normally.
+      var editForm = monitorModeEl.closest('form');
+      if (editForm) {
+        editForm.addEventListener('submit', function () {
+          monitorModeEl.disabled = false;
+          searchEl.disabled = false;
+        });
+      }
     }
   });
 }());

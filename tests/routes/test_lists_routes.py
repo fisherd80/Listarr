@@ -2095,6 +2095,44 @@ class TestMonitorModeListRoundTrip:
         assert resp.status_code == 200
         assert List.query.get(lst.id).sonarr_monitor_mode is None
 
+    def test_wtforms_edit_unmonitored_body_omitting_field_wipes_saved_mode(self, _sched, _unsched, client, db_session):
+        """CR-01 (pre-fix behaviour): a disabled monitor-mode <select> is omitted from the
+
+        POST body, so an edit that flips the "Monitored" override to No while changing
+        something unrelated silently discards a previously-saved sonarr_monitor_mode.
+        This documents the failure mode the edit_list.html submit handler now prevents.
+        """
+        lst = make_list(name="Unmonitored Wipe List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        body = _edit_form_data(override_monitored="0")
+        body.pop("sonarr_monitor_mode")  # disabled control -> not submitted by the browser
+        resp = client.post(f"/lists/edit/{lst.id}", data=body, follow_redirects=True)
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode is None
+
+    def test_wtforms_edit_unmonitored_preserves_submitted_monitor_mode(self, _sched, _unsched, client, db_session):
+        """CR-01 regression guard: with the edit_list.html submit handler re-enabling the
+
+        disabled monitor-mode <select>, the browser now includes sonarr_monitor_mode in
+        the POST even when the "Monitored" override is No. The saved override must survive
+        an otherwise-unrelated edit.
+        """
+        lst = make_list(name="Unmonitored Preserve List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        resp = client.post(
+            f"/lists/edit/{lst.id}",
+            data=_edit_form_data(override_monitored="0", sonarr_monitor_mode="firstSeason"),
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode == "firstSeason"
+
     def test_wtforms_edit_get_hydrates_stored_monitor_mode(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Hydrate List", target_service="SONARR", tmdb_list_type="discovery")
         lst.sonarr_monitor_mode = "pilot"
