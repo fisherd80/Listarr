@@ -833,15 +833,10 @@ function loadImportDefaults(service, panelName) {
     html += '</div>';
 
     container.innerHTML = html;
-    // IN-01: mirror wizard.js — keep the select blank ("" = inherit at resolve time)
-    // but record the resolved Import Default so gating/help stay consistent with the
-    // other three monitor-mode surfaces and the effective default is discoverable.
-    if (service === 'sonarr') {
-      var monitorModeDefaultEl = document.getElementById(prefix + '-monitor-mode');
-      if (monitorModeDefaultEl) {
-        monitorModeDefaultEl.dataset.defaultValue = defaults.monitor_mode || 'all';
-      }
-    }
+    // IN-01: the blank <option value="" selected> already means "inherit the Sonarr
+    // Import Default at resolve time", and the help text says so. Stashing the resolved
+    // default in dataset.defaultValue added no user-visible behaviour (nothing reads it),
+    // so it was removed rather than left as dead parity with wizard.js.
     initCreateMonitorModeGating(panelName);
   })
   .catch(function (err) {
