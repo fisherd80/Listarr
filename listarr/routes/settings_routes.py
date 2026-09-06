@@ -552,6 +552,16 @@ def save_import_settings(service):
         if monitor_mode not in MONITOR_MODE_TOKENS:
             return jsonify({"success": False, "message": "Monitor Mode option is invalid."}), 400
 
+        # D-06 reconciliation (mirrors resolve_import_settings): the stored Import Default
+        # row must not persist an internally inconsistent state that fetch_import_settings
+        # would echo straight back to the UI. An unmonitored default can neither monitor
+        # nor search; an explicit "none" mode forces search-on-add off.
+        if not monitored:
+            monitor_mode = "none"
+            search_on_add = False
+        elif monitor_mode == "none":
+            search_on_add = False
+
     service_config = ServiceConfig.query.filter_by(service=service_upper).first()
     if not service_config or not service_config.api_key_encrypted:
         return jsonify({"success": False, "message": f"{service.capitalize()} not configured."}), 400
