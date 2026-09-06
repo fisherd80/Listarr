@@ -453,8 +453,16 @@
         editForm.addEventListener('submit', function () {
           monitorModeEl.disabled = false;
           searchEl.disabled = false;
+          // IN-02: if the navigation is aborted after this fires (a dismissed
+          // beforeunload prompt, or a bfcache back-navigation), the selects would
+          // otherwise stay visibly enabled until the next change on #override_monitored.
+          // Re-apply gating on the next tick so the disabled state self-heals.
+          setTimeout(applyEditMonitorModeGating, 0);
         });
       }
+      // IN-02: bfcache restores the pre-submit DOM (controls re-enabled) without
+      // re-running init, so re-gate on pageshow as well.
+      window.addEventListener('pageshow', applyEditMonitorModeGating);
     }
   });
 }());
