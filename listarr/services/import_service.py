@@ -633,7 +633,13 @@ def _import_series(
             "monitored": settings["monitored"],
             "seasonFolder": settings["season_folder"],
             "addOptions": {
-                "monitor": MONITOR_MODE_TOKENS[settings["monitor_mode"]],
+                # Defensive .get() mirrors add_series (sonarr_service): a missing/invalid
+                # "monitor_mode" key coerces to the default instead of raising a raw
+                # KeyError mid-batch (which would propagate out of _import_series uncaught
+                # and abort the whole import run rather than failing one item). Every
+                # production caller routes settings through resolve_import_settings, which
+                # already guarantees a legal token, so this is a latent-fragility guard.
+                "monitor": MONITOR_MODE_TOKENS.get(settings.get("monitor_mode"), MONITOR_MODE_DEFAULT),
                 # D-06 already forced this to False for mode "none" and for unmonitored
                 # series inside resolve_import_settings (D-08) - no branching belongs here.
                 "searchForMissingEpisodes": settings["search_on_add"],
