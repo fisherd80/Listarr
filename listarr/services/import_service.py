@@ -622,6 +622,18 @@ def _import_series(
             time.sleep(API_CALL_DELAY)
             continue
 
+        # IN-04: mirror the resolver's coercion log (see resolve_import_settings). Every
+        # production caller routes through resolve_import_settings, so a bad token here
+        # means an unexpected code path - log it before the .get() default rewrites it.
+        monitor_token = settings.get("monitor_mode")
+        if monitor_token not in MONITOR_MODE_TOKENS:
+            logger.warning(
+                "Series bulk import received an unrecognised monitor mode %r for %r; coercing to %r",
+                monitor_token,
+                title,
+                MONITOR_MODE_DEFAULT,
+            )
+
         # Build payload for bulk import
         payload = {
             "title": series_data.get("title"),
@@ -641,7 +653,7 @@ def _import_series(
                 # and abort the whole import run rather than failing one item). Every
                 # production caller routes settings through resolve_import_settings, which
                 # already guarantees a legal token, so this is a latent-fragility guard.
-                "monitor": MONITOR_MODE_TOKENS.get(settings.get("monitor_mode"), MONITOR_MODE_DEFAULT),
+                "monitor": MONITOR_MODE_TOKENS.get(monitor_token, MONITOR_MODE_DEFAULT),
                 # D-06 already forced this to False for mode "none" and for unmonitored
                 # series inside resolve_import_settings (D-08) - no branching belongs here.
                 "searchForMissingEpisodes": settings["search_on_add"],

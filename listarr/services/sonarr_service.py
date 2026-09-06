@@ -251,6 +251,17 @@ def add_series(
     tvdb_id = series_data.get("tvdbId", "Unknown")
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
 
+    # IN-04: mirror the resolver's coercion log. The `.get` default below silently
+    # rewrites an unknown token to "all"; without this line a bad token reaching this
+    # layer leaves no trace.
+    if monitor_mode not in MONITOR_MODE_TOKENS:
+        logger.warning(
+            "add_series received an unrecognised monitor mode %r for %r; coercing to %r",
+            monitor_mode,
+            title,
+            MONITOR_MODE_DEFAULT,
+        )
+
     series_payload = {
         "title": series_data.get("title"),
         "tvdbId": series_data.get("tvdbId"),
