@@ -833,6 +833,15 @@ function loadImportDefaults(service, panelName) {
     html += '</div>';
 
     container.innerHTML = html;
+    // IN-01: mirror wizard.js — keep the select blank ("" = inherit at resolve time)
+    // but record the resolved Import Default so gating/help stay consistent with the
+    // other three monitor-mode surfaces and the effective default is discoverable.
+    if (service === 'sonarr') {
+      var monitorModeDefaultEl = document.getElementById(prefix + '-monitor-mode');
+      if (monitorModeDefaultEl) {
+        monitorModeDefaultEl.dataset.defaultValue = defaults.monitor_mode || 'all';
+      }
+    }
     initCreateMonitorModeGating(panelName);
   })
   .catch(function (err) {
