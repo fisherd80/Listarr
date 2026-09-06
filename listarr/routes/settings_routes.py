@@ -539,6 +539,16 @@ def save_import_settings(service):
     if search_on_add is None:
         return jsonify({"success": False, "message": "Search on Add option is required."}), 400
 
+    # IN-03: the browser always sends genuine JSON booleans, but a non-browser client
+    # could POST the string "false", which is truthy and would (a) slip past the
+    # `is None` guards and (b) persist as a non-bool. Reject anything that is not a
+    # real boolean so `bool(...)` at storage time is never load-bearing.
+    if not isinstance(monitored, bool):
+        return jsonify({"success": False, "message": "Monitor option must be true or false."}), 400
+
+    if not isinstance(search_on_add, bool):
+        return jsonify({"success": False, "message": "Search on Add option must be true or false."}), 400
+
     season_folder = None
     monitor_mode = None
     if service_upper == "SONARR":
