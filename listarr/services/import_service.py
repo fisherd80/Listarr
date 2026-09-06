@@ -127,10 +127,12 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
         season_folder = import_settings.season_folder if import_settings else True
 
     # Resolve sonarr monitor_mode (Sonarr only): list override -> Import Default -> "all" (D-02, MON-02).
-    # The elif deliberately uses truthiness (not `is not None`) so an empty-string / NULL import-default
-    # row - possible on a database migrated without the DEFAULT 'all' clause - falls through to "all"
+    # Both branches deliberately use truthiness (not `is not None`) so an empty-string / NULL value -
+    # possible on a database migrated without the DEFAULT 'all' clause, or on a restored / hand-fixed
+    # row - falls through to "all" rather than being treated as an explicit override and coerced to
+    # "all" by the allow-list guard below, which would shadow the Import Default
     # (RESEARCH Assumption A3, belt-and-suspenders half).
-    if list_obj.sonarr_monitor_mode is not None:
+    if list_obj.sonarr_monitor_mode:
         monitor_mode = list_obj.sonarr_monitor_mode
     elif import_settings and import_settings.sonarr_monitor_mode:
         monitor_mode = import_settings.sonarr_monitor_mode
