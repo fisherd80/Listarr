@@ -291,7 +291,7 @@ def _ensure_sonarr_monitor_mode_columns(app):
     lists read NULL, meaning "use the Sonarr Import Default".
     """
     from sqlalchemy import text
-    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.exc import SQLAlchemyError
 
     # (pragma, alter) pairs — every SQL string is a static literal (T-13-03).
     targets = [
@@ -304,15 +304,20 @@ def _ensure_sonarr_monitor_mode_columns(app):
             "ALTER TABLE media_import_settings ADD COLUMN sonarr_monitor_mode VARCHAR(16) DEFAULT 'all'",
         ),
     ]
-    try:
-        with app.app_context():
+    with app.app_context():
+        try:
             for pragma, ddl in targets:
                 existing = {row[1] for row in db.session.execute(text(pragma))}
                 if "sonarr_monitor_mode" not in existing:
                     db.session.execute(text(ddl))
-            db.session.commit()
-    except OperationalError as e:
-        app.logger.warning(f"Could not add sonarr_monitor_mode column(s): {e}")
+                    # Commit after each ALTER so a failure on the second statement cannot
+                    # roll back an already-applied first ALTER on session teardown.
+                    db.session.commit()
+        except SQLAlchemyError as e:
+            # Widened from OperationalError to SQLAlchemyError: a ProgrammingError or other
+            # DBAPIError during startup DDL degrades to a warning rather than aborting create_app.
+            db.session.rollback()
+            app.logger.warning(f"Could not add sonarr_monitor_mode column(s): {e}")
 
 
 def recover_interrupted_jobs(app):
