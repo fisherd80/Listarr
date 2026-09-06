@@ -439,6 +439,15 @@
       // <select> would submit as empty and wipe the saved sonarr_monitor_mode /
       // override_search_on_add values. Re-enable both immediately before submit so
       // their current DOM values serialize normally.
+      //
+      // WR-02: there is NO automated coverage for this submit-listener itself (the
+      // project has no JS test runner). The route-contract tests
+      //   tests/routes/test_lists_routes.py::
+      //     test_wtforms_edit_unmonitored_route_persists_mode_when_field_present_in_body
+      //     test_wtforms_edit_unmonitored_route_wipes_mode_when_field_absent_from_body
+      // document the two route outcomes but would stay green if this handler were
+      // deleted. Deleting/altering the re-enable below reintroduces CR-01 silently -
+      // verify manually.
       var editForm = monitorModeEl.closest('form');
       if (editForm) {
         editForm.addEventListener('submit', function () {

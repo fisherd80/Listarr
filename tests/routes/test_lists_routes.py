@@ -2095,12 +2095,21 @@ class TestMonitorModeListRoundTrip:
         assert resp.status_code == 200
         assert List.query.get(lst.id).sonarr_monitor_mode is None
 
-    def test_wtforms_edit_unmonitored_body_omitting_field_wipes_saved_mode(self, _sched, _unsched, client, db_session):
-        """CR-01 (pre-fix behaviour): a disabled monitor-mode <select> is omitted from the
+    # NOTE (WR-02): the CR-01 defect lives entirely in edit_list.html JavaScript - a
+    # disabled <select> is dropped from the POST body. The project has no JS test
+    # runner, so the two tests below exercise the ROUTE CONTRACT only (what the handler
+    # persists given a body with / without the field). They do NOT drive the template's
+    # submit-listener that re-enables the control, and would still pass if that JS were
+    # deleted. The browser-serialisation behaviour is covered only by the comment in
+    # edit_list.html near the submit listener and by manual phase verification.
+    def test_wtforms_edit_unmonitored_route_wipes_mode_when_field_absent_from_body(
+        self, _sched, _unsched, client, db_session
+    ):
+        """CR-01 (route contract, field-absent case): if the monitor-mode field is missing
 
-        POST body, so an edit that flips the "Monitored" override to No while changing
-        something unrelated silently discards a previously-saved sonarr_monitor_mode.
-        This documents the failure mode the edit_list.html submit handler now prevents.
+        from the POST body - as a browser would send it for a disabled <select> without
+        the edit_list.html submit-listener fix - the route persists NULL, discarding a
+        previously-saved sonarr_monitor_mode. Documents the failure mode, not a guard.
         """
         lst = make_list(name="Unmonitored Wipe List", target_service="SONARR", tmdb_list_type="discovery")
         lst.sonarr_monitor_mode = "firstSeason"
@@ -2113,12 +2122,15 @@ class TestMonitorModeListRoundTrip:
         assert resp.status_code == 200
         assert List.query.get(lst.id).sonarr_monitor_mode is None
 
-    def test_wtforms_edit_unmonitored_preserves_submitted_monitor_mode(self, _sched, _unsched, client, db_session):
-        """CR-01 regression guard: with the edit_list.html submit handler re-enabling the
+    def test_wtforms_edit_unmonitored_route_persists_mode_when_field_present_in_body(
+        self, _sched, _unsched, client, db_session
+    ):
+        """CR-01 (route contract, field-present case): when sonarr_monitor_mode IS in the
 
-        disabled monitor-mode <select>, the browser now includes sonarr_monitor_mode in
-        the POST even when the "Monitored" override is No. The saved override must survive
-        an otherwise-unrelated edit.
+        POST body (as the browser sends it once the edit_list.html submit-listener
+        re-enables the disabled <select>), the route persists it even though the
+        "Monitored" override is No. This asserts only that the handler stores what it
+        receives - it does NOT exercise the JS that puts the field in the body.
         """
         lst = make_list(name="Unmonitored Preserve List", target_service="SONARR", tmdb_list_type="discovery")
         lst.sonarr_monitor_mode = "firstSeason"
