@@ -1,3 +1,13 @@
+{# Sonarr monitor-mode <option> rows, driven by MONITOR_MODE_CHOICES (see
+   sonarr_service.py) so the labels - locked verbatim by 13-UI-SPEC.md - are declared once.
+   `selected_value` marks the active row; `use_default` prepends the blank inherit row. #}
+{% macro monitor_mode_options(selected_value='', use_default=false) %}
+      {% if use_default %}<option value=""{{ ' selected' if not selected_value }}>Use Default</option>{% endif %}
+      {%- for value, label in monitor_mode_choices %}
+      <option value="{{ value }}"{{ ' selected' if value == selected_value }}>{{ label }}</option>
+      {%- endfor %}
+{% endmacro %}
+
 {% macro import_settings_form(service, show_season_folder=false, show_monitor_mode=false, inline=false) %}
 {% if not inline %}
 <div class="border-t border-border-subtle pt-4 mt-4 max-w-lg">
@@ -69,11 +79,7 @@
       <label for="{{ service }}-monitor-mode" class="block text-sm font-medium text-text-base mb-1">Monitor Mode</label>
       <select id="{{ service }}-monitor-mode" name="{{ service }}_monitor_mode"
         class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:ring-primary focus:border-primary">
-        <option value="all" selected>All episodes</option>
-        <option value="firstSeason">First season</option>
-        <option value="lastSeason">Latest season</option>
-        <option value="pilot">Pilot</option>
-        <option value="none">None</option>
+        {{ monitor_mode_options(selected_value='all') }}
       </select>
       <p id="{{ service }}-monitor-mode-help" class="mt-1 text-xs text-text-muted">The monitor mode applied to every Sonarr list that hasn't set its own override. Only affects series at the moment Listarr adds them.</p>
     </div>

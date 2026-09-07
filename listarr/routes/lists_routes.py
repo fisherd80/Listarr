@@ -31,7 +31,7 @@ from listarr.services.scheduler import (
     unschedule_list,
     validate_cron_expression,
 )
-from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, MONITOR_MODE_TOKENS
+from listarr.services.sonarr_service import normalize_monitor_mode
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -157,30 +157,48 @@ def _db_to_form_str(value):
     return ""
 
 
+def _wizard_defaults_payload(service, import_settings, season_folder_default=None):
+    """Build the `defaults` block of the wizard-defaults response.
+
+    Shared by the success and the options-fetch-failure return paths so the endpoint's
+    contract is written once. `season_folder_default` is omitted entirely on the failure
+    path, where no service options were resolved.
+    """
+    payload = {
+        "root_folder": import_settings.root_folder if import_settings else None,
+        "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+        "monitored": import_settings.monitored if import_settings else True,
+        "search_on_add": import_settings.search_on_add if import_settings else True,
+        "tag_id": import_settings.default_tag_id if import_settings else None,
+    }
+    if season_folder_default is not None:
+        payload["season_folder"] = season_folder_default if service == "sonarr" else None
+    if service == "sonarr":
+        payload["monitor_mode"] = normalize_monitor_mode(
+            import_settings.sonarr_monitor_mode if import_settings else None
+        )
+    return payload
+
+
 def _form_to_monitor_mode(value):
     """Convert a submitted Sonarr monitor-mode string to its stored value or None.
 
     This is the server-side allow-list for the sonarr_monitor_mode field. The WTForms
     SelectField uses validate_choice=False, so this converter is the only gate on the
-    list write paths: a value is returned only when it is a key of MONITOR_MODE_TOKENS,
-    otherwise None (covers "", None, the obsolete "latestSeason" token, and injection
-    strings). Must not be routed through the _db_to_* tri-state helpers.
+    list write paths: an illegal value (covers "", None, the obsolete "latestSeason"
+    token, and injection strings) becomes None, meaning "inherit the Import Default".
+    Must not be routed through the _db_to_* tri-state helpers.
     """
-    if isinstance(value, str) and value in MONITOR_MODE_TOKENS:
-        return value
-    return None
+    return normalize_monitor_mode(value, default=None)
 
 
 def _monitor_mode_to_form(value):
     """Convert a stored Sonarr monitor-mode value to its form string.
 
-    Returns the value when it is a key of MONITOR_MODE_TOKENS, otherwise "" so a
-    corrupted or hand-edited row renders as "Use Default" rather than echoing an
-    unvalidated value back into the form.
+    An illegal value renders as "" ("Use Default") so a corrupted or hand-edited row
+    is not echoed back into the form unvalidated.
     """
-    if isinstance(value, str) and value in MONITOR_MODE_TOKENS:
-        return value
-    return ""
+    return normalize_monitor_mode(value, default="")
 
 
 @bp.route("/lists")
@@ -954,18 +972,7 @@ def wizard_defaults(service):
         tags = get_tags(base_url, api_key)
     except RequestException as e:
         current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
-        monitor_mode_default = MONITOR_MODE_DEFAULT
-        if service == "sonarr" and import_settings and import_settings.sonarr_monitor_mode in MONITOR_MODE_TOKENS:
-            monitor_mode_default = import_settings.sonarr_monitor_mode
-        defaults_payload = {
-            "root_folder": import_settings.root_folder if import_settings else None,
-            "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-            "monitored": import_settings.monitored if import_settings else True,
-            "search_on_add": import_settings.search_on_add if import_settings else True,
-            "tag_id": import_settings.default_tag_id if import_settings else None,
-        }
-        if service == "sonarr":
-            defaults_payload["monitor_mode"] = monitor_mode_default
+        defaults_payload = _wizard_defaults_payload(service, import_settings)
 
         # Return partial data - service is configured but options fetch failed
         return jsonify(
@@ -985,19 +992,7 @@ def wizard_defaults(service):
     season_folder_default = True  # Sonarr default
     if import_settings and hasattr(import_settings, "season_folder") and import_settings.season_folder is not None:
         season_folder_default = import_settings.season_folder
-    monitor_mode_default = MONITOR_MODE_DEFAULT
-    if service == "sonarr" and import_settings and import_settings.sonarr_monitor_mode in MONITOR_MODE_TOKENS:
-        monitor_mode_default = import_settings.sonarr_monitor_mode
-    defaults_payload = {
-        "root_folder": import_settings.root_folder if import_settings else None,
-        "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-        "monitored": import_settings.monitored if import_settings else True,
-        "search_on_add": import_settings.search_on_add if import_settings else True,
-        "tag_id": import_settings.default_tag_id if import_settings else None,
-        "season_folder": season_folder_default if service == "sonarr" else None,
-    }
-    if service == "sonarr":
-        defaults_payload["monitor_mode"] = monitor_mode_default
+    defaults_payload = _wizard_defaults_payload(service, import_settings, season_folder_default)
 
     return jsonify(
         {

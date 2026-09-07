@@ -14,7 +14,7 @@ from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services import radarr_service, sonarr_service, tmdb_service
 from listarr.services.crypto_utils import decrypt_data
-from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, MONITOR_MODE_TOKENS
+from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, normalize_monitor_mode
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -141,14 +141,7 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
 
     # Allow-list guard (security V5, T-13-05): a value outside the five legal Sonarr v3 tokens
     # never leaves the resolver - it is coerced to the default and logged, never raised.
-    if monitor_mode not in MONITOR_MODE_TOKENS:
-        logger.warning(
-            "List %s has an invalid Sonarr monitor mode %r; coercing to %r",
-            list_obj.name,
-            monitor_mode,
-            MONITOR_MODE_DEFAULT,
-        )
-        monitor_mode = MONITOR_MODE_DEFAULT
+    monitor_mode = normalize_monitor_mode(monitor_mode, context=f"List {list_obj.name}", log=logger)
 
     # D-06 reconciliation against the already-resolved `monitored` / `search_on_add` locals.
     # The ordering is load-bearing - do NOT reorder or "clean up":
@@ -475,7 +468,7 @@ def _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_t
         # D-14 breadcrumb: record the monitor token and monitored-season count of the first
         # payload in this batch. In-memory read of batch[0] only - no re-fetch from Sonarr,
         # no warning on mismatch, no effect on control flow. DEBUG is off in production.
-        if batch:
+        if batch and logger.isEnabledFor(logging.DEBUG):
             first_monitor = batch[0].get("addOptions", {}).get("monitor")
             monitored_season_count = sum(1 for s in batch[0].get("seasons", []) if s.get("monitored"))
             logger.debug(
@@ -538,18 +531,11 @@ def _import_series(
     batch_meta = []
     seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
 
-    # IN-04: mirror the resolver's coercion log (see resolve_import_settings). Every
-    # production caller routes through resolve_import_settings, so a bad token here
-    # means an unexpected code path - log it before the .get() default rewrites it.
-    # Loop-invariant: "settings" is resolved once per run, so this is checked once
-    # rather than once per queued item (IN-01, iteration 3).
-    monitor_token = settings.get("monitor_mode")
-    if monitor_token not in MONITOR_MODE_TOKENS:
-        logger.warning(
-            "Series bulk import received an unrecognised monitor mode %r; coercing to %r",
-            monitor_token,
-            MONITOR_MODE_DEFAULT,
-        )
+    # Every production caller routes through resolve_import_settings, which already
+    # guarantees a legal token, so a coercion here means an unexpected code path - it is
+    # logged (IN-04). Loop-invariant: "settings" is resolved once per run, so the token is
+    # normalised once rather than once per queued item (IN-01, iteration 3).
+    monitor_token = normalize_monitor_mode(settings.get("monitor_mode"), context="Series bulk import", log=logger)
 
     for item in tmdb_items:
         # Check for timeout/cancellation
@@ -648,13 +634,9 @@ def _import_series(
             "monitored": settings["monitored"],
             "seasonFolder": settings["season_folder"],
             "addOptions": {
-                # Defensive .get() mirrors add_series (sonarr_service): a missing/invalid
-                # "monitor_mode" key coerces to the default instead of raising a raw
-                # KeyError mid-batch (which would propagate out of _import_series uncaught
-                # and abort the whole import run rather than failing one item). Every
-                # production caller routes settings through resolve_import_settings, which
-                # already guarantees a legal token, so this is a latent-fragility guard.
-                "monitor": MONITOR_MODE_TOKENS.get(monitor_token, MONITOR_MODE_DEFAULT),
+                # Normalised once above the loop, so a missing/invalid "monitor_mode" key
+                # is already a legal token here rather than a raw KeyError mid-batch.
+                "monitor": monitor_token,
                 # D-06 already forced this to False for mode "none" and for unmonitored
                 # series inside resolve_import_settings (D-08) - no branching belongs here.
                 "searchForMissingEpisodes": settings["search_on_add"],

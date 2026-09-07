@@ -123,6 +123,18 @@ def create_app(test_config=None):
     app.register_blueprint(main_bp)
 
     @app.context_processor
+    def inject_monitor_mode_choices():
+        """Expose the Sonarr monitor-mode allow-list to templates.
+
+        Keeps the option values/labels rendered by the settings and wizard selects driven
+        by MONITOR_MODE_CHOICES (the same constant WTForms validates against) rather than
+        hand-maintained copies per template.
+        """
+        from listarr.services.sonarr_service import MONITOR_MODE_CHOICES
+
+        return {"monitor_mode_choices": MONITOR_MODE_CHOICES}
+
+    @app.context_processor
     def inject_app_version():
         repo_root = "https://github.com/fisherd80/Listarr"
         release_base = f"{repo_root}/releases/tag/"

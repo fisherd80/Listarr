@@ -1232,7 +1232,6 @@ function populateImportSettings(defaults, options) {
     if (monitorModeContainer && monitorModeSelect) {
         if (wizardState.service === "sonarr") {
             monitorModeContainer.classList.remove("hidden");
-            monitorModeSelect.dataset.defaultValue = defaults.monitor_mode || "all";
         } else {
             monitorModeContainer.classList.add("hidden");
             monitorModeSelect.value = "";
@@ -1454,17 +1453,6 @@ function applyMonitorModeGating() {
     const searchOnAddHelp = document.getElementById("import-search-on-add-help");
     if (!monitoredCheckbox || !monitorModeSelect || !searchOnAddCheckbox) return;
 
-    const defaultMonitorHelp = 'How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.';
-    const defaultSearchHelp = "Start searching for downloads immediately";
-    const unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
-    const noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
-
-    function setDisabledState(el, disabled) {
-        el.disabled = disabled;
-        el.classList.toggle("opacity-50", disabled);
-        el.classList.toggle("cursor-not-allowed", disabled);
-    }
-
     function restoreSearchOnAdd() {
         const defaults = wizardState._importDefaults;
         if (wizardState.importSettings.search_on_add !== null) {
@@ -1474,6 +1462,7 @@ function applyMonitorModeGating() {
         }
     }
 
+    // Radarr has no monitor mode, so nothing gates search-on-add.
     if (wizardState.service !== "sonarr") {
         setDisabledState(monitorModeSelect, false);
         setDisabledState(searchOnAddCheckbox, false);
@@ -1481,27 +1470,16 @@ function applyMonitorModeGating() {
         return;
     }
 
-    if (!monitoredCheckbox.checked) {
-        setDisabledState(monitorModeSelect, true);
-        if (monitorModeHelp) monitorModeHelp.textContent = unmonitoredHelp;
-        searchOnAddCheckbox.checked = false;
-        setDisabledState(searchOnAddCheckbox, true);
-        if (searchOnAddHelp) searchOnAddHelp.textContent = unmonitoredHelp;
-        return;
-    }
-
-    setDisabledState(monitorModeSelect, false);
-    if (monitorModeHelp) monitorModeHelp.textContent = defaultMonitorHelp;
-
-    if (monitorModeSelect.value === "none") {
-        searchOnAddCheckbox.checked = false;
-        setDisabledState(searchOnAddCheckbox, true);
-        if (searchOnAddHelp) searchOnAddHelp.textContent = noneSearchHelp;
-    } else {
-        setDisabledState(searchOnAddCheckbox, false);
-        restoreSearchOnAdd();
-        if (searchOnAddHelp) searchOnAddHelp.textContent = defaultSearchHelp;
-    }
+    applyMonitorGating({
+        modeEl: monitorModeSelect,
+        searchEl: searchOnAddCheckbox,
+        modeHelpEl: monitorModeHelp,
+        searchHelpEl: searchOnAddHelp,
+        unmonitored: !monitoredCheckbox.checked,
+        modeIsNone: monitorModeSelect.value === "none",
+        clearSearch: function () { searchOnAddCheckbox.checked = false; },
+        restoreSearch: restoreSearchOnAdd,
+    });
 }
 
 /**

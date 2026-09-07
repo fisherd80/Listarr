@@ -57,6 +57,26 @@ MONITOR_MODE_CHOICES = [
 MONITOR_MODE_DEFAULT = "all"
 
 
+def normalize_monitor_mode(value, default=MONITOR_MODE_DEFAULT, context=None, log=logger):
+    """Return `value` when it is a legal Sonarr v3 MonitorTypes token, else `default`.
+
+    This is the single allow-list gate for the monitor-mode concept (security V5, T-13-05):
+    an illegal value is coerced, never raised. Pass `context` to log the coercion at WARNING
+    so a bad token is never rewritten silently (IN-04); pass `log` so the warning is
+    attributed to the calling module's logger rather than this one.
+    """
+    if isinstance(value, str) and value in MONITOR_MODE_TOKENS:
+        return value
+    if context is not None:
+        log.warning(
+            "%s: unrecognised Sonarr monitor mode %r; coercing to %r",
+            context,
+            value,
+            default,
+        )
+    return default
+
+
 def validate_sonarr_api_key(base_url: str, api_key: str) -> bool:
     """
     Validates Sonarr API URL and API key by calling the /api/v3/system/status endpoint.
@@ -251,16 +271,9 @@ def add_series(
     tvdb_id = series_data.get("tvdbId", "Unknown")
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
 
-    # IN-04: mirror the resolver's coercion log. The `.get` default below silently
-    # rewrites an unknown token to "all"; without this line a bad token reaching this
-    # layer leaves no trace.
-    if monitor_mode not in MONITOR_MODE_TOKENS:
-        logger.warning(
-            "add_series received an unrecognised monitor mode %r for %r; coercing to %r",
-            monitor_mode,
-            title,
-            MONITOR_MODE_DEFAULT,
-        )
+    # Allow-list gate (T-13-10): this helper is callable with an arbitrary argument by any
+    # future caller, so an unknown mode degrades to "all" - logged, never raised (IN-04).
+    monitor_token = normalize_monitor_mode(monitor_mode, context=f"add_series {title!r}")
 
     series_payload = {
         "title": series_data.get("title"),
@@ -274,10 +287,7 @@ def add_series(
         "monitored": monitored,
         "seasonFolder": season_folder,
         "addOptions": {
-            # Defensive `.get` with the default: this helper is callable with an arbitrary
-            # argument by any future caller, so an unknown mode degrades to `all` rather
-            # than raising or forwarding a caller-chosen string (T-13-10).
-            "monitor": MONITOR_MODE_TOKENS.get(monitor_mode, MONITOR_MODE_DEFAULT),
+            "monitor": monitor_token,
             "searchForMissingEpisodes": search_on_add,
         },
         "tags": tags or [],

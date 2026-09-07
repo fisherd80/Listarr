@@ -82,7 +82,7 @@
         </div>
 
         <!-- Import defaults panel -->
-        {% from 'macros/forms.html' import import_settings_form %}
+        {% from 'macros/forms.html' import import_settings_form with context %}
         <div id="radarr-import-defaults" class="self-start {% if not radarr.configured %}hidden{% endif %}">
           <div class="bg-bg-panel border border-border-subtle rounded p-4">
             <h3 class="text-base font-semibold text-text-heading mb-4">Import Defaults</h3>

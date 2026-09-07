@@ -388,46 +388,22 @@
     var monitorModeHelp = document.getElementById('sonarr-monitor-mode-help');
     var searchEl = document.getElementById('override_search_on_add');
     var searchHelp = document.getElementById('override-search-on-add-help');
-    var defaultMonitorHelp = 'How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.';
-    var unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
-    var noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
-
-    function setDisabledState(el, disabled) {
-      if (!el) { return; }
-      el.disabled = disabled;
-      el.classList.toggle('opacity-50', disabled);
-      el.classList.toggle('cursor-not-allowed', disabled);
-    }
-
     function applyEditMonitorModeGating() {
       if (!monitoredEl || !monitorModeEl || !searchEl) { return; }
 
-      var monitoredNo = monitoredEl.value === '0';
-      var monitorNone = monitorModeEl.value === 'none';
-
-      // NOTE: this gating only disables the controls for clarity; it never mutates their
-      // `.value`. The stored override (including a blank "use default") must survive an
-      // unrelated edit. Forcing searchEl.value = '0' here would turn an inherit-default
-      // into an explicit "No" once the submit handler below re-enables the field (IN-03).
-
-      if (monitoredNo) {
-        setDisabledState(monitorModeEl, true);
-        if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
-        setDisabledState(searchEl, true);
-        if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
-        return;
-      }
-
-      setDisabledState(monitorModeEl, false);
-      if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
-
-      if (monitorNone) {
-        setDisabledState(searchEl, true);
-        if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
-      } else {
-        setDisabledState(searchEl, false);
-        if (searchHelp) { searchHelp.textContent = ''; }
-      }
+      // No clearSearch/restoreSearch hooks: this gating only disables the controls for
+      // clarity, it never mutates their `.value`. The stored override (including a blank
+      // "use default") must survive an unrelated edit. Forcing searchEl.value = '0' here
+      // would turn an inherit-default into an explicit "No" once the submit handler below
+      // re-enables the field (IN-03).
+      applyMonitorGating({
+        modeEl: monitorModeEl,
+        searchEl: searchEl,
+        modeHelpEl: monitorModeHelp,
+        searchHelpEl: searchHelp,
+        unmonitored: monitoredEl.value === '0',
+        modeIsNone: monitorModeEl.value === 'none',
+      });
     }
 
     if (monitoredEl && monitorModeEl) {

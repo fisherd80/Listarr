@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from 'macros/ui.html' import error_state %}
+{% from 'macros/forms.html' import monitor_mode_options with context %}
 {% block title %}Create List - Listarr{% endblock %}
 
 {% block head %}
@@ -465,12 +466,7 @@
               </label>
               <select id="import-monitor-mode"
                 class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
-                <option value="" selected>Use Default</option>
-                <option value="all">All episodes</option>
-                <option value="firstSeason">First season</option>
-                <option value="lastSeason">Latest season</option>
-                <option value="pilot">Pilot</option>
-                <option value="none">None</option>
+                {{ monitor_mode_options(use_default=true) }}
               </select>
               <p id="import-monitor-mode-help" class="mt-1 text-xs text-text-muted">
                 How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.

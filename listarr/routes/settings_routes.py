@@ -27,7 +27,7 @@ from listarr.services.arr_service import (
     validate_api_key,
 )
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
-from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, MONITOR_MODE_TOKENS
+from listarr.services.sonarr_service import MONITOR_MODE_TOKENS, normalize_monitor_mode
 from listarr.services.tmdb_service import validate_tmdb_api_key
 
 # ---------------------------------------------------------------------------
@@ -509,8 +509,7 @@ def fetch_import_settings(service):
 
     if service_upper == "SONARR":
         settings_dict["season_folder"] = import_settings.season_folder
-        stored_mode = import_settings.sonarr_monitor_mode
-        settings_dict["monitor_mode"] = stored_mode if stored_mode in MONITOR_MODE_TOKENS else MONITOR_MODE_DEFAULT
+        settings_dict["monitor_mode"] = normalize_monitor_mode(import_settings.sonarr_monitor_mode)
 
     return jsonify({"success": True, "settings": settings_dict})
 

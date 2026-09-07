@@ -569,51 +569,31 @@ function applyMonitorModeGating(service) {
 
   if (!monitorModeSelect || !monitorSelect || !searchSelect) { return; }
 
-  var defaultMonitorHelp = "The monitor mode applied to every Sonarr list that hasn't set its own override. Only affects series at the moment Listarr adds them.";
-  var unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
-  var noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
+  applyMonitorGating({
+    modeEl: monitorModeSelect,
+    searchEl: searchSelect,
+    modeHelpEl: monitorModeHelp,
+    searchHelpEl: searchHelp,
+    unmonitored: monitorSelect.value === 'false',
+    modeIsNone: monitorModeSelect.value === 'none',
+    beforeDisableSearch: function () { rememberSearchOnAddValue(searchSelect); },
+    clearSearch: function () { searchSelect.value = 'false'; },
+    restoreSearch: function () {
+      if (searchSelect.dataset.restoreValue) {
+        searchSelect.value = searchSelect.dataset.restoreValue;
+      }
+    },
+  });
+}
 
-  function setDisabledState(el, disabled) {
-    if (!el) { return; }
-    el.disabled = disabled;
-    el.classList.toggle('opacity-50', disabled);
-    el.classList.toggle('cursor-not-allowed', disabled);
-  }
-
-  function rememberSearchValue() {
-    if (!searchSelect.disabled) {
-      searchSelect.dataset.restoreValue = searchSelect.value || 'false';
-    }
-  }
-
-  function restoreSearchValue() {
-    if (searchSelect.dataset.restoreValue) {
-      searchSelect.value = searchSelect.dataset.restoreValue;
-    }
-  }
-
-  if (monitorSelect.value === 'false') {
-    rememberSearchValue();
-    setDisabledState(monitorModeSelect, true);
-    if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
-    searchSelect.value = 'false';
-    setDisabledState(searchSelect, true);
-    if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
-    return;
-  }
-
-  setDisabledState(monitorModeSelect, false);
-  if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
-
-  if (monitorModeSelect.value === 'none') {
-    rememberSearchValue();
-    searchSelect.value = 'false';
-    setDisabledState(searchSelect, true);
-    if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
-  } else {
-    setDisabledState(searchSelect, false);
-    restoreSearchValue();
-    if (searchHelp) { searchHelp.textContent = ''; }
+/**
+ * Stash a search-on-add <select>'s value so gating can restore it after re-enabling.
+ * Module-level so the wiring in initImportSettingsButtons shares one definition of the
+ * restore key with the gating above.
+ */
+function rememberSearchOnAddValue(searchSelect) {
+  if (searchSelect && !searchSelect.disabled) {
+    searchSelect.dataset.restoreValue = searchSelect.value || 'false';
   }
 }
 
@@ -736,9 +716,7 @@ function initImportSettingsButtons() {
     var searchSelect = document.getElementById(service + '-search-on-add');
     if (searchSelect) {
       searchSelect.addEventListener('change', function () {
-        if (!searchSelect.disabled) {
-          searchSelect.dataset.restoreValue = searchSelect.value || 'false';
-        }
+        rememberSearchOnAddValue(searchSelect);
       });
     }
   });

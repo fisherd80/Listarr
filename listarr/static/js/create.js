@@ -858,59 +858,35 @@ function initCreateMonitorModeGating(panelName) {
 
   if (!monitoredEl || !searchEl) { return; }
 
-  var defaultMonitorHelp = 'How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.';
-  var unmonitoredHelp = "Series are added unmonitored, so monitor mode doesn't apply.";
-  var noneSearchHelp = "None adds the series without monitoring anything, so there's nothing to search for.";
-
-  function setDisabledState(el, disabled) {
-    if (!el) { return; }
-    el.disabled = disabled;
-    el.classList.toggle('opacity-50', disabled);
-    el.classList.toggle('cursor-not-allowed', disabled);
-  }
-
   function rememberSearchValue() {
     if (!searchEl.disabled) {
       searchEl.dataset.restoreChecked = searchEl.checked ? 'true' : 'false';
     }
   }
 
-  function restoreSearchValue() {
-    if (searchEl.dataset.restoreChecked) {
-      searchEl.checked = searchEl.dataset.restoreChecked === 'true';
-    }
-  }
-
   function applyCreateMonitorModeGating() {
+    // Radarr panels have no monitor-mode select, so nothing gates search-on-add.
     if (!monitorModeEl) {
       setDisabledState(searchEl, false);
       if (searchHelp) { searchHelp.textContent = ''; }
       return;
     }
 
-    if (!monitoredEl.checked) {
-      rememberSearchValue();
-      setDisabledState(monitorModeEl, true);
-      if (monitorModeHelp) { monitorModeHelp.textContent = unmonitoredHelp; }
-      searchEl.checked = false;
-      setDisabledState(searchEl, true);
-      if (searchHelp) { searchHelp.textContent = unmonitoredHelp; }
-      return;
-    }
-
-    setDisabledState(monitorModeEl, false);
-    if (monitorModeHelp) { monitorModeHelp.textContent = defaultMonitorHelp; }
-
-    if (monitorModeEl.value === 'none') {
-      rememberSearchValue();
-      searchEl.checked = false;
-      setDisabledState(searchEl, true);
-      if (searchHelp) { searchHelp.textContent = noneSearchHelp; }
-    } else {
-      setDisabledState(searchEl, false);
-      restoreSearchValue();
-      if (searchHelp) { searchHelp.textContent = ''; }
-    }
+    applyMonitorGating({
+      modeEl: monitorModeEl,
+      searchEl: searchEl,
+      modeHelpEl: monitorModeHelp,
+      searchHelpEl: searchHelp,
+      unmonitored: !monitoredEl.checked,
+      modeIsNone: monitorModeEl.value === 'none',
+      beforeDisableSearch: rememberSearchValue,
+      clearSearch: function () { searchEl.checked = false; },
+      restoreSearch: function () {
+        if (searchEl.dataset.restoreChecked) {
+          searchEl.checked = searchEl.dataset.restoreChecked === 'true';
+        }
+      },
+    });
   }
 
   monitoredEl.addEventListener('change', applyCreateMonitorModeGating);
