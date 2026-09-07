@@ -1207,6 +1207,57 @@ class TestSonarrImportSettingsMonitorMode:
         settings = MediaImportSettings.query.filter_by(service="SONARR").first()
         assert settings.sonarr_monitor_mode == token
 
+    @patch("listarr.routes.settings_routes.get_root_folders")
+    @pytest.mark.parametrize("token", MONITOR_MODE_ALL_TOKENS)
+    def test_sonarr_post_preserves_monitor_mode_when_unmonitored(
+        self, mock_root_folders, token, app, client, temp_instance_path
+    ):
+        """REGRESSION (WR-01): an unmonitored Import Default stores the chosen mode verbatim.
+
+        Commit a1e0876 briefly reconciled D-06 on write (monitored=False coerced
+        monitor_mode to "none"), which silently destroyed a user's saved "All episodes"
+        default whenever Monitor was toggled off. bd4d0e5 reverted that: the settings
+        row is preserve-raw, exactly like the per-list override (CR-01), and
+        resolve_import_settings remains the sole D-06 site — reconciling at *import*
+        time, never mutating the stored preference.
+
+        This pins both halves of preserve-raw: the POST persists the raw token, and
+        the GET echoes it back unchanged. Any future "tidy the inconsistent row on
+        save" change re-breaks preference durability and must fail here.
+        """
+        self._sonarr_config(temp_instance_path)
+        mock_root_folders.return_value = [{"id": 3, "path": "/tv"}]
+
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": False,
+                "season_folder": True,
+                "search_on_add": True,
+                "monitor_mode": token,
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
+
+        settings = MediaImportSettings.query.filter_by(service="SONARR").first()
+        assert settings.sonarr_monitor_mode == token, (
+            f"unmonitored save coerced monitor_mode {token!r} -> {settings.sonarr_monitor_mode!r}; "
+            "reconciliation belongs in resolve_import_settings, not on write"
+        )
+        # search_on_add is preserve-raw for the same reason — D-06 forces it False at
+        # import time, but the stored preference must survive a Monitor off/on toggle.
+        assert settings.search_on_add is True
+
+        # Second half of preserve-raw: the stored token round-trips back out untouched.
+        get_response = client.get("/api/settings/sonarr/import-settings")
+        assert get_response.status_code == 200
+        assert get_response.get_json()["settings"]["monitor_mode"] == token
+
     def test_sonarr_post_missing_monitor_mode_returns_400(self, client):
         """Sonarr POST that omits monitor_mode is rejected with a 400 naming the field."""
         response = client.post(
