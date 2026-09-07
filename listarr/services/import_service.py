@@ -538,6 +538,19 @@ def _import_series(
     batch_meta = []
     seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
 
+    # IN-04: mirror the resolver's coercion log (see resolve_import_settings). Every
+    # production caller routes through resolve_import_settings, so a bad token here
+    # means an unexpected code path - log it before the .get() default rewrites it.
+    # Loop-invariant: "settings" is resolved once per run, so this is checked once
+    # rather than once per queued item (IN-01, iteration 3).
+    monitor_token = settings.get("monitor_mode")
+    if monitor_token not in MONITOR_MODE_TOKENS:
+        logger.warning(
+            "Series bulk import received an unrecognised monitor mode %r; coercing to %r",
+            monitor_token,
+            MONITOR_MODE_DEFAULT,
+        )
+
     for item in tmdb_items:
         # Check for timeout/cancellation
         if stop_event and stop_event.is_set():
@@ -621,18 +634,6 @@ def _import_series(
                 activity_tracker.update()
             time.sleep(API_CALL_DELAY)
             continue
-
-        # IN-04: mirror the resolver's coercion log (see resolve_import_settings). Every
-        # production caller routes through resolve_import_settings, so a bad token here
-        # means an unexpected code path - log it before the .get() default rewrites it.
-        monitor_token = settings.get("monitor_mode")
-        if monitor_token not in MONITOR_MODE_TOKENS:
-            logger.warning(
-                "Series bulk import received an unrecognised monitor mode %r for %r; coercing to %r",
-                monitor_token,
-                title,
-                MONITOR_MODE_DEFAULT,
-            )
 
         # Build payload for bulk import
         payload = {
