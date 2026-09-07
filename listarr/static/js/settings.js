@@ -537,17 +537,64 @@ function loadImportDefaults(service) {
         if (seasonSelect && s.season_folder !== null && s.season_folder !== undefined) {
           seasonSelect.value = String(s.season_folder);
         }
+        var monitorModeSelect = document.getElementById(service + '-monitor-mode');
+        if (monitorModeSelect && s.monitor_mode) {
+          monitorModeSelect.value = s.monitor_mode;
+        }
       }
 
       // Hide skeleton, show form
       if (skeletonEl) skeletonEl.classList.add('hidden');
       formEl.classList.remove('hidden');
+      applyMonitorModeGating(service);
     })
     .catch(function (err) {
       if (skeletonEl) skeletonEl.classList.add('hidden');
       formEl.classList.remove('hidden');
+      applyMonitorModeGating(service);
       console.error('loadImportDefaults error for ' + service + ':', err);
     });
+}
+
+/**
+ * Apply Sonarr import-default monitor/search gating in Settings.
+ * @param {string} service - 'radarr' or 'sonarr'
+ */
+function applyMonitorModeGating(service) {
+  var monitorSelect = document.getElementById(service + '-monitor');
+  var monitorModeSelect = document.getElementById(service + '-monitor-mode');
+  var monitorModeHelp = document.getElementById(service + '-monitor-mode-help');
+  var searchSelect = document.getElementById(service + '-search-on-add');
+  var searchHelp = document.getElementById(service + '-search-on-add-help');
+
+  if (!monitorModeSelect || !monitorSelect || !searchSelect) { return; }
+
+  applyMonitorGating({
+    modeEl: monitorModeSelect,
+    searchEl: searchSelect,
+    modeHelpEl: monitorModeHelp,
+    searchHelpEl: searchHelp,
+    unmonitored: monitorSelect.value === 'false',
+    modeIsNone: monitorModeSelect.value === 'none',
+    beforeDisableSearch: function () { rememberSearchOnAddValue(searchSelect); },
+    clearSearch: function () { searchSelect.value = 'false'; },
+    restoreSearch: function () {
+      if (searchSelect.dataset.restoreValue) {
+        searchSelect.value = searchSelect.dataset.restoreValue;
+      }
+    },
+  });
+}
+
+/**
+ * Stash a search-on-add <select>'s value so gating can restore it after re-enabling.
+ * Module-level so the wiring in initImportSettingsButtons shares one definition of the
+ * restore key with the gating above.
+ */
+function rememberSearchOnAddValue(searchSelect) {
+  if (searchSelect && !searchSelect.disabled) {
+    searchSelect.dataset.restoreValue = searchSelect.value || 'false';
+  }
 }
 
 /**
@@ -569,6 +616,10 @@ function saveImportSettings(service) {
   var seasonEl = document.getElementById(service + '-season-folder');
   if (seasonEl) {
     body.season_folder = seasonEl.value === 'true';
+  }
+  var monitorModeEl = document.getElementById(service + '-monitor-mode');
+  if (monitorModeEl) {
+    body.monitor_mode = monitorModeEl.value;
   }
 
   if (saveBtn) {
@@ -648,6 +699,24 @@ function initImportSettingsButtons() {
     if (btn) {
       btn.addEventListener('click', function () {
         saveImportSettings(service);
+      });
+    }
+    var monitorSelect = document.getElementById(service + '-monitor');
+    if (monitorSelect) {
+      monitorSelect.addEventListener('change', function () {
+        applyMonitorModeGating(service);
+      });
+    }
+    var monitorModeSelect = document.getElementById(service + '-monitor-mode');
+    if (monitorModeSelect) {
+      monitorModeSelect.addEventListener('change', function () {
+        applyMonitorModeGating(service);
+      });
+    }
+    var searchSelect = document.getElementById(service + '-search-on-add');
+    if (searchSelect) {
+      searchSelect.addEventListener('change', function () {
+        rememberSearchOnAddValue(searchSelect);
       });
     }
   });

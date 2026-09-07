@@ -31,6 +31,7 @@ from listarr.services.scheduler import (
     unschedule_list,
     validate_cron_expression,
 )
+from listarr.services.sonarr_service import normalize_monitor_mode
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -154,6 +155,50 @@ def _db_to_form_str(value):
     if value is not None:
         return str(value)
     return ""
+
+
+def _wizard_defaults_payload(service, import_settings, season_folder_default=None):
+    """Build the `defaults` block of the wizard-defaults response.
+
+    Shared by the success and the options-fetch-failure return paths so the endpoint's
+    contract is written once. `season_folder_default` is omitted entirely on the failure
+    path, where no service options were resolved.
+    """
+    payload = {
+        "root_folder": import_settings.root_folder if import_settings else None,
+        "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+        "monitored": import_settings.monitored if import_settings else True,
+        "search_on_add": import_settings.search_on_add if import_settings else True,
+        "tag_id": import_settings.default_tag_id if import_settings else None,
+    }
+    if season_folder_default is not None:
+        payload["season_folder"] = season_folder_default if service == "sonarr" else None
+    if service == "sonarr":
+        payload["monitor_mode"] = normalize_monitor_mode(
+            import_settings.sonarr_monitor_mode if import_settings else None
+        )
+    return payload
+
+
+def _form_to_monitor_mode(value):
+    """Convert a submitted Sonarr monitor-mode string to its stored value or None.
+
+    This is the server-side allow-list for the sonarr_monitor_mode field. The WTForms
+    SelectField uses validate_choice=False, so this converter is the only gate on the
+    list write paths: an illegal value (covers "", None, the obsolete "latestSeason"
+    token, and injection strings) becomes None, meaning "inherit the Import Default".
+    Must not be routed through the _db_to_* tri-state helpers.
+    """
+    return normalize_monitor_mode(value, default=None)
+
+
+def _monitor_mode_to_form(value):
+    """Convert a stored Sonarr monitor-mode value to its form string.
+
+    An illegal value renders as "" ("Use Default") so a corrupted or hand-edited row
+    is not echoed back into the form unvalidated.
+    """
+    return normalize_monitor_mode(value, default="")
 
 
 @bp.route("/lists")
@@ -306,6 +351,9 @@ def edit_list(list_id):
             season_value = form.override_season_folder.data
             list_obj.override_season_folder = int(season_value) if season_value else None
 
+            # Sonarr monitor mode: allow-list via the converter (form has validate_choice=False)
+            list_obj.sonarr_monitor_mode = _form_to_monitor_mode(form.sonarr_monitor_mode.data)
+
             # Handle limit (list size)
             limit_str = request.form.get("limit")
             if limit_str:
@@ -385,6 +433,7 @@ def edit_list(list_id):
         form.override_monitored.data = _db_to_form_str(list_obj.override_monitored)
         form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
         form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
+        form.sonarr_monitor_mode.data = _monitor_mode_to_form(list_obj.sonarr_monitor_mode)
 
     return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags)
 
@@ -484,6 +533,7 @@ def list_wizard():
                 "monitored": _db_to_bool(list_obj.override_monitored),
                 "search_on_add": _db_to_bool(list_obj.override_search_on_add),
                 "season_folder": _db_to_bool(list_obj.override_season_folder),
+                "monitor_mode": list_obj.sonarr_monitor_mode,
             },
             "schedule": {
                 "cron": list_obj.schedule_cron,
@@ -805,6 +855,9 @@ def wizard_submit():
             list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
             list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
             list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
+            # This endpoint is shared by the custom builder and the preset wizard; the preset
+            # wizard sends no monitor_mode, so this resolves to None (D-11). Allow-listed here.
+            list_obj.sonarr_monitor_mode = _form_to_monitor_mode(import_settings.get("monitor_mode"))
             list_obj.schedule_cron = schedule.get("cron") or None
             list_obj.is_active = schedule.get("is_active", True)
         else:
@@ -821,6 +874,9 @@ def wizard_submit():
                 override_monitored=_bool_to_db(import_settings.get("monitored")),
                 override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
                 override_season_folder=_bool_to_db(import_settings.get("season_folder")),
+                # Shared endpoint (custom builder + preset wizard); presets send no
+                # monitor_mode so this is deliberately None (D-11). Explicit kwarg for clarity.
+                sonarr_monitor_mode=_form_to_monitor_mode(import_settings.get("monitor_mode")),
                 schedule_cron=schedule.get("cron") or None,
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
@@ -916,18 +972,14 @@ def wizard_defaults(service):
         tags = get_tags(base_url, api_key)
     except RequestException as e:
         current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
+        defaults_payload = _wizard_defaults_payload(service, import_settings)
+
         # Return partial data - service is configured but options fetch failed
         return jsonify(
             {
                 "configured": True,
                 "error": f"Failed to fetch options from {service.title()}",
-                "defaults": {
-                    "root_folder": import_settings.root_folder if import_settings else None,
-                    "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                    "monitored": import_settings.monitored if import_settings else True,
-                    "search_on_add": import_settings.search_on_add if import_settings else True,
-                    "tag_id": import_settings.default_tag_id if import_settings else None,
-                },
+                "defaults": defaults_payload,
                 "options": {
                     "quality_profiles": [],
                     "root_folders": [],
@@ -940,18 +992,12 @@ def wizard_defaults(service):
     season_folder_default = True  # Sonarr default
     if import_settings and hasattr(import_settings, "season_folder") and import_settings.season_folder is not None:
         season_folder_default = import_settings.season_folder
+    defaults_payload = _wizard_defaults_payload(service, import_settings, season_folder_default)
 
     return jsonify(
         {
             "configured": True,
-            "defaults": {
-                "root_folder": import_settings.root_folder if import_settings else None,
-                "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                "monitored": import_settings.monitored if import_settings else True,
-                "search_on_add": import_settings.search_on_add if import_settings else True,
-                "tag_id": import_settings.default_tag_id if import_settings else None,
-                "season_folder": season_folder_default if service == "sonarr" else None,
-            },
+            "defaults": defaults_payload,
             "options": {
                 "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
                 "root_folders": [{"path": f["path"], "id": f.get("id")} for f in root_folders],

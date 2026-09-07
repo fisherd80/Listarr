@@ -32,6 +32,50 @@ from listarr.services.http_client import ADD_TIMEOUT, BULK_TIMEOUT, DEFAULT_TIME
 
 logger = logging.getLogger(__name__)
 
+# Monitor-mode constants (D-05). Listarr stores the raw Sonarr v3 MonitorTypes token as the
+# column value, so MONITOR_MODE_TOKENS is an identity map that also doubles as the emit-time
+# allow-list. The obsolete "latestSeason" token is [Obsolete] in Sonarr source and is
+# deliberately absent — "Latest Season" sends "lastSeason".
+MONITOR_MODE_TOKENS = {
+    "all": "all",
+    "firstSeason": "firstSeason",
+    "lastSeason": "lastSeason",
+    "pilot": "pilot",
+    "none": "none",
+}
+
+# Ordered (value, label) pairs for WTForms and the settings <select>.
+# Labels are locked verbatim by 13-UI-SPEC.md "Option labels — VERBATIM".
+MONITOR_MODE_CHOICES = [
+    ("all", "All episodes"),
+    ("firstSeason", "First season"),
+    ("lastSeason", "Latest season"),
+    ("pilot", "Pilot"),
+    ("none", "None"),
+]
+
+MONITOR_MODE_DEFAULT = "all"
+
+
+def normalize_monitor_mode(value, default=MONITOR_MODE_DEFAULT, context=None, log=logger):
+    """Return `value` when it is a legal Sonarr v3 MonitorTypes token, else `default`.
+
+    This is the single allow-list gate for the monitor-mode concept (security V5, T-13-05):
+    an illegal value is coerced, never raised. Pass `context` to log the coercion at WARNING
+    so a bad token is never rewritten silently (IN-04); pass `log` so the warning is
+    attributed to the calling module's logger rather than this one.
+    """
+    if isinstance(value, str) and value in MONITOR_MODE_TOKENS:
+        return value
+    if context is not None:
+        log.warning(
+            "%s: unrecognised Sonarr monitor mode %r; coercing to %r",
+            context,
+            value,
+            default,
+        )
+    return default
+
 
 def validate_sonarr_api_key(base_url: str, api_key: str) -> bool:
     """
@@ -195,6 +239,7 @@ def add_series(
     monitored: bool = True,
     season_folder: bool = True,
     search_on_add: bool = True,
+    monitor_mode: str = MONITOR_MODE_DEFAULT,
     tags: list[int] = None,
 ) -> dict:
     """
@@ -209,6 +254,8 @@ def add_series(
         monitored: Whether to monitor the series (default: True).
         season_folder: Whether to use season folders (default: True).
         search_on_add: Whether to search for missing episodes after adding (default: True).
+        monitor_mode: Sonarr `addOptions.monitor` token; one of `all`, `firstSeason`,
+            `lastSeason`, `pilot`, `none` (default: `all`).
         tags: List of tag IDs (optional).
 
     Returns:
@@ -224,6 +271,10 @@ def add_series(
     tvdb_id = series_data.get("tvdbId", "Unknown")
     logger.info(f"Adding series: {title} (TVDB: {tvdb_id})")
 
+    # Allow-list gate (T-13-10): this helper is callable with an arbitrary argument by any
+    # future caller, so an unknown mode degrades to "all" - logged, never raised (IN-04).
+    monitor_token = normalize_monitor_mode(monitor_mode, context=f"add_series {title!r}")
+
     series_payload = {
         "title": series_data.get("title"),
         "tvdbId": series_data.get("tvdbId"),
@@ -235,7 +286,10 @@ def add_series(
         "rootFolderPath": root_folder,
         "monitored": monitored,
         "seasonFolder": season_folder,
-        "addOptions": {"searchForMissingEpisodes": search_on_add},
+        "addOptions": {
+            "monitor": monitor_token,
+            "searchForMissingEpisodes": search_on_add,
+        },
         "tags": tags or [],
     }
 

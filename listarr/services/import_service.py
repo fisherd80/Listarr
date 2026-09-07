@@ -14,6 +14,7 @@ from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services import radarr_service, sonarr_service, tmdb_service
 from listarr.services.crypto_utils import decrypt_data
+from listarr.services.sonarr_service import MONITOR_MODE_DEFAULT, normalize_monitor_mode
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -93,7 +94,7 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
 
     Returns:
         dict with keys: root_folder, quality_profile_id, monitored, search_on_add,
-                        season_folder (Sonarr only), tags
+                        season_folder (Sonarr only), monitor_mode (Sonarr only), tags
     """
     # Resolve root folder
     if list_obj.override_root_folder:
@@ -125,6 +126,36 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
     else:
         season_folder = import_settings.season_folder if import_settings else True
 
+    # Resolve sonarr monitor_mode (Sonarr only): list override -> Import Default -> "all" (D-02, MON-02).
+    # Both branches deliberately use truthiness (not `is not None`) so an empty-string / NULL value -
+    # possible on a database migrated without the DEFAULT 'all' clause, or on a restored / hand-fixed
+    # row - falls through to "all" rather than being treated as an explicit override and coerced to
+    # "all" by the allow-list guard below, which would shadow the Import Default
+    # (RESEARCH Assumption A3, belt-and-suspenders half).
+    if list_obj.sonarr_monitor_mode:
+        monitor_mode = list_obj.sonarr_monitor_mode
+    elif import_settings and import_settings.sonarr_monitor_mode:
+        monitor_mode = import_settings.sonarr_monitor_mode
+    else:
+        monitor_mode = MONITOR_MODE_DEFAULT
+
+    # Allow-list guard (security V5, T-13-05): a value outside the five legal Sonarr v3 tokens
+    # never leaves the resolver - it is coerced to the default and logged, never raised.
+    monitor_mode = normalize_monitor_mode(monitor_mode, context=f"List {list_obj.name}", log=logger)
+
+    # D-06 reconciliation against the already-resolved `monitored` / `search_on_add` locals.
+    # The ordering is load-bearing - do NOT reorder or "clean up":
+    #   Rule 1: an unmonitored series can never emit a monitoring or searching payload.
+    #   Rule 2: an explicit "none" mode forces search-on-add off (D-08), regardless of the
+    #           list or import-default search setting.
+    #   Rule 3 (implicit else): the other four modes keep honouring the independently
+    #           resolved `search_on_add` (D-01 independence preserved).
+    if not monitored:
+        monitor_mode = "none"
+        search_on_add = False
+    elif monitor_mode == "none":
+        search_on_add = False
+
     # Resolve tags - override REPLACES default (not merges)
     tags = []
     if list_obj.override_tag_id:
@@ -141,6 +172,7 @@ def resolve_import_settings(list_obj: List, import_settings: MediaImportSettings
         "monitored": monitored,
         "search_on_add": search_on_add,
         "season_folder": season_folder,
+        "monitor_mode": monitor_mode,
         "tags": tags,
     }
 
@@ -433,6 +465,18 @@ def _flush_series_batch(base_url, api_key, batch, batch_meta, result, activity_t
                     }
                 )
         logger.info(f"Batch complete: {len(added_tvdb_ids)} added, {len(batch_meta) - len(added_tvdb_ids)} skipped")
+        # D-14 breadcrumb: record the monitor token and monitored-season count of the first
+        # payload in this batch. In-memory read of batch[0] only - no re-fetch from Sonarr,
+        # no warning on mismatch, no effect on control flow. DEBUG is off in production.
+        if batch and logger.isEnabledFor(logging.DEBUG):
+            first_monitor = batch[0].get("addOptions", {}).get("monitor")
+            monitored_season_count = sum(1 for s in batch[0].get("seasons", []) if s.get("monitored"))
+            logger.debug(
+                "Series batch flushed: %r monitor=%s monitored_seasons=%d",
+                batch[0].get("title"),
+                first_monitor,
+                monitored_season_count,
+            )
     except Exception as e:
         logger.error(f"Bulk import batch failed: {e}", exc_info=True)
         for meta in batch_meta:
@@ -486,6 +530,12 @@ def _import_series(
     batch = []
     batch_meta = []
     seen_ids = set()  # Track TMDB IDs already queued in this import to prevent duplicates
+
+    # Every production caller routes through resolve_import_settings, which already
+    # guarantees a legal token, so a coercion here means an unexpected code path - it is
+    # logged (IN-04). Loop-invariant: "settings" is resolved once per run, so the token is
+    # normalised once rather than once per queued item (IN-01, iteration 3).
+    monitor_token = normalize_monitor_mode(settings.get("monitor_mode"), context="Series bulk import", log=logger)
 
     for item in tmdb_items:
         # Check for timeout/cancellation
@@ -583,7 +633,14 @@ def _import_series(
             "rootFolderPath": settings["root_folder"],
             "monitored": settings["monitored"],
             "seasonFolder": settings["season_folder"],
-            "addOptions": {"searchForMissingEpisodes": settings["search_on_add"]},
+            "addOptions": {
+                # Normalised once above the loop, so a missing/invalid "monitor_mode" key
+                # is already a legal token here rather than a raw KeyError mid-batch.
+                "monitor": monitor_token,
+                # D-06 already forced this to False for mode "none" and for unmonitored
+                # series inside resolve_import_settings (D-08) - no branching belongs here.
+                "searchForMissingEpisodes": settings["search_on_add"],
+            },
             "tags": settings["tags"],
         }
 

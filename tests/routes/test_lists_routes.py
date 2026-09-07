@@ -226,6 +226,85 @@ class TestCreateList:
         response = client.get("/lists/create/custom")
         assert response.status_code == 200
 
+    def test_live_create_js_renders_monitor_mode_selector(self, client):
+        """The create pages build import settings from create.js, so guard that asset."""
+        response = client.get("/static/js/create.js")
+
+        assert response.status_code == 200
+        assert b"initCreateMonitorModeGating" in response.data
+        assert b"monitor_mode" in response.data
+        assert b"Use Default" in response.data
+
+    def test_live_create_js_builds_options_from_shared_choices(self, client):
+        """UI-REVIEW fix 1: create.js must not re-declare the locked option labels.
+
+        The five labels are single-sourced through MONITOR_MODE_CHOICES -> the
+        #monitor-mode-choices JSON block -> monitorModeOptionsHtml(). A literal
+        <option> row reappearing here is the copy-drift this guard exists to catch.
+        """
+        response = client.get("/static/js/create.js")
+        body = response.data
+
+        assert b"monitorModeOptionsHtml(true)" in body
+        for token in (b"all", b"firstSeason", b"lastSeason", b"pilot", b"none"):
+            assert b'<option value="' + token + b'"' not in body
+
+    def test_base_template_publishes_monitor_mode_choices(self, client):
+        """The JSON block create.js reads must carry all five tokens and their labels."""
+        response = client.get("/lists/create")
+
+        assert response.status_code == 200
+        assert b'id="monitor-mode-choices"' in response.data
+        for token in (b"all", b"firstSeason", b"lastSeason", b"pilot", b"none"):
+            assert token in response.data
+        assert b"All episodes" in response.data
+
+    def test_utils_js_carries_shared_monitor_helpers(self, client):
+        """UI-REVIEW fixes 1 & 2 live in utils.js — guard both."""
+        response = client.get("/static/js/utils.js")
+        body = response.data
+
+        assert response.status_code == 200
+        assert b"function monitorModeOptionsHtml" in body
+        assert b"function monitorModeChoices" in body
+        # Search on Add gets its own reason rather than the Monitor Mode sentence.
+        assert b"Series are added unmonitored, so there's nothing to search for." in body
+        assert b"Series are added unmonitored, so monitor mode doesn't apply." in body
+
+    def test_edit_list_reenables_gated_controls_on_submit(self, client, db_session):
+        """CR-01 guard: WR-02 recorded that this submit handler had no coverage at all.
+
+        A disabled <select> is omitted from the POST body, so if the submit-time
+        re-enable is deleted an unmonitored list silently loses its stored monitor-mode
+        override. This asserts the handler is still wired to the form.
+        """
+        lst = make_list(name="Gating Guard", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/edit/{lst.id}")
+        body = response.data
+
+        assert response.status_code == 200
+        assert b"addEventListener('submit'" in body
+        assert b"monitorModeEl.disabled = false" in body
+        assert b"searchEl.disabled = false" in body
+        # IN-02: the state must self-heal if the navigation is aborted.
+        assert b"pageshow" in body
+
+    def test_monitor_mode_help_text_is_announced(self, client, db_session):
+        """UI-REVIEW fix 3: gating rewrites this copy, so it needs an aria-live region."""
+        lst = make_list(name="Aria Guard", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/edit/{lst.id}")
+
+        assert response.status_code == 200
+        assert b'id="sonarr-monitor-mode-help" aria-live="polite"' in response.data
+        assert b'id="override-search-on-add-help" aria-live="polite"' in response.data
+
 
 # ---------------------------------------------------------------------------
 # 4 & 5. GET /lists/edit/<id> and POST /lists/edit/<id>
@@ -1058,6 +1137,44 @@ class TestWizardDefaults:
         assert data["defaults"]["quality_profile_id"] == 1
         assert data["defaults"]["monitored"] is True
         assert data["defaults"]["search_on_add"] is False
+        assert "monitor_mode" not in data["defaults"]
+
+    def test_sonarr_defaults_include_monitor_mode(self, client, db_session, temp_instance_path):
+        """Returns Sonarr monitor_mode for create flows using the defaults endpoint."""
+        from listarr.services.crypto_utils import encrypt_data
+
+        encrypted = encrypt_data("sonarr_key", instance_path=temp_instance_path)
+        config = ServiceConfig(
+            service="SONARR",
+            base_url="http://localhost:8989",
+            api_key_encrypted=encrypted,
+        )
+        db.session.add(config)
+
+        import_settings = MediaImportSettings(
+            service="SONARR",
+            root_folder="/tv",
+            quality_profile_id=2,
+            monitored=True,
+            search_on_add=True,
+            season_folder=True,
+        )
+        import_settings.sonarr_monitor_mode = "pilot"
+        db.session.add(import_settings)
+        db.session.commit()
+
+        with (
+            patch("listarr.routes.lists_routes.decrypt_data", return_value="sonarr_key"),
+            patch("listarr.services.sonarr_service.get_quality_profiles", return_value=[]),
+            patch("listarr.services.sonarr_service.get_root_folders", return_value=[]),
+            patch("listarr.services.sonarr_service.get_tags", return_value=[]),
+        ):
+            response = client.get("/lists/wizard/defaults/sonarr")
+
+        data = response.get_json()
+        assert data["defaults"]["root_folder"] == "/tv"
+        assert data["defaults"]["quality_profile_id"] == 2
+        assert data["defaults"]["monitor_mode"] == "pilot"
 
     def test_handles_api_error_gracefully(self, client, db_session, temp_instance_path):
         """Returns configured=True with empty options when API call fails."""
@@ -1956,3 +2073,285 @@ class TestWizardAndEditCoverage:
 
         assert response.status_code == 200
         assert b"Edit List" in response.data
+
+
+# ---------------------------------------------------------------------------
+# 14. Sonarr monitor-mode round-trip across every list write/read path (13-04)
+# ---------------------------------------------------------------------------
+
+from contextlib import contextmanager  # noqa: E402
+
+from flask import template_rendered  # noqa: E402
+
+MONITOR_MODE_TOKENS_ALL = ["all", "firstSeason", "lastSeason", "pilot", "none"]
+
+
+@contextmanager
+def _captured_templates(app):
+    """Capture (template, context) pairs rendered during the block via Flask's signal."""
+    recorded = []
+
+    def record(sender, template, context, **extra):
+        recorded.append((template, context))
+
+    template_rendered.connect(record, app)
+    try:
+        yield recorded
+    finally:
+        template_rendered.disconnect(record, app)
+
+
+def _edit_form_data(**overrides):
+    data = {
+        "name": "Monitor Mode List",
+        "is_active": "y",
+        "schedule_cron": "",
+        "override_quality_profile": "",
+        "override_root_folder": "",
+        "override_tag": "",
+        "override_monitored": "",
+        "override_search_on_add": "",
+        "override_season_folder": "",
+        "sonarr_monitor_mode": "",
+    }
+    data.update(overrides)
+    return data
+
+
+@patch("listarr.routes.lists_routes.unschedule_list")
+@patch("listarr.routes.lists_routes.schedule_list")
+class TestMonitorModeListRoundTrip:
+    """Every list write path and read-back path for lists.sonarr_monitor_mode."""
+
+    @pytest.mark.parametrize("token", MONITOR_MODE_TOKENS_ALL)
+    def test_wtforms_edit_persists_each_monitor_mode_token(self, _sched, _unsched, token, client, db_session):
+        lst = make_list(name="Edit Token List", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        resp = client.post(
+            f"/lists/edit/{lst.id}",
+            data=_edit_form_data(sonarr_monitor_mode=token),
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode == token
+
+    def test_wtforms_edit_blank_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Edit Blank List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "pilot"
+        db.session.add(lst)
+        db.session.commit()
+
+        resp = client.post(
+            f"/lists/edit/{lst.id}",
+            data=_edit_form_data(sonarr_monitor_mode=""),
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode is None
+
+    @pytest.mark.parametrize("bad", ["latestSeason", "'; DROP TABLE lists; --"])
+    def test_wtforms_edit_rejected_monitor_mode_persists_null_no_500(self, _sched, _unsched, bad, client, db_session):
+        lst = make_list(name="Edit Reject List", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        resp = client.post(
+            f"/lists/edit/{lst.id}",
+            data=_edit_form_data(sonarr_monitor_mode=bad),
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode is None
+
+    # NOTE (WR-02): the CR-01 defect lives entirely in edit_list.html JavaScript - a
+    # disabled <select> is dropped from the POST body. The project has no JS test
+    # runner, so the two tests below exercise the ROUTE CONTRACT only (what the handler
+    # persists given a body with / without the field). They do NOT drive the template's
+    # submit-listener that re-enables the control, and would still pass if that JS were
+    # deleted. The browser-serialisation behaviour is covered only by the comment in
+    # edit_list.html near the submit listener and by manual phase verification.
+    def test_wtforms_edit_unmonitored_route_wipes_mode_when_field_absent_from_body(
+        self, _sched, _unsched, client, db_session
+    ):
+        """CR-01 (route contract, field-absent case): if the monitor-mode field is missing
+
+        from the POST body - as a browser would send it for a disabled <select> without
+        the edit_list.html submit-listener fix - the route persists NULL, discarding a
+        previously-saved sonarr_monitor_mode. Documents the failure mode, not a guard.
+        """
+        lst = make_list(name="Unmonitored Wipe List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        body = _edit_form_data(override_monitored="0")
+        body.pop("sonarr_monitor_mode")  # disabled control -> not submitted by the browser
+        resp = client.post(f"/lists/edit/{lst.id}", data=body, follow_redirects=True)
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode is None
+
+    def test_wtforms_edit_unmonitored_route_persists_mode_when_field_present_in_body(
+        self, _sched, _unsched, client, db_session
+    ):
+        """CR-01 (route contract, field-present case): when sonarr_monitor_mode IS in the
+
+        POST body (as the browser sends it once the edit_list.html submit-listener
+        re-enables the disabled <select>), the route persists it even though the
+        "Monitored" override is No. This asserts only that the handler stores what it
+        receives - it does NOT exercise the JS that puts the field in the body.
+        """
+        lst = make_list(name="Unmonitored Preserve List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        resp = client.post(
+            f"/lists/edit/{lst.id}",
+            data=_edit_form_data(override_monitored="0", sonarr_monitor_mode="firstSeason"),
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode == "firstSeason"
+
+    def test_wtforms_edit_get_hydrates_stored_monitor_mode(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Hydrate List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "pilot"
+        db.session.add(lst)
+        db.session.commit()
+
+        with _captured_templates(client.application) as templates:
+            resp = client.get(f"/lists/edit/{lst.id}")
+        assert resp.status_code == 200
+        _, context = templates[-1]
+        assert context["form"].sonarr_monitor_mode.data == "pilot"
+
+    def test_wtforms_edit_get_hydrates_null_monitor_mode_to_blank(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Hydrate Null List", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        with _captured_templates(client.application) as templates:
+            resp = client.get(f"/lists/edit/{lst.id}")
+        assert resp.status_code == 200
+        _, context = templates[-1]
+        assert context["form"].sonarr_monitor_mode.data == ""
+
+    def test_wizard_edit_branch_persists_monitor_mode(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Wizard Edit List", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        payload = {
+            "list_id": lst.id,
+            "name": "Wizard Edit List",
+            "service": "sonarr",
+            "preset": "custom",
+            "filters": {},
+            "import_settings": {"monitor_mode": "lastSeason"},
+            "schedule": {"is_active": True},
+        }
+        resp = client.post("/lists/wizard/submit", json=payload)
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode == "lastSeason"
+
+    def test_wizard_edit_branch_absent_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Wizard Edit Null List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "all"
+        db.session.add(lst)
+        db.session.commit()
+
+        payload = {
+            "list_id": lst.id,
+            "name": "Wizard Edit Null List",
+            "service": "sonarr",
+            "preset": "custom",
+            "filters": {},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        resp = client.post("/lists/wizard/submit", json=payload)
+        assert resp.status_code == 200
+        assert List.query.get(lst.id).sonarr_monitor_mode is None
+
+    def test_wizard_create_branch_custom_builder_persists_monitor_mode(self, _sched, _unsched, client, db_session):
+        payload = {
+            "name": "Wizard Create Monitor List",
+            "service": "sonarr",
+            "preset": "custom",
+            "filters": {},
+            "import_settings": {"monitor_mode": "none"},
+            "schedule": {"is_active": True},
+        }
+        resp = client.post("/lists/wizard/submit", json=payload)
+        assert resp.status_code == 200
+        lst = List.query.filter_by(name="Wizard Create Monitor List").first()
+        assert lst.sonarr_monitor_mode == "none"
+
+    def test_wizard_create_branch_preset_shape_persists_null(self, _sched, _unsched, client, db_session):
+        # D-11: the preset wizard sends no monitor_mode -> list created with NULL override.
+        payload = {
+            "name": "Wizard Preset Monitor List",
+            "service": "sonarr",
+            "preset": "trending_tv",
+            "filters": {},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        resp = client.post("/lists/wizard/submit", json=payload)
+        assert resp.status_code == 200
+        lst = List.query.filter_by(name="Wizard Preset Monitor List").first()
+        assert lst.sonarr_monitor_mode is None
+
+    def test_wizard_create_branch_rejected_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
+        payload = {
+            "name": "Wizard Create Bad Monitor List",
+            "service": "sonarr",
+            "preset": "custom",
+            "filters": {},
+            "import_settings": {"monitor_mode": "latestSeason"},
+            "schedule": {"is_active": True},
+        }
+        resp = client.post("/lists/wizard/submit", json=payload)
+        assert resp.status_code == 200
+        lst = List.query.filter_by(name="Wizard Create Bad Monitor List").first()
+        assert lst.sonarr_monitor_mode is None
+
+    def test_list_to_json_contains_raw_monitor_mode(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Json Monitor List", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        with _captured_templates(client.application) as templates:
+            resp = client.get(f"/lists/wizard?list_id={lst.id}")
+        assert resp.status_code == 200
+        _, context = templates[-1]
+        assert context["existing_list"]["import_settings"]["monitor_mode"] == "firstSeason"
+
+    def test_list_to_json_monitor_mode_null_when_no_override(self, _sched, _unsched, client, db_session):
+        lst = make_list(name="Json Null Monitor List", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        with _captured_templates(client.application) as templates:
+            resp = client.get(f"/lists/wizard?list_id={lst.id}")
+        assert resp.status_code == 200
+        _, context = templates[-1]
+        assert context["existing_list"]["import_settings"]["monitor_mode"] is None
+
+    def test_wizard_radarr_without_monitor_mode_is_non_regression(self, _sched, _unsched, client, db_session):
+        # The field is Sonarr-only; a Radarr wizard submit with no monitor_mode must not 400.
+        payload = {
+            "name": "Radarr No Monitor List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        resp = client.post("/lists/wizard/submit", json=payload)
+        assert resp.status_code == 200
+        lst = List.query.filter_by(name="Radarr No Monitor List").first()
+        assert lst.sonarr_monitor_mode is None

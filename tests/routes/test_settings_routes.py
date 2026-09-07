@@ -48,6 +48,15 @@ class TestSettingsPage:
         assert b"Account" in response.data
         assert b"General" not in response.data
 
+    def test_settings_page_renders_sonarr_monitor_mode_only(self, client):
+        """Sonarr Import Defaults renders Monitor Mode; Radarr remains unchanged."""
+        response = client.get("/settings")
+
+        assert response.status_code == 200
+        assert b'id="sonarr-monitor-mode"' in response.data
+        assert b'name="sonarr_monitor_mode"' in response.data
+        assert b'id="radarr-monitor-mode"' not in response.data
+
 
 class TestTmdbApiTest:
     """Tests for POST /settings/test_tmdb_api endpoint."""
@@ -941,6 +950,7 @@ class TestSonarrImportSettingsEndpoints:
                 "monitored": True,
                 "season_folder": True,
                 "search_on_add": False,
+                "monitor_mode": "all",
             },
             content_type="application/json",
         )
@@ -1028,6 +1038,7 @@ class TestSonarrImportSettingsEndpoints:
                 "monitored": False,
                 "season_folder": False,
                 "search_on_add": False,
+                "monitor_mode": "all",
             },
             content_type="application/json",
         )
@@ -1064,6 +1075,7 @@ class TestSonarrImportSettingsEndpoints:
                     "monitored": True,
                     "season_folder": True,
                     "search_on_add": False,
+                    "monitor_mode": "all",
                 },
                 content_type="application/json",
             )
@@ -1090,6 +1102,300 @@ class TestSonarrImportSettingsEndpoints:
         data = response.get_json()
         assert data["success"] is False
         assert "Root Folder and Quality Profile are required" in data["message"]
+
+
+MONITOR_MODE_ALL_TOKENS = ["all", "firstSeason", "lastSeason", "pilot", "none"]
+
+
+class TestSonarrImportSettingsMonitorMode:
+    """Import Default (media_import_settings.sonarr_monitor_mode) round-trip via the settings API."""
+
+    def _sonarr_config(self, temp_instance_path):
+        config = ServiceConfig(
+            service="SONARR",
+            base_url="http://localhost:8989",
+            api_key_encrypted=encrypt_data("sonarr_key", instance_path=temp_instance_path),
+        )
+        db.session.add(config)
+        db.session.commit()
+
+    def _sonarr_row(self, monitor_mode="all", root_folder="/tv", quality_profile_id=1):
+        row = MediaImportSettings(
+            service="SONARR",
+            root_folder=root_folder,
+            quality_profile_id=quality_profile_id,
+            monitored=True,
+            season_folder=True,
+            search_on_add=False,
+        )
+        row.sonarr_monitor_mode = monitor_mode
+        db.session.add(row)
+        db.session.commit()
+        return row
+
+    # ---- GET -------------------------------------------------------------
+
+    @pytest.mark.parametrize("token", MONITOR_MODE_ALL_TOKENS)
+    def test_sonarr_get_returns_stored_monitor_mode(self, token, app, client):
+        """Sonarr GET echoes each stored monitor_mode token verbatim."""
+        self._sonarr_row(monitor_mode=token)
+
+        response = client.get("/api/settings/sonarr/import-settings")
+
+        assert response.status_code == 200
+        assert response.get_json()["settings"]["monitor_mode"] == token
+
+    def test_sonarr_get_monitor_mode_falls_back_to_all_when_null(self, app, client):
+        """A NULL stored value resolves to 'all' on the Sonarr GET."""
+        self._sonarr_row(monitor_mode=None)
+
+        response = client.get("/api/settings/sonarr/import-settings")
+
+        assert response.status_code == 200
+        assert response.get_json()["settings"]["monitor_mode"] == "all"
+
+    def test_sonarr_get_monitor_mode_falls_back_to_all_when_unrecognised(self, app, client):
+        """A tampered / unrecognised stored value resolves to 'all' on the Sonarr GET."""
+        self._sonarr_row(monitor_mode="latestSeason")
+
+        response = client.get("/api/settings/sonarr/import-settings")
+
+        assert response.status_code == 200
+        assert response.get_json()["settings"]["monitor_mode"] == "all"
+
+    def test_radarr_get_has_no_monitor_mode_key(self, app, client):
+        """The Radarr GET payload never carries monitor_mode."""
+        row = MediaImportSettings(
+            service="RADARR",
+            root_folder="/movies",
+            quality_profile_id=1,
+            monitored=True,
+            search_on_add=False,
+        )
+        db.session.add(row)
+        db.session.commit()
+
+        response = client.get("/api/settings/radarr/import-settings")
+
+        assert response.status_code == 200
+        assert "monitor_mode" not in response.get_json()["settings"]
+
+    # ---- POST ----------------------------------------------------------
+
+    @patch("listarr.routes.settings_routes.get_root_folders")
+    @pytest.mark.parametrize("token", MONITOR_MODE_ALL_TOKENS)
+    def test_sonarr_post_persists_each_monitor_mode(self, mock_root_folders, token, app, client, temp_instance_path):
+        """Sonarr POST persists every legal monitor_mode token as a raw string."""
+        self._sonarr_config(temp_instance_path)
+        mock_root_folders.return_value = [{"id": 3, "path": "/tv"}]
+
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": True,
+                "season_folder": True,
+                "search_on_add": False,
+                "monitor_mode": token,
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
+        settings = MediaImportSettings.query.filter_by(service="SONARR").first()
+        assert settings.sonarr_monitor_mode == token
+
+    @patch("listarr.routes.settings_routes.get_root_folders")
+    @pytest.mark.parametrize("token", MONITOR_MODE_ALL_TOKENS)
+    def test_sonarr_post_preserves_monitor_mode_when_unmonitored(
+        self, mock_root_folders, token, app, client, temp_instance_path
+    ):
+        """REGRESSION (WR-01): an unmonitored Import Default stores the chosen mode verbatim.
+
+        Commit a1e0876 briefly reconciled D-06 on write (monitored=False coerced
+        monitor_mode to "none"), which silently destroyed a user's saved "All episodes"
+        default whenever Monitor was toggled off. bd4d0e5 reverted that: the settings
+        row is preserve-raw, exactly like the per-list override (CR-01), and
+        resolve_import_settings remains the sole D-06 site — reconciling at *import*
+        time, never mutating the stored preference.
+
+        This pins both halves of preserve-raw: the POST persists the raw token, and
+        the GET echoes it back unchanged. Any future "tidy the inconsistent row on
+        save" change re-breaks preference durability and must fail here.
+        """
+        self._sonarr_config(temp_instance_path)
+        mock_root_folders.return_value = [{"id": 3, "path": "/tv"}]
+
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": False,
+                "season_folder": True,
+                "search_on_add": True,
+                "monitor_mode": token,
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
+
+        settings = MediaImportSettings.query.filter_by(service="SONARR").first()
+        assert settings.sonarr_monitor_mode == token, (
+            f"unmonitored save coerced monitor_mode {token!r} -> {settings.sonarr_monitor_mode!r}; "
+            "reconciliation belongs in resolve_import_settings, not on write"
+        )
+        # search_on_add is preserve-raw for the same reason — D-06 forces it False at
+        # import time, but the stored preference must survive a Monitor off/on toggle.
+        assert settings.search_on_add is True
+
+        # Second half of preserve-raw: the stored token round-trips back out untouched.
+        get_response = client.get("/api/settings/sonarr/import-settings")
+        assert get_response.status_code == 200
+        assert get_response.get_json()["settings"]["monitor_mode"] == token
+
+    def test_sonarr_post_missing_monitor_mode_returns_400(self, client):
+        """Sonarr POST that omits monitor_mode is rejected with a 400 naming the field."""
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": True,
+                "season_folder": True,
+                "search_on_add": False,
+                # monitor_mode missing
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "Monitor Mode" in data["message"]
+
+    def test_sonarr_post_null_monitor_mode_returns_400(self, client):
+        """Sonarr POST sending monitor_mode: null is rejected exactly like omitting it."""
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": True,
+                "season_folder": True,
+                "search_on_add": False,
+                "monitor_mode": None,
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert "Monitor Mode" in response.get_json()["message"]
+
+    def test_sonarr_post_latest_season_monitor_mode_returns_400_and_no_write(self, client):
+        """The obsolete 'latestSeason' token is outside the allow-list: 400, pre-existing row untouched."""
+        self._sonarr_row(monitor_mode="all", root_folder="/tv", quality_profile_id=7)
+
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 99,
+                "monitored": True,
+                "season_folder": True,
+                "search_on_add": False,
+                "monitor_mode": "latestSeason",
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert response.get_json()["success"] is False
+        row = MediaImportSettings.query.filter_by(service="SONARR").first()
+        assert row.root_folder == "/tv"
+        assert row.quality_profile_id == 7
+        assert row.sonarr_monitor_mode == "all"
+
+    def test_sonarr_post_injection_monitor_mode_returns_400_and_no_write(self, client):
+        """An injection-shaped monitor_mode is rejected with a 400 and nothing is persisted."""
+        self._sonarr_row(monitor_mode="pilot", root_folder="/tv", quality_profile_id=4)
+
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 42,
+                "monitored": True,
+                "season_folder": True,
+                "search_on_add": False,
+                "monitor_mode": "'; DROP TABLE media_import_settings; --",
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert response.get_json()["success"] is False
+        row = MediaImportSettings.query.filter_by(service="SONARR").first()
+        assert row.root_folder == "/tv"
+        assert row.quality_profile_id == 4
+        assert row.sonarr_monitor_mode == "pilot"
+
+    @patch("listarr.routes.settings_routes.get_root_folders")
+    def test_radarr_post_without_monitor_mode_succeeds(self, mock_root_folders, app, client, temp_instance_path):
+        """monitor_mode is Sonarr-only and must never be required on the Radarr POST."""
+        config = ServiceConfig(
+            service="RADARR",
+            base_url="http://localhost:7878",
+            api_key_encrypted=encrypt_data("radarr_key", instance_path=temp_instance_path),
+        )
+        db.session.add(config)
+        db.session.commit()
+        mock_root_folders.return_value = [{"id": 3, "path": "/movies"}]
+
+        response = client.post(
+            "/api/settings/radarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": True,
+                "search_on_add": False,
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
+
+    @patch("listarr.routes.settings_routes.get_root_folders")
+    def test_sonarr_post_creates_row_with_monitor_mode_when_none_exists(
+        self, mock_root_folders, app, client, temp_instance_path
+    ):
+        """A first-ever Sonarr save creates the media_import_settings row with the submitted mode."""
+        self._sonarr_config(temp_instance_path)
+        mock_root_folders.return_value = [{"id": 3, "path": "/tv"}]
+        assert MediaImportSettings.query.filter_by(service="SONARR").first() is None
+
+        response = client.post(
+            "/api/settings/sonarr/import-settings",
+            json={
+                "root_folder_id": 3,
+                "quality_profile_id": 1,
+                "monitored": True,
+                "season_folder": True,
+                "search_on_add": False,
+                "monitor_mode": "firstSeason",
+            },
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        row = MediaImportSettings.query.filter_by(service="SONARR").first()
+        assert row is not None
+        assert row.sonarr_monitor_mode == "firstSeason"
 
 
 class TestHelperFunctions:

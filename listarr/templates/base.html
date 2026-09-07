@@ -28,6 +28,14 @@
     <!-- Compiled Tailwind CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
 
+    <!-- Sonarr monitor-mode option rows, from MONITOR_MODE_CHOICES via the
+         monitor_mode_choices context processor. Surfaces that build their import-settings
+         markup in JS (create.js) read this instead of hardcoding the locked labels, so the
+         Jinja macro and the JS builder cannot drift apart. -->
+    <script type="application/json" id="monitor-mode-choices">
+{{ monitor_mode_choices | tojson | safe }}
+    </script>
+
     <!-- Shared Utilities -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <!-- Shared Toast Notification System -->

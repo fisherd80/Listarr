@@ -804,20 +804,96 @@ function loadImportDefaults(service, panelName) {
     html += '<label for="' + prefix + '-monitored" class="text-sm text-text-base">Monitor items</label>';
     html += '</div>';
 
+    // Monitor Mode select (Sonarr only)
+    if (service === 'sonarr') {
+      html += '<div>';
+      html += '<label for="' + prefix + '-monitor-mode" class="block text-sm font-medium text-text-base mb-2">Monitor Mode</label>';
+      html += '<select id="' + prefix + '-monitor-mode" class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">';
+      // Rows come from MONITOR_MODE_CHOICES via #monitor-mode-choices (base.html), the same
+      // constant the Jinja monitor_mode_options macro renders, so the locked labels are not
+      // duplicated as literals on this surface.
+      html += monitorModeOptionsHtml(true);
+      html += '</select>';
+      html += '<p id="' + prefix + '-monitor-mode-help" aria-live="polite" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>';
+      html += '</div>';
+    }
+
     // Search on add checkbox
     var searchChecked = (defaults.search_on_add !== false) ? ' checked' : '';
+    html += '<div>';
     html += '<div class="flex items-center gap-3">';
     html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary">';
     html += '<label for="' + prefix + '-search-on-add" class="text-sm text-text-base">Search on add</label>';
+    html += '</div>';
+    html += '<p id="' + prefix + '-search-on-add-help" aria-live="polite" class="mt-1 text-xs text-text-muted ml-6"></p>';
     html += '</div>';
 
     html += '</div>';
 
     container.innerHTML = html;
+    // IN-01: the blank <option value="" selected> already means "inherit the Sonarr
+    // Import Default at resolve time", and the help text says so. Stashing the resolved
+    // default in dataset.defaultValue added no user-visible behaviour (nothing reads it),
+    // so it was removed rather than left as dead parity with wizard.js.
+    initCreateMonitorModeGating(panelName);
   })
   .catch(function (err) {
     container.innerHTML = '<div class="text-sm text-error">Failed to load import settings.</div>';
   });
+}
+
+/**
+ * Wire and apply Sonarr monitor/search gating in the live create surfaces.
+ * @param {string} panelName - 'preset' or 'custom'
+ */
+function initCreateMonitorModeGating(panelName) {
+  var prefix = panelName + '-import';
+  var monitoredEl = document.getElementById(prefix + '-monitored');
+  var monitorModeEl = document.getElementById(prefix + '-monitor-mode');
+  var monitorModeHelp = document.getElementById(prefix + '-monitor-mode-help');
+  var searchEl = document.getElementById(prefix + '-search-on-add');
+  var searchHelp = document.getElementById(prefix + '-search-on-add-help');
+
+  if (!monitoredEl || !searchEl) { return; }
+
+  function rememberSearchValue() {
+    if (!searchEl.disabled) {
+      searchEl.dataset.restoreChecked = searchEl.checked ? 'true' : 'false';
+    }
+  }
+
+  function applyCreateMonitorModeGating() {
+    // Radarr panels have no monitor-mode select, so nothing gates search-on-add.
+    if (!monitorModeEl) {
+      setDisabledState(searchEl, false);
+      if (searchHelp) { searchHelp.textContent = ''; }
+      return;
+    }
+
+    applyMonitorGating({
+      modeEl: monitorModeEl,
+      searchEl: searchEl,
+      modeHelpEl: monitorModeHelp,
+      searchHelpEl: searchHelp,
+      unmonitored: !monitoredEl.checked,
+      modeIsNone: monitorModeEl.value === 'none',
+      beforeDisableSearch: rememberSearchValue,
+      clearSearch: function () { searchEl.checked = false; },
+      restoreSearch: function () {
+        if (searchEl.dataset.restoreChecked) {
+          searchEl.checked = searchEl.dataset.restoreChecked === 'true';
+        }
+      },
+    });
+  }
+
+  monitoredEl.addEventListener('change', applyCreateMonitorModeGating);
+  searchEl.addEventListener('change', rememberSearchValue);
+  if (monitorModeEl) {
+    monitorModeEl.addEventListener('change', applyCreateMonitorModeGating);
+  }
+  rememberSearchValue();
+  applyCreateMonitorModeGating();
 }
 
 // ---------------------
@@ -876,6 +952,7 @@ function submitList(panelName) {
     var folderEl = document.getElementById(prefix + '-folder');
     var tagEl = document.getElementById(prefix + '-tag');
     var monitoredEl = document.getElementById(prefix + '-monitored');
+    var monitorModeEl = document.getElementById(prefix + '-monitor-mode');
     var searchEl = document.getElementById(prefix + '-search-on-add');
 
     payload = {
@@ -900,6 +977,9 @@ function submitList(panelName) {
         is_active: isActiveInput ? isActiveInput.checked : true
       }
     };
+    if (monitorModeEl) {
+      payload.import_settings.monitor_mode = monitorModeEl.value || null;
+    }
 
   } else {
     // Custom panel
@@ -921,6 +1001,7 @@ function submitList(panelName) {
     var cfEl = document.getElementById(customPrefix + '-folder');
     var ctEl = document.getElementById(customPrefix + '-tag');
     var cmEl = document.getElementById(customPrefix + '-monitored');
+    var cmmEl = document.getElementById(customPrefix + '-monitor-mode');
     var csEl = document.getElementById(customPrefix + '-search-on-add');
 
     payload = {
@@ -941,6 +1022,9 @@ function submitList(panelName) {
         is_active: customIsActive ? customIsActive.checked : true
       }
     };
+    if (cmmEl) {
+      payload.import_settings.monitor_mode = cmmEl.value || null;
+    }
   }
 
   // Disable button during submit

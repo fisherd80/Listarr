@@ -27,6 +27,7 @@ from listarr.services.arr_service import (
     validate_api_key,
 )
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
+from listarr.services.sonarr_service import MONITOR_MODE_TOKENS, normalize_monitor_mode
 from listarr.services.tmdb_service import validate_tmdb_api_key
 
 # ---------------------------------------------------------------------------
@@ -508,6 +509,7 @@ def fetch_import_settings(service):
 
     if service_upper == "SONARR":
         settings_dict["season_folder"] = import_settings.season_folder
+        settings_dict["monitor_mode"] = normalize_monitor_mode(import_settings.sonarr_monitor_mode)
 
     return jsonify({"success": True, "settings": settings_dict})
 
@@ -536,11 +538,35 @@ def save_import_settings(service):
     if search_on_add is None:
         return jsonify({"success": False, "message": "Search on Add option is required."}), 400
 
+    # IN-03: the browser always sends genuine JSON booleans, but a non-browser client
+    # could POST the string "false", which is truthy and would (a) slip past the
+    # `is None` guards and (b) persist as a non-bool. Reject anything that is not a
+    # real boolean so `bool(...)` at storage time is never load-bearing.
+    if not isinstance(monitored, bool):
+        return jsonify({"success": False, "message": "Monitor option must be true or false."}), 400
+
+    if not isinstance(search_on_add, bool):
+        return jsonify({"success": False, "message": "Search on Add option must be true or false."}), 400
+
     season_folder = None
+    monitor_mode = None
     if service_upper == "SONARR":
         season_folder = data.get("season_folder")
         if season_folder is None:
             return jsonify({"success": False, "message": "Season Folder option is required."}), 400
+
+        monitor_mode = data.get("monitor_mode")
+        if monitor_mode is None:
+            return jsonify({"success": False, "message": "Monitor Mode option is required."}), 400
+        if monitor_mode not in MONITOR_MODE_TOKENS:
+            return jsonify({"success": False, "message": "Monitor Mode option is invalid."}), 400
+
+        # D-06 reconciliation deliberately does NOT happen here. The Import Default row
+        # stores the user's raw choice verbatim, exactly like the per-list override
+        # (see CR-01 / lists_routes.py). resolve_import_settings applies D-06 at import
+        # time; the settings API only reflects the stored choice, it never mutates it.
+        # Coercing monitor_mode to "none" on save (former IN-02 fix) silently destroyed a
+        # saved "All episodes" default whenever "Monitor" was toggled to No (WR-01).
 
     service_config = ServiceConfig.query.filter_by(service=service_upper).first()
     if not service_config or not service_config.api_key_encrypted:
@@ -599,6 +625,7 @@ def save_import_settings(service):
             import_settings.default_tag_id = tag_id
             if service_upper == "SONARR":
                 import_settings.season_folder = bool(season_folder)
+                import_settings.sonarr_monitor_mode = monitor_mode
         else:
             import_settings = MediaImportSettings(
                 service=service_upper,
@@ -610,6 +637,7 @@ def save_import_settings(service):
             )
             if service_upper == "SONARR":
                 import_settings.season_folder = bool(season_folder)
+                import_settings.sonarr_monitor_mode = monitor_mode
             db.session.add(import_settings)
 
         db.session.commit()

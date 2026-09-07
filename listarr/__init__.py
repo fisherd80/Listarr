@@ -123,6 +123,18 @@ def create_app(test_config=None):
     app.register_blueprint(main_bp)
 
     @app.context_processor
+    def inject_monitor_mode_choices():
+        """Expose the Sonarr monitor-mode allow-list to templates.
+
+        Keeps the option values/labels rendered by the settings and wizard selects driven
+        by MONITOR_MODE_CHOICES (the same constant WTForms validates against) rather than
+        hand-maintained copies per template.
+        """
+        from listarr.services.sonarr_service import MONITOR_MODE_CHOICES
+
+        return {"monitor_mode_choices": MONITOR_MODE_CHOICES}
+
+    @app.context_processor
     def inject_app_version():
         repo_root = "https://github.com/fisherd80/Listarr"
         release_base = f"{repo_root}/releases/tag/"
@@ -211,6 +223,7 @@ def create_app(test_config=None):
         # add new indexes to tables that already exist. This migration call is
         # idempotent (IF NOT EXISTS) and safe to run on every startup.
         _ensure_unique_running_job_index(app)
+        _ensure_sonarr_monitor_mode_columns(app)
 
         # Recover interrupted jobs
         recover_interrupted_jobs(app)
@@ -269,6 +282,54 @@ def _ensure_unique_running_job_index(app):
             db.session.commit()
     except OperationalError as e:
         app.logger.warning(f"Could not create unique running-job index: {e}")
+
+
+def _ensure_sonarr_monitor_mode_columns(app):
+    """
+    Add sonarr_monitor_mode to the 'lists' and 'media_import_settings' tables on
+    pre-v2.2 databases.
+
+    db.create_all() never adds columns to tables that already exist, and SQLite's
+    ALTER TABLE ADD COLUMN has no IF NOT EXISTS form, so each ALTER is guarded by a
+    PRAGMA table_info() check. This makes the helper idempotent: booting a second
+    time against an already-migrated database changes nothing and raises nothing.
+    Mirrors the failure posture of _ensure_unique_running_job_index — an
+    OperationalError degrades to a warning rather than blocking startup.
+
+    The DDL strings are static literals over a hard-coded two-element list; no
+    request data, config value, or user input is interpolated (T-13-03). The
+    media_import_settings column carries DEFAULT 'all' so pre-existing import-default
+    rows read 'all' rather than NULL; the lists column has no DEFAULT so existing
+    lists read NULL, meaning "use the Sonarr Import Default".
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
+
+    # (pragma, alter) pairs — every SQL string is a static literal (T-13-03).
+    targets = [
+        (
+            "PRAGMA table_info(lists)",
+            "ALTER TABLE lists ADD COLUMN sonarr_monitor_mode VARCHAR(16)",
+        ),
+        (
+            "PRAGMA table_info(media_import_settings)",
+            "ALTER TABLE media_import_settings ADD COLUMN sonarr_monitor_mode VARCHAR(16) DEFAULT 'all'",
+        ),
+    ]
+    with app.app_context():
+        try:
+            for pragma, ddl in targets:
+                existing = {row[1] for row in db.session.execute(text(pragma))}
+                if "sonarr_monitor_mode" not in existing:
+                    db.session.execute(text(ddl))
+                    # Commit after each ALTER so a failure on the second statement cannot
+                    # roll back an already-applied first ALTER on session teardown.
+                    db.session.commit()
+        except SQLAlchemyError as e:
+            # Widened from OperationalError to SQLAlchemyError: a ProgrammingError or other
+            # DBAPIError during startup DDL degrades to a warning rather than aborting create_app.
+            db.session.rollback()
+            app.logger.warning(f"Could not add sonarr_monitor_mode column(s): {e}")
 
 
 def recover_interrupted_jobs(app):

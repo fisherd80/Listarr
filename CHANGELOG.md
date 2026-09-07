@@ -5,6 +5,26 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.2.DEV-2] - 2026-09-07
+
+_Development checkpoint on `develop` — not a release. Second phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
+
+### Added
+
+- Sonarr monitor-mode selector — choose per TV list how much of a series Listarr monitors when it adds it: **All episodes / First season / Latest season / Pilot / None** (resolves #34)
+- Monitor Mode is a Sonarr **Import Default** (default: All) under Settings → Sonarr Import Defaults, with a per-list tri-state override ("Use Default") mirroring the existing Season Folder override
+- The selector is rendered on the custom builder, the preset wizard, and the list edit form — Sonarr lists only; Radarr lists are unaffected and show no such control
+- Imports now emit `addOptions.monitor` on both the bulk (`/api/v3/series/import`) and single-add Sonarr paths, from a constant token map pinned against the Sonarr v3 `MonitorTypes` schema by a build-time test (so "Latest season" correctly sends `lastSeason`, never the obsolete `latestSeason`)
+- Client-side gating: Monitor Mode greys out when Monitored is off, and Search on Add is forced off for Monitored-off or Monitor Mode = None
+
+### Changed
+
+- `resolve_import_settings()` now returns a `monitor_mode` key resolved through list override → import default → `all`, and is the single place where the monitored / monitor-mode / search-on-add conflicts are reconciled; any stored value outside the five known tokens is coerced to `all` and logged
+- `lists.sonarr_monitor_mode` and `media_import_settings.sonarr_monitor_mode` are added by idempotent, `PRAGMA table_info`-guarded startup DDL (no Alembic), so pre-upgrade lists keep behaving exactly as "All" with no manual action
+- Monitor mode applies on **new adds only** — re-running a list never modifies monitoring on a series Sonarr already has
+
+---
+
 ## [2.2.DEV-1] - 2026-09-03
 
 _Development checkpoint on `develop` — not a release. First phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
