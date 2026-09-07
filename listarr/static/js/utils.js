@@ -202,10 +202,51 @@ function debounce(func, wait) {
 // Shared by all four monitor-mode surfaces (settings.js, create.js, wizard.js and the
 // edit-list inline script) so the rule and its wording live in one place.
 
+// `unmonitored` is the copy locked verbatim by 13-UI-SPEC.md for the Monitor Mode select.
+// The spec does not state what Search on Add shows in that same state, so `unmonitoredSearch`
+// explains it from that field's own point of view - reusing the Monitor Mode sentence there
+// misattributes the reason (it isn't about monitor mode when read under Search on Add).
 var MONITOR_GATING_HELP = {
   unmonitored: "Series are added unmonitored, so monitor mode doesn't apply.",
+  unmonitoredSearch: "Series are added unmonitored, so there's nothing to search for.",
   noneSearch: "None adds the series without monitoring anything, so there's nothing to search for.",
 };
+
+/**
+ * Return the [value, label] monitor-mode rows published by the server, or [] when absent.
+ *
+ * Reads the #monitor-mode-choices JSON block rendered by base.html from MONITOR_MODE_CHOICES,
+ * so the locked option labels have exactly one source across Jinja and JS surfaces.
+ */
+function monitorModeChoices() {
+  var el = document.getElementById('monitor-mode-choices');
+  if (!el) { return []; }
+  try {
+    var parsed = JSON.parse(el.textContent);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Build the monitor-mode <option> rows as an HTML string, mirroring the Jinja
+ * monitor_mode_options macro. `useDefault` prepends the blank "Use Default" inherit row.
+ */
+function monitorModeOptionsHtml(useDefault, selectedValue) {
+  var selected = selectedValue || '';
+  var html = '';
+  if (useDefault) {
+    html += '<option value=""' + (selected ? '' : ' selected') + '>Use Default</option>';
+  }
+  monitorModeChoices().forEach(function (choice) {
+    var value = choice[0];
+    var label = choice[1];
+    html += '<option value="' + escapeHtml(value) + '"' +
+      (value === selected ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+  });
+  return html;
+}
 
 /**
  * Toggle a control's disabled state and its matching "inactive" styling.
@@ -262,7 +303,7 @@ function applyMonitorGating(cfg) {
     setHelpText(cfg.modeHelpEl, MONITOR_GATING_HELP.unmonitored);
     if (cfg.clearSearch) { cfg.clearSearch(); }
     setDisabledState(cfg.searchEl, true);
-    setHelpText(cfg.searchHelpEl, MONITOR_GATING_HELP.unmonitored);
+    setHelpText(cfg.searchHelpEl, MONITOR_GATING_HELP.unmonitoredSearch);
     return;
   }
 

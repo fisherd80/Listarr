@@ -194,7 +194,7 @@
           <div>
             <label for="sonarr_monitor_mode" class="block text-xs font-medium text-text-base mb-1">Monitor Mode</label>
             {{ form.sonarr_monitor_mode(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="sonarr_monitor_mode") }}
-            <p id="sonarr-monitor-mode-help" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>
+            <p id="sonarr-monitor-mode-help" aria-live="polite" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>
           </div>
           {% endif %}
 
@@ -202,7 +202,7 @@
           <div>
             <label for="override_search_on_add" class="block text-xs font-medium text-text-base mb-1">Search on Add</label>
             {{ form.override_search_on_add(class="w-full px-3 py-1.5 bg-input-bg border border-input-border rounded text-text-base text-sm focus:outline-none focus:ring-1 focus:ring-primary", id="override_search_on_add") }}
-            <p id="override-search-on-add-help" class="mt-1 text-xs text-text-muted"></p>
+            <p id="override-search-on-add-help" aria-live="polite" class="mt-1 text-xs text-text-muted"></p>
           </div>
 
           <!-- Season Folder (Sonarr only) -->

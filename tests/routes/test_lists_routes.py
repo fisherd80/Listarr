@@ -235,6 +235,76 @@ class TestCreateList:
         assert b"monitor_mode" in response.data
         assert b"Use Default" in response.data
 
+    def test_live_create_js_builds_options_from_shared_choices(self, client):
+        """UI-REVIEW fix 1: create.js must not re-declare the locked option labels.
+
+        The five labels are single-sourced through MONITOR_MODE_CHOICES -> the
+        #monitor-mode-choices JSON block -> monitorModeOptionsHtml(). A literal
+        <option> row reappearing here is the copy-drift this guard exists to catch.
+        """
+        response = client.get("/static/js/create.js")
+        body = response.data
+
+        assert b"monitorModeOptionsHtml(true)" in body
+        for token in (b"all", b"firstSeason", b"lastSeason", b"pilot", b"none"):
+            assert b'<option value="' + token + b'"' not in body
+
+    def test_base_template_publishes_monitor_mode_choices(self, client):
+        """The JSON block create.js reads must carry all five tokens and their labels."""
+        response = client.get("/lists/create")
+
+        assert response.status_code == 200
+        assert b'id="monitor-mode-choices"' in response.data
+        for token in (b"all", b"firstSeason", b"lastSeason", b"pilot", b"none"):
+            assert token in response.data
+        assert b"All episodes" in response.data
+
+    def test_utils_js_carries_shared_monitor_helpers(self, client):
+        """UI-REVIEW fixes 1 & 2 live in utils.js — guard both."""
+        response = client.get("/static/js/utils.js")
+        body = response.data
+
+        assert response.status_code == 200
+        assert b"function monitorModeOptionsHtml" in body
+        assert b"function monitorModeChoices" in body
+        # Search on Add gets its own reason rather than the Monitor Mode sentence.
+        assert b"Series are added unmonitored, so there's nothing to search for." in body
+        assert b"Series are added unmonitored, so monitor mode doesn't apply." in body
+
+    def test_edit_list_reenables_gated_controls_on_submit(self, client, db_session):
+        """CR-01 guard: WR-02 recorded that this submit handler had no coverage at all.
+
+        A disabled <select> is omitted from the POST body, so if the submit-time
+        re-enable is deleted an unmonitored list silently loses its stored monitor-mode
+        override. This asserts the handler is still wired to the form.
+        """
+        lst = make_list(name="Gating Guard", target_service="SONARR", tmdb_list_type="discovery")
+        lst.sonarr_monitor_mode = "firstSeason"
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/edit/{lst.id}")
+        body = response.data
+
+        assert response.status_code == 200
+        assert b"addEventListener('submit'" in body
+        assert b"monitorModeEl.disabled = false" in body
+        assert b"searchEl.disabled = false" in body
+        # IN-02: the state must self-heal if the navigation is aborted.
+        assert b"pageshow" in body
+
+    def test_monitor_mode_help_text_is_announced(self, client, db_session):
+        """UI-REVIEW fix 3: gating rewrites this copy, so it needs an aria-live region."""
+        lst = make_list(name="Aria Guard", target_service="SONARR", tmdb_list_type="discovery")
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/edit/{lst.id}")
+
+        assert response.status_code == 200
+        assert b'id="sonarr-monitor-mode-help" aria-live="polite"' in response.data
+        assert b'id="override-search-on-add-help" aria-live="polite"' in response.data
+
 
 # ---------------------------------------------------------------------------
 # 4 & 5. GET /lists/edit/<id> and POST /lists/edit/<id>

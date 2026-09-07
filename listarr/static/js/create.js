@@ -809,14 +809,12 @@ function loadImportDefaults(service, panelName) {
       html += '<div>';
       html += '<label for="' + prefix + '-monitor-mode" class="block text-sm font-medium text-text-base mb-2">Monitor Mode</label>';
       html += '<select id="' + prefix + '-monitor-mode" class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">';
-      html += '<option value="" selected>Use Default</option>';
-      html += '<option value="all">All episodes</option>';
-      html += '<option value="firstSeason">First season</option>';
-      html += '<option value="lastSeason">Latest season</option>';
-      html += '<option value="pilot">Pilot</option>';
-      html += '<option value="none">None</option>';
+      // Rows come from MONITOR_MODE_CHOICES via #monitor-mode-choices (base.html), the same
+      // constant the Jinja monitor_mode_options macro renders, so the locked labels are not
+      // duplicated as literals on this surface.
+      html += monitorModeOptionsHtml(true);
       html += '</select>';
-      html += '<p id="' + prefix + '-monitor-mode-help" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>';
+      html += '<p id="' + prefix + '-monitor-mode-help" aria-live="polite" class="mt-1 text-xs text-text-muted">How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.</p>';
       html += '</div>';
     }
 
@@ -827,7 +825,7 @@ function loadImportDefaults(service, panelName) {
     html += '<input type="checkbox" id="' + prefix + '-search-on-add" ' + searchChecked + ' class="w-4 h-4 rounded border-input-border bg-input-bg text-primary focus:ring-primary">';
     html += '<label for="' + prefix + '-search-on-add" class="text-sm text-text-base">Search on add</label>';
     html += '</div>';
-    html += '<p id="' + prefix + '-search-on-add-help" class="mt-1 text-xs text-text-muted ml-6"></p>';
+    html += '<p id="' + prefix + '-search-on-add-help" aria-live="polite" class="mt-1 text-xs text-text-muted ml-6"></p>';
     html += '</div>';
 
     html += '</div>';

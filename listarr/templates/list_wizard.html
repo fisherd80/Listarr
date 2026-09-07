@@ -468,7 +468,7 @@
                 class="w-full px-3 py-2 border border-input-border rounded text-text-base bg-input-bg focus:ring-primary focus:border-primary">
                 {{ monitor_mode_options(use_default=true) }}
               </select>
-              <p id="import-monitor-mode-help" class="mt-1 text-xs text-text-muted">
+              <p id="import-monitor-mode-help" aria-live="polite" class="mt-1 text-xs text-text-muted">
                 How much of each new series Sonarr monitors on add. Existing series in Sonarr are never changed. Leave as "Use Default" to follow your Sonarr Import Defaults.
               </p>
             </div>
@@ -480,7 +480,7 @@
                   class="rounded text-primary focus:ring-primary h-4 w-4" />
                 <span class="ml-2 text-sm font-medium text-text-base">Search on Add</span>
               </label>
-              <p id="import-search-on-add-help" class="mt-1 text-xs text-text-muted ml-6">
+              <p id="import-search-on-add-help" aria-live="polite" class="mt-1 text-xs text-text-muted ml-6">
                 Start searching for downloads immediately
               </p>
             </div>
