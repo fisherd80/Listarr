@@ -749,9 +749,15 @@ function initTimezoneFilter() {
     return el.classList.contains('hidden');
   }
 
+  // WR-06: "matches the query" and "is visible" are no longer the same set, because the
+  // System default entry and the current selection stay visible regardless. The Enter
+  // shortcut must key off matches, or a lone hit would stop being a lone hit.
+  var matches = null;
+
   function resetAll() {
     var i;
     var options = select.options;
+    matches = null;
     for (i = 0; i < options.length; i++) setHidden(options[i], false);
     var groups = select.getElementsByTagName('optgroup');
     for (i = 0; i < groups.length; i++) setHidden(groups[i], false);
@@ -771,19 +777,23 @@ function initTimezoneFilter() {
     var query = typed.toLowerCase();
     var options = select.options;
     var groups = select.getElementsByTagName('optgroup');
-    var matched = 0;
     var i;
     var j;
 
+    matches = [];
+
     for (i = 0; i < options.length; i++) {
+      var hit = options[i].textContent.toLowerCase().indexOf(query) !== -1;
+      if (hit && options[i].value !== '') matches.push(options[i]);
       // The "System default" entry has no value and always stays selectable.
-      if (options[i].value === '') {
+      // WR-06: so does the current selection. Chrome and Safari render a <select>
+      // whose selected <option> is hidden as an empty control, so filtering while a
+      // zone is saved blanked the field and implied the setting had been lost.
+      if (options[i].value === '' || options[i].selected) {
         setHidden(options[i], false);
         continue;
       }
-      var hit = options[i].textContent.toLowerCase().indexOf(query) !== -1;
       setHidden(options[i], !hit);
-      if (hit) matched++;
     }
 
     for (i = 0; i < groups.length; i++) {
@@ -799,7 +809,7 @@ function initTimezoneFilter() {
     }
 
     if (emptyEl) {
-      if (matched === 0) {
+      if (matches.length === 0) {
         // textContent, never innerHTML - the query is user input (T-14-02).
         emptyEl.textContent = 'No zones match "' + typed + '".';
         emptyEl.classList.remove('hidden');
@@ -816,13 +826,8 @@ function initTimezoneFilter() {
     if (e.key === 'Enter') {
       // Never submit anything from the filter.
       e.preventDefault();
-      var options = select.options;
-      var visible = [];
-      for (var i = 0; i < options.length; i++) {
-        if (!isHidden(options[i]) && options[i].value !== '') visible.push(options[i]);
-      }
-      if (visible.length === 1) {
-        select.value = visible[0].value;
+      if (matches && matches.length === 1) {
+        select.value = matches[0].value;
         select.dispatchEvent(new Event('change'));
       }
     } else if (e.key === 'Escape') {
