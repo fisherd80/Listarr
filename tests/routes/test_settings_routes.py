@@ -1701,6 +1701,7 @@ class TestGeneralTimezoneSave:
         assert data["scheduler_worker"] is True
         assert data["n_rescheduled"] == 3
         assert data["n_failed"] == 0
+        assert data["n_pending"] == 0
 
     def test_timezone_toast_payload_scheduler_worker_partial_failure(self, client, monkeypatch):
         from listarr.services import scheduler as sched
@@ -1779,7 +1780,9 @@ class TestGeneralTimezoneSave:
 
         assert response.status_code == 200
         assert data["scheduler_worker"] is False
-        assert data["n_rescheduled"] == 2
+        # IN-03: a non-scheduler worker rescheduled nothing; the count is "pending".
+        assert data["n_rescheduled"] == 0
+        assert data["n_pending"] == 2
         assert data["n_failed"] == 0
         assert get_app_config().timezone == "Europe/London"
 

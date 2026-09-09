@@ -913,12 +913,15 @@ function saveGeneralTimezone() {
               : ' (' + m + ' lists could not be rescheduled \u2014 see logs)';
           }
         } else {
-          if (n === 0) {
+          // IN-03: this worker rescheduled nothing; n_pending is what the scheduler
+          // worker still has to pick up on its next convergence poll.
+          var p = data.n_pending || 0;
+          if (p === 0) {
             msg = 'Timezone saved. No scheduled lists to re-apply.';
-          } else if (n === 1) {
+          } else if (p === 1) {
             msg = 'Timezone saved. 1 scheduled list will re-apply within ~60s.';
           } else {
-            msg = 'Timezone saved. ' + n + ' scheduled lists will re-apply within ~60s.';
+            msg = 'Timezone saved. ' + p + ' scheduled lists will re-apply within ~60s.';
           }
         }
 

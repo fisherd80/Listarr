@@ -378,6 +378,9 @@ def save_general_settings():
         reschedule_error = False
         n_ok = 0
         n_fail = 0
+        # IN-03: lists this worker rescheduled (n_rescheduled) and lists another worker
+        # still has to pick up (n_pending) are different facts and get different fields.
+        n_pending = 0
         try:
             from listarr.services import scheduler as sched
 
@@ -387,12 +390,15 @@ def save_general_settings():
             if scheduler_worker:
                 n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
             else:
-                n_ok = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).count()  # noqa: E712
+                n_pending = List.query.filter(
+                    List.schedule_cron.isnot(None),
+                    List.is_active == True,  # noqa: E712
+                ).count()
         except Exception as e:
             # IN-02: the timezone is saved, but rescheduling did not happen. Report that
             # explicitly instead of letting n_rescheduled == 0 read as "nothing to do".
             current_app.logger.error(f"Error rescheduling lists after timezone save: {e}", exc_info=True)
-            n_ok, n_fail = 0, 0
+            n_ok, n_fail, n_pending = 0, 0, 0
             reschedule_error = True
 
         return jsonify(
@@ -402,6 +408,7 @@ def save_general_settings():
                 "scheduler_worker": scheduler_worker,
                 "n_rescheduled": n_ok,
                 "n_failed": n_fail,
+                "n_pending": n_pending,
                 "reschedule_error": reschedule_error,
             }
         )
