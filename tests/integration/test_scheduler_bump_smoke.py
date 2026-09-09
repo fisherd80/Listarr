@@ -24,6 +24,7 @@ is mocked; there is no ``time.sleep``, no sub-second ``IntervalTrigger``, and no
 ``responses`` usage.
 """
 
+import logging
 import zoneinfo
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
@@ -571,6 +572,57 @@ def test_unclassified_exception_after_the_commit_still_arms_the_retry(app, monke
             # The lock was released by the finally, so the poll can actually retry.
             assert sched._reschedule_lock.acquire(blocking=False) is True
             sched._reschedule_lock.release()
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_quarantine_is_rediagnosed_when_the_target_zone_changes(app, monkeypatch, caplog):
+    """IN-02: the "log once" guard compared the cron alone, so the same bad cron failing
+    against a second zone was silent even though the ERROR names the zone. Re-key on
+    (cron, zone) so each distinct diagnosis is stated once, and name the zone in the
+    periodic reminder so it can be matched to the ERROR that produced it."""
+    scheduler = _make_real_scheduler()
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            bad_id = _make_list_row(APS_UNSUPPORTED_CRON)
+
+            def verdicts():
+                # schedule_list() logs its own unconditional "Failed to build trigger"
+                # line; the deduplicated one is the quarantine verdict.
+                return [r.message for r in caplog.records if "cannot be rescheduled into" in r.message]
+
+            with caplog.at_level(logging.ERROR, logger="listarr.services.scheduler"):
+                assert sched.reschedule_all_lists("Asia/Tokyo") == (0, 1)
+                assert len(verdicts()) == 1
+                assert "Asia/Tokyo" in verdicts()[0]
+
+                # Same cron, same list, unchanged zone: still only said once.
+                caplog.clear()
+                assert sched.reschedule_all_lists("Asia/Tokyo") == (0, 1)
+                assert verdicts() == []
+
+                # New zone: a genuinely new verdict, so it is stated again.
+                caplog.clear()
+                assert sched.reschedule_all_lists("Europe/London") == (0, 1)
+                assert len(verdicts()) == 1
+                assert "Europe/London" in verdicts()[0]
+
+            # The public projection is unchanged by the richer internal key.
+            assert sched.get_unschedulable_lists() == {bad_id: APS_UNSUPPORTED_CRON}
+
+            with caplog.at_level(logging.WARNING, logger="listarr.services.scheduler"):
+                caplog.clear()
+                sched._quarantine_reminder_countdown = 0
+                sched._warn_about_quarantined_lists()
+                reminder = " | ".join(r.message for r in caplog.records)
+            assert "Europe/London" in reminder, "the periodic reminder never names a zone"
     finally:
         time_utils.invalidate_app_timezone_memo()
         if scheduler.running:

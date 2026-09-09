@@ -65,8 +65,14 @@ _tz_poll_last_bad_value = None
 # unbuildable cron nor gives up on a recoverable failure. There is no budget to exhaust.
 _reschedule_incomplete = False
 
-# list id -> the cron expression that could not be built. Mutated only under
-# _reschedule_lock; rebound wholesale by reset_reschedule_state().
+# list id -> (cron expression that could not be built, target zone it was tried against).
+# Mutated only under _reschedule_lock; rebound wholesale by reset_reschedule_state().
+#
+# IN-02: the zone is part of the key, not decoration. The "log once" guard used to compare
+# the cron alone, so a list that failed in zone A and failed again in zone B produced a
+# single ERROR naming only zone A — the operator never learned the second diagnosis had
+# happened. get_unschedulable_lists() projects this back to {id: cron} for callers that
+# only care which lists are stuck.
 _reschedule_quarantine = {}
 
 # The quarantine is a standing fault, so restate it periodically rather than logging it
@@ -222,10 +228,18 @@ def get_unschedulable_lists() -> dict:
     """Return {list id: cron} for lists whose cron builds no trigger in the current zone.
 
     These lists keep their previous trigger, so they continue firing on the *old*
-    timezone until the expression is corrected. Exposed so the condition has a consumer
-    beyond the log (CR-01); reset_reschedule_state() re-arms them for another attempt.
+    timezone until the expression is corrected.
+
+    IN-01: this is a read-only accessor for the standing verdict, not the mechanism that
+    reports it. Production reporting is _warn_about_quarantined_lists(), which restates
+    the fault on the poll; the earlier docstring claimed this function was itself "a
+    consumer beyond the log", which it is not — its only callers are tests. Kept as the
+    supported way to ask the question without reaching into module state.
+
+    schedule_list() and unschedule_list() drop an entry the moment it stops being true
+    (WR-01); reset_reschedule_state() clears the lot to force a fresh diagnosis.
     """
-    return dict(_reschedule_quarantine)
+    return {list_id: cron for list_id, (cron, _tz) in _reschedule_quarantine.items()}
 
 
 def reset_reschedule_state() -> None:
@@ -412,13 +426,15 @@ def reschedule_all_lists(tz_str, blocking=True):
                     # CR-01: deterministic. This exact (list, cron) pair will fail
                     # identically forever, so quarantine it rather than retry it, and
                     # say so once per distinct pair instead of once per poll tick.
-                    quarantine[list_obj.id] = cron
-                    if _reschedule_quarantine.get(list_obj.id) != cron:
+                    quarantine[list_obj.id] = (cron, tz_str)
+                    # IN-02: keyed on (cron, zone). The same cron failing against a *new*
+                    # zone is a new diagnosis and deserves to be said out loud.
+                    if _reschedule_quarantine.get(list_obj.id) != (cron, tz_str):
                         logger.error(
                             "List %s cannot be rescheduled into %s: %s. Its cron %r builds no "
                             "APScheduler trigger, so the list keeps its previous trigger and "
                             "will keep firing on the old timezone until the expression is "
-                            "corrected. Every other list was rebuilt.",
+                            "corrected. Other lists were rebuilt where possible.",
                             list_obj.id,
                             tz_str,
                             e,
@@ -460,7 +476,13 @@ def _warn_about_quarantined_lists():
         "firing on the previous zone: %s. Correct the cron expression(s), or re-save the "
         "timezone to force another attempt.",
         len(_reschedule_quarantine),
-        ", ".join(f"list {list_id} ({cron!r})" for list_id, cron in sorted(_reschedule_quarantine.items())),
+        # IN-02: name the zone each verdict was reached against. Without it the reminder
+        # could not be lined up with the ERROR that produced it, or with the zone the
+        # operator has since moved to.
+        ", ".join(
+            f"list {list_id} ({cron!r} against {tz_str})"
+            for list_id, (cron, tz_str) in sorted(_reschedule_quarantine.items())
+        ),
     )
     _quarantine_reminder_countdown = _QUARANTINE_REMINDER_TICKS
 
