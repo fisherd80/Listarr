@@ -1,4 +1,3 @@
-import zoneinfo
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -33,6 +32,7 @@ from listarr.services.crypto_utils import decrypt_data, encrypt_data
 from listarr.services.sonarr_service import MONITOR_MODE_TOKENS, normalize_monitor_mode
 from listarr.services.tmdb_service import validate_tmdb_api_key
 from listarr.utils.time_utils import (
+    coerce_zone,
     get_app_timezone,
     get_app_timezone_name,
     get_app_timezone_state,
@@ -326,12 +326,16 @@ def save_tmdb_settings():
 
 
 def _validate_timezone(value):
+    """Return (stored_value, error). An empty string means "System default" (NULL).
+
+    IN-01: validation is delegated to time_utils.coerce_zone so there is exactly one
+    copy of the ZoneInfo-based check. coerce_zone also type-checks, so a non-string
+    can no longer raise TypeError out of here.
+    """
     if value == "":
         return None, None
 
-    try:
-        zoneinfo.ZoneInfo(value)
-    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+    if coerce_zone(value) is None:
         return None, TIMEZONE_INVALID_MESSAGE
 
     return value, None

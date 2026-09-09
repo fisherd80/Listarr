@@ -183,3 +183,37 @@ class TestFormatPastTimeErrors:
         clock, _ = past()
         with clock, patch("listarr.utils.time_utils.get_app_timezone", side_effect=ValueError("boom")):
             assert format_past_time(FROZEN_NOW - timedelta(days=1)) == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# coerce_zone() - the single timezone validation point (IN-01)
+# ---------------------------------------------------------------------------
+
+
+class TestCoerceZone:
+    def test_utc_short_circuits_to_the_utc_singleton(self):
+        from listarr.utils.time_utils import coerce_zone
+
+        assert coerce_zone("UTC") is timezone.utc
+
+    def test_known_zone_resolves(self):
+        from listarr.utils.time_utils import coerce_zone
+
+        assert coerce_zone("America/New_York") == NEW_YORK
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            None,
+            123,
+            "",
+            "Not/AZone",
+            "../../etc/passwd",
+            "/etc/localtime",
+            "Europe/Lon\x00don",
+        ],
+    )
+    def test_invalid_values_return_none_without_raising(self, value):
+        from listarr.utils.time_utils import coerce_zone
+
+        assert coerce_zone(value) is None

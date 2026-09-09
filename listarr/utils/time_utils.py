@@ -26,14 +26,26 @@ def tz_key(tz) -> str:
     return str(tz)
 
 
-def _coerce_zone(name):
-    """Resolve a timezone name to tzinfo, returning None for invalid keys."""
+def coerce_zone(name):
+    """Resolve a timezone name to tzinfo, returning None for invalid or unknown keys.
+
+    This is the single security-relevant timezone validation point: ZoneInfo itself
+    rejects absolute paths, ".." traversal and embedded null bytes. Callers that only
+    need a yes/no answer (the settings route) must go through here rather than keep a
+    second copy of the same try/except (IN-01).
+    """
+    if not isinstance(name, str):
+        return None
     if name == "UTC":
         return timezone.utc
     try:
         return zoneinfo.ZoneInfo(name)
     except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
         return None
+
+
+# Backwards-compatible private alias for existing internal callers.
+_coerce_zone = coerce_zone
 
 
 def _read_db_timezone_string():
@@ -50,7 +62,7 @@ def _read_db_timezone_string():
 
 
 def _build_timezone_record(raw, warn=True):
-    zone = _coerce_zone(raw) if raw else None
+    zone = coerce_zone(raw) if raw else None
     warned = False
     if warn and raw and zone is None:
         logger.warning("Configured timezone %r could not be loaded; falling back", raw)
@@ -95,7 +107,7 @@ def invalidate_app_timezone_memo() -> None:
 def get_app_timezone_fallback_name() -> str:
     """Return the resolvable TZ environment fallback name, or UTC."""
     tz_name = os.environ.get("TZ", "UTC")
-    return tz_name if _coerce_zone(tz_name) is not None else "UTC"
+    return tz_name if coerce_zone(tz_name) is not None else "UTC"
 
 
 def _zone_from_record(record):
@@ -103,7 +115,7 @@ def _zone_from_record(record):
     if record["zone"] is not None:
         return record["zone"]
 
-    fallback = _coerce_zone(os.environ.get("TZ", "UTC"))
+    fallback = coerce_zone(os.environ.get("TZ", "UTC"))
     if fallback is not None:
         return fallback
 

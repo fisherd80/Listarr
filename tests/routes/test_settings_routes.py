@@ -1782,6 +1782,33 @@ class TestGeneralTimezoneSave:
         assert data["n_failed"] == 0
         assert get_app_config().timezone == "Europe/London"
 
+    def test_validate_timezone_delegates_to_coerce_zone(self, monkeypatch):
+        """IN-01: the route must not carry a second copy of the ZoneInfo validation."""
+        from listarr.routes import settings_routes
+
+        seen = []
+
+        def fake_coerce(value):
+            seen.append(value)
+            return None
+
+        monkeypatch.setattr(settings_routes, "coerce_zone", fake_coerce)
+
+        stored, error = settings_routes._validate_timezone("Europe/London")
+
+        assert seen == ["Europe/London"]
+        assert stored is None
+        assert error == "Unknown or invalid timezone. Nothing was saved."
+
+    def test_validate_timezone_tolerates_none_without_raising(self):
+        """IN-01: ZoneInfo(None) used to raise TypeError out of this helper."""
+        from listarr.routes import settings_routes
+
+        stored, error = settings_routes._validate_timezone(None)
+
+        assert stored is None
+        assert error == "Unknown or invalid timezone. Nothing was saved."
+
     def test_scheduler_worker_flag_comes_from_the_public_predicate(self, client, monkeypatch):
         """WR-06: the route must consult is_scheduler_worker(), not scheduler._scheduler."""
         from listarr.services import scheduler as sched
