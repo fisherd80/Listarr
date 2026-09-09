@@ -164,6 +164,15 @@ function appTzTooltip(isoString) {
   }
 }
 
+/**
+ * Attach app-timezone tooltips to every [data-timestamp] element under `root`.
+ *
+ * `root` scopes the sweep to markup injected after DOMContentLoaded — jobs.js calls it
+ * with the jobs tbody after replacing its rows (IN-03). Nodes built via createElement
+ * rather than innerHTML should set `title = appTzTooltip(iso)` directly instead.
+ *
+ * @param {ParentNode} [root=document] - Subtree to sweep.
+ */
 function applyAppTzTooltips(root) {
   if (!root) root = document;
 

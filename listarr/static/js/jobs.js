@@ -132,6 +132,10 @@ function renderJobs(jobs) {
 
   tbody.innerHTML = rowsHtml;
 
+  // IN-03: the DOMContentLoaded sweep already ran, so freshly injected rows must be
+  // swept explicitly. This is what the root parameter exists for.
+  applyAppTzTooltips(tbody);
+
   // Attach event listeners to rerun buttons
   var rerunBtns = tbody.querySelectorAll("[data-rerun-job]");
   for (var j = 0; j < rerunBtns.length; j++) {
@@ -224,7 +228,10 @@ function renderJobRow(job) {
       '<td class="px-4 py-3 whitespace-nowrap">' +
         targetCell +
       '</td>' +
-      '<td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">' +
+      // IN-03: data-timestamp lets applyAppTzTooltips() sweep this cell after injection,
+      // so these rows get the same app-timezone tooltip as the server-rendered tables.
+      '<td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted" data-timestamp="' +
+        escapeAttr(job.started_at || "") + '">' +
         formatTimestamp(job.started_at, "absolute") +
       '</td>' +
       '<td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">' +
