@@ -178,7 +178,9 @@ def settings_page():
     # tz.fallback so the two halves can no longer drift apart.
     tz_state = get_app_timezone_state()
     configured_tz = tz_state["configured"]
-    server_rendered_preview = datetime.now(get_app_timezone()).strftime("%I:%M:%S %p %Z")
+    # IN-05: 24-hour and locale-independent. %p renders empty under some locales, and
+    # the JS preview that replaces this a second later is hour12:false.
+    server_rendered_preview = datetime.now(get_app_timezone()).strftime("%H:%M:%S %Z")
     timezone_is_curated = not configured_tz or configured_tz in curated_zone_keys()
 
     return render_template(

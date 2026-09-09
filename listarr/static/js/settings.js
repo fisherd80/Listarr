@@ -737,12 +737,24 @@ function initTimezoneFilter() {
   var emptyEl = document.getElementById('tz-filter-empty');
   if (!filter || !select) return;
 
+  // IN-05: several native <select> implementations ignore the `hidden` attribute on
+  // <option>/<optgroup>. Toggling a display:none class is the portable form; the
+  // property is set too for the engines that do honour it.
+  function setHidden(el, hidden) {
+    el.classList.toggle('hidden', hidden);
+    el.hidden = hidden;
+  }
+
+  function isHidden(el) {
+    return el.classList.contains('hidden');
+  }
+
   function resetAll() {
     var i;
     var options = select.options;
-    for (i = 0; i < options.length; i++) options[i].hidden = false;
+    for (i = 0; i < options.length; i++) setHidden(options[i], false);
     var groups = select.getElementsByTagName('optgroup');
-    for (i = 0; i < groups.length; i++) groups[i].hidden = false;
+    for (i = 0; i < groups.length; i++) setHidden(groups[i], false);
     if (emptyEl) {
       emptyEl.textContent = '';
       emptyEl.classList.add('hidden');
@@ -766,11 +778,11 @@ function initTimezoneFilter() {
     for (i = 0; i < options.length; i++) {
       // The "System default" entry has no value and always stays selectable.
       if (options[i].value === '') {
-        options[i].hidden = false;
+        setHidden(options[i], false);
         continue;
       }
       var hit = options[i].textContent.toLowerCase().indexOf(query) !== -1;
-      options[i].hidden = !hit;
+      setHidden(options[i], !hit);
       if (hit) matched++;
     }
 
@@ -778,12 +790,12 @@ function initTimezoneFilter() {
       var kids = groups[i].getElementsByTagName('option');
       var anyVisible = false;
       for (j = 0; j < kids.length; j++) {
-        if (!kids[j].hidden) {
+        if (!isHidden(kids[j])) {
           anyVisible = true;
           break;
         }
       }
-      groups[i].hidden = !anyVisible;
+      setHidden(groups[i], !anyVisible);
     }
 
     if (emptyEl) {
@@ -807,7 +819,7 @@ function initTimezoneFilter() {
       var options = select.options;
       var visible = [];
       for (var i = 0; i < options.length; i++) {
-        if (!options[i].hidden && options[i].value !== '') visible.push(options[i]);
+        if (!isHidden(options[i]) && options[i].value !== '') visible.push(options[i]);
       }
       if (visible.length === 1) {
         select.value = visible[0].value;
@@ -837,10 +849,13 @@ function initTimezonePreview() {
   function renderPreview() {
     var zone = select && select.value ? select.value : fallbackZone;
     try {
+      // IN-05: hour12:false matches the server-rendered %H:%M:%S preview, so the
+      // value does not visibly flip format one second after load.
       var fmt = new Intl.DateTimeFormat(undefined, {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
+        hour12: false,
         timeZone: zone,
         timeZoneName: 'short',
       });
