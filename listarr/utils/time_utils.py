@@ -44,10 +44,6 @@ def coerce_zone(name):
         return None
 
 
-# Backwards-compatible private alias for existing internal callers.
-_coerce_zone = coerce_zone
-
-
 def _read_db_timezone_string():
     """Read AppConfig.timezone without raising; None means use the system fallback."""
     try:
@@ -63,11 +59,9 @@ def _read_db_timezone_string():
 
 def _build_timezone_record(raw, warn=True):
     zone = coerce_zone(raw) if raw else None
-    warned = False
     if warn and raw and zone is None:
         logger.warning("Configured timezone %r could not be loaded; falling back", raw)
-        warned = True
-    return {"raw": raw, "zone": zone, "warned": warned}
+    return {"raw": raw, "zone": zone}
 
 
 def _get_timezone_record(use_cache=True):
