@@ -224,6 +224,7 @@ def create_app(test_config=None):
         # idempotent (IF NOT EXISTS) and safe to run on every startup.
         _ensure_unique_running_job_index(app)
         _ensure_sonarr_monitor_mode_columns(app)
+        _ensure_app_config_row(app)
 
         # Recover interrupted jobs
         recover_interrupted_jobs(app)
@@ -330,6 +331,20 @@ def _ensure_sonarr_monitor_mode_columns(app):
             # DBAPIError during startup DDL degrades to a warning rather than aborting create_app.
             db.session.rollback()
             app.logger.warning(f"Could not add sonarr_monitor_mode column(s): {e}")
+
+
+def _ensure_app_config_row(app):
+    """Seed the singleton AppConfig row without blocking startup on DB errors."""
+    from sqlalchemy.exc import OperationalError, SQLAlchemyError
+
+    from listarr.models.app_config_model import get_app_config
+
+    try:
+        with app.app_context():
+            get_app_config()
+    except (OperationalError, SQLAlchemyError) as e:
+        db.session.rollback()
+        app.logger.warning(f"Could not seed AppConfig row: {e}")
 
 
 def recover_interrupted_jobs(app):
