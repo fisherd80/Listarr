@@ -10,12 +10,16 @@ Tests cover:
 """
 
 import zoneinfo
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from sqlalchemy.exc import OperationalError
 
+from listarr import db
+from listarr.models.app_config_model import AppConfig, get_app_config
+from listarr.services import scheduler as sched
 from listarr.services.scheduler import (
     _get_scheduler_timezone,
     _run_scheduled_import,
@@ -23,6 +27,15 @@ from listarr.services.scheduler import (
     schedule_list,
     validate_cron_expression,
 )
+from listarr.utils import time_utils
+from listarr.utils.time_utils import tz_key
+
+
+def _set_app_timezone(value):
+    cfg = get_app_config()
+    cfg.timezone = value
+    db.session.commit()
+    time_utils.invalidate_app_timezone_memo()
 
 
 class TestRunScheduledImportHealthCheck:
@@ -501,3 +514,177 @@ class TestSchedulerTimezone:
         for next_run in result["next_runs"]:
             assert "Z" not in next_run
             assert next_run[-6] in {"+", "-"}
+
+
+@pytest.mark.unit
+class TestTimezoneResolution:
+    """Tests for DB-first application timezone resolution."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        time_utils.invalidate_app_timezone_memo()
+        yield
+        time_utils.invalidate_app_timezone_memo()
+
+    def test_db_value_wins_over_live_scheduler(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            monkeypatch.setattr(sched, "_scheduler", MagicMock())
+            sched._scheduler.timezone = zoneinfo.ZoneInfo("America/New_York")
+
+            assert tz_key(sched._get_scheduler_timezone()) == "Asia/Tokyo"
+
+    def test_live_scheduler_used_when_db_null(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(None)
+            monkeypatch.setattr(sched, "_scheduler", MagicMock())
+            sched._scheduler.timezone = zoneinfo.ZoneInfo("America/New_York")
+
+            assert tz_key(sched._get_scheduler_timezone()) == "America/New_York"
+
+    def test_tz_env_used_when_db_null_and_no_scheduler(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(None)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            assert tz_key(_get_scheduler_timezone()) == "Europe/London"
+
+    def test_utc_when_nothing_configured(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(None)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.delenv("TZ", raising=False)
+
+            assert tz_key(_get_scheduler_timezone()) == "UTC"
+
+    def test_operational_error_falls_through_without_raising(self, monkeypatch):
+        boom = OperationalError("stmt", {}, Exception("database is locked"))
+        monkeypatch.setattr("listarr.models.app_config_model.get_app_config", MagicMock(side_effect=boom))
+        monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+
+        result = _get_scheduler_timezone()
+
+        assert isinstance(result, tzinfo)
+
+    def test_missing_app_config_row_tolerated(self, app, monkeypatch):
+        with app.app_context():
+            db.session.query(AppConfig).delete()
+            db.session.commit()
+            time_utils.invalidate_app_timezone_memo()
+            monkeypatch.setattr("listarr.models.app_config_model.get_app_config", lambda: None)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            assert tz_key(_get_scheduler_timezone()) == "Europe/London"
+
+    def test_unresolvable_stored_value_falls_back_and_warns(self, app, monkeypatch, caplog):
+        with app.app_context():
+            _set_app_timezone("Bogus/Zone")
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            with caplog.at_level("WARNING"):
+                result = _get_scheduler_timezone()
+
+            assert tz_key(result) == "Europe/London"
+            assert "Bogus/Zone" in caplog.text
+
+    @pytest.mark.parametrize("value", ["foo\x00bar", "../../etc/passwd", "/etc/localtime"])
+    def test_null_byte_and_traversal_values_rejected_by_resolver(self, value, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(value)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            assert tz_key(_get_scheduler_timezone()) == "Europe/London"
+
+
+@pytest.mark.unit
+class TestTimezoneMemo:
+    """Tests for the short-TTL application timezone memo."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        time_utils.invalidate_app_timezone_memo()
+        yield
+        time_utils.invalidate_app_timezone_memo()
+
+    def test_memo_collapses_repeated_reads_to_one_db_hit(self, monkeypatch):
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return "Asia/Tokyo"
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        values = [time_utils.resolve_db_timezone_string() for _ in range(20)]
+
+        assert values == ["Asia/Tokyo"] * 20
+        assert calls == 1
+
+    def test_memo_bypassed_when_use_cache_false(self, monkeypatch):
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return "Asia/Tokyo"
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        values = [time_utils.resolve_db_timezone_string(use_cache=False) for _ in range(3)]
+
+        assert values == ["Asia/Tokyo"] * 3
+        assert calls == 3
+
+    def test_invalidate_memo_forces_reread(self, monkeypatch):
+        values = iter(["Asia/Tokyo", "Europe/London"])
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return next(values)
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        assert time_utils.resolve_db_timezone_string() == "Asia/Tokyo"
+        time_utils.invalidate_app_timezone_memo()
+        assert time_utils.resolve_db_timezone_string() == "Europe/London"
+        assert calls == 2
+
+    def test_memo_caches_none_value(self, monkeypatch):
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return None
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        assert time_utils.resolve_db_timezone_string() is None
+        assert time_utils.resolve_db_timezone_string() is None
+        assert calls == 1
+
+    def test_unresolvable_stored_value_warn_once_per_ttl(self, app, monkeypatch, caplog):
+        with app.app_context():
+            _set_app_timezone("Bogus/Zone")
+            monkeypatch.delenv("TZ", raising=False)
+            time_utils.invalidate_app_timezone_memo()
+
+            with caplog.at_level("WARNING", logger="listarr.utils.time_utils"):
+                values = [time_utils.get_app_timezone() for _ in range(20)]
+
+                warnings = [record for record in caplog.records if "Bogus/Zone" in record.getMessage()]
+                assert len(warnings) == 1
+                assert all(value is timezone.utc for value in values)
+
+                time_utils.invalidate_app_timezone_memo()
+                time_utils.get_app_timezone()
+
+                warnings = [record for record in caplog.records if "Bogus/Zone" in record.getMessage()]
+                assert len(warnings) == 2
