@@ -275,8 +275,8 @@ def _load_schedules_from_db():
             logger.error(f"Failed to load schedules from database: {e}")
 
 
-def _drop_orphaned_list_jobs(scheduler, rebuilt_list_ids):
-    """Remove list jobs the rebuild did not cover, which are still on the previous zone.
+def _drop_orphaned_list_jobs(scheduler):
+    """Remove list jobs no live list owns, which are therefore still on the previous zone.
 
     WR-02: assigning scheduler.timezone changes nothing about jobs that already exist —
     APScheduler only consults it while *constructing* a trigger. So any list_* job outside
@@ -286,14 +286,40 @@ def _drop_orphaned_list_jobs(scheduler, rebuilt_list_ids):
     This is reachable today: deactivating a list from a non-scheduler gunicorn worker
     makes unschedule_list() a no-op in that process, so the job survives here. Leaving it
     would fire imports for an inactive list, in the wrong timezone, indefinitely.
+
+    WR-03: the caller used to pass the id set from the query that opened the rebuild, and
+    every job outside that snapshot was deleted. On the scheduler worker the request
+    threads share this process, so a user saving a schedule mid-rebuild had their
+    brand-new, perfectly valid job classified as an orphan and removed — and because the
+    rebuild then marked itself converged, the poll never put it back. The list stayed
+    unscheduled until the next restart.
+
+    Reading the ids here, and specifically *after* snapshotting the job set, closes that
+    race without a lock. Every mutator in lists_routes commits the row before it calls
+    schedule_list(), so a job present in `candidates` implies its row was committed
+    strictly earlier, and the query below runs strictly later — it cannot miss it. (The
+    pysqlite driver issues bare SELECTs outside a transaction, so this second read is not
+    pinned to a snapshot taken by the first one.) A job added *after* `candidates` is
+    taken is simply not considered, which is the safe direction to err.
     """
-    rebuilt = {f"list_{list_id}" for list_id in rebuilt_list_ids}
-    for job in scheduler.get_jobs():
-        if not job.id.startswith("list_") or job.id in rebuilt:
+    candidates = [job.id for job in scheduler.get_jobs() if job.id.startswith("list_")]
+    if not candidates:
+        return
+
+    live = {
+        f"list_{row.id}"
+        for row in List.query.filter(
+            List.schedule_cron.isnot(None),
+            List.is_active == True,  # noqa: E712
+        ).all()
+    }
+
+    for job_id in candidates:
+        if job_id in live:
             continue
-        logger.warning("Removing orphaned scheduler job %s during timezone rebuild", job.id)
+        logger.warning("Removing orphaned scheduler job %s during timezone rebuild", job_id)
         try:
-            scheduler.remove_job(job.id)
+            scheduler.remove_job(job_id)
         except JobLookupError:
             # Already gone (another worker or a concurrent unschedule won the race).
             pass
@@ -399,7 +425,7 @@ def reschedule_all_lists(tz_str, blocking=True):
                             cron,
                         )
 
-            _drop_orphaned_list_jobs(scheduler, {list_obj.id for list_obj in lists})
+            _drop_orphaned_list_jobs(scheduler)
 
         # The loop ran to completion, so nothing recoverable is outstanding. Entries for
         # lists that have since been deleted or deactivated drop out with the rebind.

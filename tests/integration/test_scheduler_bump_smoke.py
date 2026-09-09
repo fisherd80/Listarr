@@ -651,6 +651,48 @@ def test_rebuild_drops_list_jobs_the_query_no_longer_covers(app, monkeypatch):
             scheduler.shutdown(wait=False)
 
 
+def test_orphan_sweep_keeps_a_job_added_after_the_rebuild_query(app, monkeypatch):
+    """WR-03: the sweep used to compare against the id set from the query that opened the
+    rebuild. On the scheduler worker, request threads share this process, so a schedule
+    saved between that query and the sweep was deleted as an "orphan" and - because the
+    rebuild then reported convergence - never restored. Simulate the interleaving by
+    committing the row and registering its job from inside the rebuild loop."""
+    scheduler = _make_real_scheduler()
+    real_schedule_list = sched.schedule_list
+    latecomer = {}
+
+    def schedule_list_then_race(list_id, cron_expression):
+        real_schedule_list(list_id, cron_expression)
+        if latecomer:
+            return
+        # A request thread lands here: row committed first, then the job registered -
+        # the ordering every mutator in lists_routes uses.
+        latecomer["id"] = _make_list_row(SMOKE_CRON)
+        real_schedule_list(latecomer["id"], SMOKE_CRON)
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            existing_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(existing_id, SMOKE_CRON)
+
+            monkeypatch.setattr(sched, "schedule_list", schedule_list_then_race)
+            assert sched.reschedule_all_lists("Asia/Tokyo") == (1, 0)
+
+            assert scheduler.get_job(f"list_{existing_id}") is not None
+            assert scheduler.get_job(f"list_{latecomer['id']}") is not None, (
+                "the sweep deleted a valid job registered after the rebuild query"
+            )
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
 def test_transient_db_failure_retries_indefinitely(app, monkeypatch):
     """CR-01: a locked database is recoverable, so the poll must keep retrying it. The
     old bounded budget gave up after three ticks and stranded every list on the previous
