@@ -884,6 +884,15 @@ function saveGeneralTimezone() {
       saveBtn.textContent = 'Save';
 
       if (data.success) {
+        // IN-02: the save succeeded but the reschedule blew up - do not toast the
+        // reassuring "nothing needed rescheduling" message.
+        if (data.reschedule_error) {
+          var failMsg = 'Timezone saved, but scheduled lists could not be re-applied \u2014 see logs.';
+          setStatus(statusEl, false, failMsg);
+          showToast(failMsg, 'warning', 6000);
+          return;
+        }
+
         setStatus(statusEl, true, 'Timezone saved.');
 
         var n = data.n_rescheduled || 0;

@@ -1730,6 +1730,7 @@ class TestGeneralTimezoneSave:
         assert data["scheduler_worker"] is True
         assert data["n_rescheduled"] == 0
         assert data["n_failed"] == 0
+        assert data["reschedule_error"] is False
 
     def test_timezone_toast_non_scheduler_counts_from_db(self, client, monkeypatch):
         from listarr.services import scheduler as sched
@@ -1840,6 +1841,8 @@ class TestGeneralTimezoneSave:
         assert data["success"] is True
         assert data["scheduler_worker"] is True
         assert data["n_rescheduled"] == 0
+        # IN-02: the client must be able to tell "nothing to do" from "reschedule failed".
+        assert data["reschedule_error"] is True
         assert get_app_config().timezone == "Europe/London"
 
 

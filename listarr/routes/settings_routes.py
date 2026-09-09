@@ -375,6 +375,9 @@ def save_general_settings():
         effective_tz = stored or get_app_timezone_name()
 
         scheduler_worker = False
+        reschedule_error = False
+        n_ok = 0
+        n_fail = 0
         try:
             from listarr.services import scheduler as sched
 
@@ -385,10 +388,12 @@ def save_general_settings():
                 n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
             else:
                 n_ok = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).count()  # noqa: E712
-                n_fail = 0
         except Exception as e:
+            # IN-02: the timezone is saved, but rescheduling did not happen. Report that
+            # explicitly instead of letting n_rescheduled == 0 read as "nothing to do".
             current_app.logger.error(f"Error rescheduling lists after timezone save: {e}", exc_info=True)
             n_ok, n_fail = 0, 0
+            reschedule_error = True
 
         return jsonify(
             {
@@ -397,6 +402,7 @@ def save_general_settings():
                 "scheduler_worker": scheduler_worker,
                 "n_rescheduled": n_ok,
                 "n_failed": n_fail,
+                "reschedule_error": reschedule_error,
             }
         )
     except (IntegrityError, OperationalError) as e:
