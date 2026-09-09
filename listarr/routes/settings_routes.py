@@ -29,6 +29,8 @@ from listarr.services.arr_service import (
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
 from listarr.services.sonarr_service import MONITOR_MODE_TOKENS, normalize_monitor_mode
 from listarr.services.tmdb_service import validate_tmdb_api_key
+from listarr.utils.time_utils import get_app_timezone, get_app_timezone_state
+from listarr.utils.timezones import CURATED_TIMEZONES, curated_zone_keys
 
 # ---------------------------------------------------------------------------
 # Helpers (TMDB)
@@ -162,6 +164,12 @@ def settings_page():
         }
 
     tmdb_cfg = ServiceConfig.query.filter_by(service="TMDB").first()
+    tz_state = get_app_timezone_state()
+    app_config_timezone = tz_state["configured"]
+    resolved_tz_display = tz_state["fallback"]
+    server_rendered_preview = datetime.now(get_app_timezone()).strftime("%I:%M:%S %p %Z")
+    timezone_is_curated = not app_config_timezone or app_config_timezone in curated_zone_keys()
+
     return render_template(
         "settings.html",
         radarr=_service_state("RADARR"),
@@ -169,6 +177,14 @@ def settings_page():
         tmdb=_service_state("TMDB"),
         tmdb_region=tmdb_cfg.tmdb_region if tmdb_cfg else None,
         region_choices=REGION_CHOICES,
+        app_config_timezone=app_config_timezone,
+        curated_timezones=CURATED_TIMEZONES,
+        resolved_tz_display=resolved_tz_display,
+        tz_unresolvable=tz_state["unresolvable"],
+        tz_configured_value=tz_state["configured"],
+        tz_fallback_name=tz_state["fallback"],
+        server_rendered_preview=server_rendered_preview,
+        timezone_is_curated=timezone_is_curated,
         change_password_form=ChangePasswordForm(),
     )
 
