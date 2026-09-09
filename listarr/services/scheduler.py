@@ -7,11 +7,13 @@ import atexit
 import logging
 import os
 import re
+import threading
 import zoneinfo
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.util import astimezone
 from cron_descriptor import get_description
 from cronsim import CronSim
 from cronsim.cronsim import CronSimError
@@ -32,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Module-level scheduler instance (singleton pattern like job_executor)
 _scheduler = None
 _app = None
+_reschedule_lock = threading.Lock()
 
 # POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
 # Converting to name strings avoids the ambiguity entirely.
@@ -160,6 +163,57 @@ def _load_schedules_from_db():
             logger.info(f"Loaded {len(lists)} scheduled lists")
         except OperationalError as e:
             logger.error(f"Failed to load schedules from database: {e}")
+
+
+def reschedule_all_lists(tz_str, blocking=True):
+    """Rebuild every active scheduled list in the requested timezone.
+
+    Triggers are rebuilt, not mutated, and each list failure is counted without
+    aborting the full walk. _reschedule_lock serializes the scheduler timezone
+    assignment and the complete rebuild loop. This remains forward-only by
+    construction: add_job without next_run_time computes the next fire from now,
+    so misfire_grace_time is never consulted for rebuilt jobs.
+    """
+    if _scheduler is None:
+        logger.debug("Scheduler not running in this worker; skipping in-process timezone reschedule")
+        return (0, 0)
+    if _app is None:
+        logger.error("Cannot reschedule lists: app not initialized")
+        return (0, 0)
+
+    acquired = _reschedule_lock.acquire(blocking=blocking)
+    if not acquired:
+        logger.debug("Reschedule already in progress; skipping this attempt")
+        return (0, 0)
+
+    n_ok = 0
+    n_fail = 0
+    try:
+        try:
+            _scheduler.timezone = astimezone(tz_str)
+        except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError) as e:
+            logger.error(f"Could not apply scheduler timezone {tz_str!r}: {e}")
+            return (0, 0)
+
+        with _app.app_context():
+            try:
+                lists = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).all()  # noqa: E712
+
+                for list_obj in lists:
+                    try:
+                        schedule_list(list_obj.id, list_obj.schedule_cron)
+                        n_ok += 1
+                    except (ValueError, KeyError) as e:
+                        logger.error(f"Timezone reschedule failed for list {list_obj.id}: {e}")
+                        n_fail += 1
+            except OperationalError as e:
+                logger.error(f"Failed to load schedules for timezone reschedule: {e}")
+                return (n_ok, n_fail)
+
+        logger.info(f"Rescheduled {n_ok} lists into {tz_str} ({n_fail} failed)")
+        return (n_ok, n_fail)
+    finally:
+        _reschedule_lock.release()
 
 
 def schedule_list(list_id, cron_expression):
