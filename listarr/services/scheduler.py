@@ -42,12 +42,36 @@ _app = None
 _reschedule_lock = threading.Lock()
 _tz_poll_last_bad_value = None
 
-# CR-01: a rebuild that leaves stale triggers behind must not look "converged" to
-# the poll. _reschedule_incomplete records that state; the poll spends a bounded
-# retry budget on it so a permanently unbuildable cron cannot spin forever.
-_RESCHEDULE_MAX_RETRIES = 3
+# CR-01: a rebuild that leaves stale triggers behind must not look "converged" to the
+# poll, but the two ways it can fail need opposite handling and a single retry counter
+# cannot tell them apart.
+#
+#   transient     - the scheduler was busy, the app was not ready, or the DB was locked.
+#                   Nothing about the failure is specific to any list, and retrying on
+#                   the next poll is both free and the only thing that can fix it. These
+#                   retry indefinitely: a bounded budget spent on transient contention is
+#                   precisely how lists get stranded on the old timezone, because a busy
+#                   import can hold SQLite's write lock for longer than the budget lasts.
+#
+#   deterministic - one list's cron expression builds no APScheduler trigger. Re-running
+#                   the identical (list id, cron) pair can never succeed, so the list is
+#                   quarantined: logged loudly the first time, excluded from the "retry
+#                   needed" signal, and automatically re-attempted the moment its cron
+#                   changes or the operator saves the timezone again.
+#
+# _reschedule_incomplete therefore means "stale triggers remain for a reason a retry can
+# still fix". A quarantined list never sets it, so the poll neither spins forever on an
+# unbuildable cron nor gives up on a recoverable failure. There is no budget to exhaust.
 _reschedule_incomplete = False
-_reschedule_retries_left = _RESCHEDULE_MAX_RETRIES
+
+# list id -> the cron expression that could not be built. Mutated only under
+# _reschedule_lock; rebound wholesale by reset_reschedule_state().
+_reschedule_quarantine = {}
+
+# The quarantine is a standing fault, so restate it periodically rather than logging it
+# once and going quiet. 60 ticks of the 60s poll is roughly hourly.
+_QUARANTINE_REMINDER_TICKS = 60
+_quarantine_reminder_countdown = 0
 
 # POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
 # Converting to name strings avoids the ambiguity entirely.
@@ -161,8 +185,34 @@ def is_scheduler_worker() -> bool:
 
 
 def reschedule_is_incomplete() -> bool:
-    """True when the last rebuild left at least one list on a stale trigger."""
+    """True when a transient failure left stale triggers and a retry is still pending.
+
+    This is deliberately *not* set by a quarantined list (see get_unschedulable_lists);
+    those cannot be fixed by retrying, so folding them in here would make the poll spin.
+    """
     return _reschedule_incomplete
+
+
+def get_unschedulable_lists() -> dict:
+    """Return {list id: cron} for lists whose cron builds no trigger in the current zone.
+
+    These lists keep their previous trigger, so they continue firing on the *old*
+    timezone until the expression is corrected. Exposed so the condition has a consumer
+    beyond the log (CR-01); reset_reschedule_state() re-arms them for another attempt.
+    """
+    return dict(_reschedule_quarantine)
+
+
+def reset_reschedule_state() -> None:
+    """Clear the quarantine so an explicit user-initiated save re-attempts every list.
+
+    WR-08: a deliberate recovery action must not get fewer attempts than the automatic
+    poll. Clearing also re-arms the per-list error log, so the operator sees a fresh
+    diagnosis for a still-broken cron instead of silence.
+    """
+    global _reschedule_quarantine, _quarantine_reminder_countdown
+    _reschedule_quarantine = {}
+    _quarantine_reminder_countdown = 0
 
 
 def shutdown_scheduler():
@@ -209,7 +259,7 @@ def reschedule_all_lists(tz_str, blocking=True):
     construction: add_job without next_run_time computes the next fire from now,
     so misfire_grace_time is never consulted for rebuilt jobs.
     """
-    global _reschedule_incomplete
+    global _reschedule_incomplete, _reschedule_quarantine
 
     scheduler = _scheduler
     if scheduler is None:
@@ -238,32 +288,80 @@ def reschedule_all_lists(tz_str, blocking=True):
             try:
                 lists = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).all()  # noqa: E712
             except OperationalError as e:
-                # CR-01: leave scheduler.timezone untouched so the poll still sees a
-                # divergence and retries on its next tick.
+                # CR-01: a locked or unavailable DB is transient. Leave scheduler.timezone
+                # untouched so the poll still sees a divergence, and flag the retry as
+                # still-needed — this path must never consume a finite allowance, because
+                # the contention that causes it routinely outlasts one.
                 logger.error(f"Failed to load schedules for timezone reschedule: {e}")
                 _reschedule_incomplete = True
                 return (0, 0)
 
             # The timezone assignment is the commit of the rebuild, not its prelude.
             scheduler.timezone = new_tz
+            quarantine = {}
             for list_obj in lists:
+                cron = list_obj.schedule_cron
                 try:
-                    schedule_list(list_obj.id, list_obj.schedule_cron)
+                    schedule_list(list_obj.id, cron)
                     n_ok += 1
                 except (ValueError, KeyError) as e:
-                    logger.error(f"Timezone reschedule failed for list {list_obj.id}: {e}")
                     n_fail += 1
+                    # CR-01: deterministic. This exact (list, cron) pair will fail
+                    # identically forever, so quarantine it rather than retry it, and
+                    # say so once per distinct pair instead of once per poll tick.
+                    quarantine[list_obj.id] = cron
+                    if _reschedule_quarantine.get(list_obj.id) != cron:
+                        logger.error(
+                            "List %s cannot be rescheduled into %s: %s. Its cron %r builds no "
+                            "APScheduler trigger, so the list keeps its previous trigger and "
+                            "will keep firing on the old timezone until the expression is "
+                            "corrected. Every other list was rebuilt.",
+                            list_obj.id,
+                            tz_str,
+                            e,
+                            cron,
+                        )
 
-        _reschedule_incomplete = bool(n_fail)
+        # The loop ran to completion, so nothing recoverable is outstanding. Entries for
+        # lists that have since been deleted or deactivated drop out with the rebind.
+        _reschedule_quarantine = quarantine
+        _reschedule_incomplete = False
         logger.info(f"Rescheduled {n_ok} lists into {tz_str} ({n_fail} failed)")
         return (n_ok, n_fail)
     finally:
         _reschedule_lock.release()
 
 
+def _warn_about_quarantined_lists():
+    """Restate any standing quarantine so a bad cron cannot fail silently forever.
+
+    CR-01: the previous design gave up permanently with a bare return and no log. The
+    quarantine is a real, operator-actionable fault, so it is reported on the first poll
+    tick that observes it and roughly hourly thereafter until it is resolved.
+    """
+    global _quarantine_reminder_countdown
+
+    if not _reschedule_quarantine:
+        _quarantine_reminder_countdown = 0
+        return
+
+    if _quarantine_reminder_countdown > 0:
+        _quarantine_reminder_countdown -= 1
+        return
+
+    logger.warning(
+        "%d scheduled list(s) cannot be rebuilt in the application timezone and are still "
+        "firing on the previous zone: %s. Correct the cron expression(s), or re-save the "
+        "timezone to force another attempt.",
+        len(_reschedule_quarantine),
+        ", ".join(f"list {list_id} ({cron!r})" for list_id, cron in sorted(_reschedule_quarantine.items())),
+    )
+    _quarantine_reminder_countdown = _QUARANTINE_REMINDER_TICKS
+
+
 def _tz_poll_tick():
     """Converge the live scheduler onto the effective resolved app timezone."""
-    global _tz_poll_last_bad_value, _reschedule_retries_left
+    global _tz_poll_last_bad_value
 
     scheduler = _scheduler
     if scheduler is None or _app is None:
@@ -286,18 +384,17 @@ def _tz_poll_tick():
                 desired = get_app_timezone_fallback_name()
                 _tz_poll_last_bad_value = None
 
+            _warn_about_quarantined_lists()
+
             converged = tz_key(desired) == tz_key(scheduler.timezone)
             if converged and not _reschedule_incomplete:
-                _reschedule_retries_left = _RESCHEDULE_MAX_RETRIES
+                # Either everything is applied, or the only thing left is a quarantined
+                # cron that another identical attempt cannot fix. Both mean "do nothing".
                 return
 
-            if converged:
-                # The zone itself is applied and only stale per-list triggers remain,
-                # which is a deterministic failure - retry, but not forever.
-                if _reschedule_retries_left <= 0:
-                    return
-                _reschedule_retries_left -= 1
-
+            # Anything else is recoverable by construction: a divergent zone, or a
+            # transient DB/lock failure. Retry unconditionally — a no-op attempt (lock
+            # held by a concurrent save) costs nothing and forfeits nothing.
             reschedule_all_lists(desired, blocking=False)
         except (OperationalError, SQLAlchemyError) as e:
             logger.error(f"Timezone poll failed: {e}", exc_info=True)
