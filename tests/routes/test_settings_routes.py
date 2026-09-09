@@ -27,7 +27,8 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from listarr import db
-from listarr.models.app_config_model import get_app_config
+from listarr.models.app_config_model import AppConfig, get_app_config
+from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services.crypto_utils import encrypt_data
 from listarr.utils.time_utils import invalidate_app_timezone_memo
@@ -1501,6 +1502,254 @@ class TestGeneralTimezoneTab:
         integrations = body[body.index('data-tab="integrations"') - 140 : body.index('data-tab="integrations"') + 80]
         assert "border-primary" in integrations
         assert "text-text-heading" in integrations
+
+
+class TestGeneralTimezoneSave:
+    """General settings timezone POST contract."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        invalidate_app_timezone_memo()
+        yield
+        invalidate_app_timezone_memo()
+
+    def _set_app_timezone(self, value):
+        cfg = get_app_config()
+        cfg.timezone = value
+        db.session.commit()
+        invalidate_app_timezone_memo()
+        return cfg
+
+    def _post_timezone(self, client, value):
+        return client.post(
+            "/api/settings/general",
+            json={"timezone": value},
+            content_type="application/json",
+        )
+
+    def test_general_timezone_post_persists_curated_zone(self, client):
+        response = self._post_timezone(client, "Europe/London")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert get_app_config().timezone == "Europe/London"
+
+    def test_general_timezone_post_persists_non_curated_resolvable_zone(self, client):
+        timezone_name = "America/Argentina/Ushuaia"
+        assert timezone_name not in curated_zone_keys()
+
+        response = self._post_timezone(client, timezone_name)
+
+        assert response.status_code == 200
+        assert get_app_config().timezone == timezone_name
+
+    def test_general_timezone_post_empty_string_persists_null(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = self._post_timezone(client, "")
+
+        assert response.status_code == 200
+        assert get_app_config().timezone is None
+
+    def test_general_timezone_post_missing_key_is_system_default(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json={}, content_type="application/json")
+
+        assert response.status_code == 200
+        assert get_app_config().timezone is None
+
+    def test_timezone_invalid_rejected_returns_400_and_no_write(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = self._post_timezone(client, "Not/AZone")
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["message"] == "Unknown or invalid timezone. Nothing was saved."
+        assert get_app_config().timezone == "Europe/London"
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "Etc/UTC\x00",
+            "../../etc/passwd",
+            "/etc/localtime",
+            "</script><script>alert(1)</script>",
+        ],
+    )
+    def test_timezone_invalid_rejected_for_hostile_values(self, client, value):
+        self._set_app_timezone("Europe/London")
+
+        response = self._post_timezone(client, value)
+
+        assert response.status_code == 400
+        assert response.get_json()["message"] == "Unknown or invalid timezone. Nothing was saved."
+        assert get_app_config().timezone == "Europe/London"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"timezone": 123},
+            {"timezone": 12.5},
+            {"timezone": True},
+            {"timezone": {}},
+            {"timezone": []},
+            {"timezone": {"a": 1}},
+        ],
+    )
+    def test_timezone_invalid_rejected_for_non_string_payload(self, client, payload):
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json=payload, content_type="application/json")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["message"] == "Unknown or invalid timezone. Nothing was saved."
+        assert get_app_config().timezone == "Europe/London"
+        assert "AttributeError" not in body
+        assert "strip" not in body
+        assert "Traceback" not in body
+
+    def test_general_timezone_post_requires_authentication(self, auth_client, test_user, app_with_auth):
+        response = auth_client.post("/api/settings/general", json={"timezone": "Europe/London"})
+
+        assert response.status_code in (301, 302, 401, 403)
+        if response.status_code in (301, 302):
+            assert "/login" in response.location
+        with app_with_auth.app_context():
+            assert db.session.get(AppConfig, 1) is None
+
+    def test_general_timezone_post_without_csrf_token_rejected(self, client_with_csrf, app_with_csrf):
+        with app_with_csrf.app_context():
+            cfg = get_app_config()
+            cfg.timezone = "Europe/London"
+            db.session.commit()
+
+        response = client_with_csrf.post(
+            "/api/settings/general",
+            json={"timezone": "Asia/Tokyo"},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        with app_with_csrf.app_context():
+            assert get_app_config().timezone == "Europe/London"
+
+    def test_timezone_toast_payload_scheduler_worker_all_ok(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (3, 0))
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is True
+        assert data["n_rescheduled"] == 3
+        assert data["n_failed"] == 0
+
+    def test_timezone_toast_payload_scheduler_worker_partial_failure(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (2, 1))
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is True
+        assert data["n_rescheduled"] == 2
+        assert data["n_failed"] == 1
+
+    def test_timezone_toast_payload_scheduler_worker_zero_lists(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (0, 0))
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["success"] is True
+        assert data["scheduler_worker"] is True
+        assert data["n_rescheduled"] == 0
+        assert data["n_failed"] == 0
+
+    def test_timezone_toast_non_scheduler_counts_from_db(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+        db.session.add_all(
+            [
+                List(
+                    name="A",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron="0 1 * * *",
+                    is_active=True,
+                ),
+                List(
+                    name="B",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron="0 2 * * *",
+                    is_active=True,
+                ),
+                List(
+                    name="C",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron="0 3 * * *",
+                    is_active=False,
+                ),
+                List(
+                    name="D",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron=None,
+                    is_active=True,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is False
+        assert data["n_rescheduled"] == 2
+        assert data["n_failed"] == 0
+        assert get_app_config().timezone == "Europe/London"
+
+    def test_general_timezone_persists_even_when_reschedule_raises(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        def boom(tz):
+            raise RuntimeError("scheduler unavailable")
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reschedule_all_lists", boom)
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["success"] is True
+        assert data["scheduler_worker"] is True
+        assert data["n_rescheduled"] == 0
+        assert get_app_config().timezone == "Europe/London"
 
 
 class TestHelperFunctions:
