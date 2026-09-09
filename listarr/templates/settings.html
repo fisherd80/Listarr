@@ -7,8 +7,8 @@
   <!-- Top-level Tab navigation -->
   <div class="border-b border-border-subtle mb-6">
     <nav class="flex space-x-6" id="settings-tabs">
-      <button class="settings-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-tab="general">General</button>
-      <button class="settings-tab pb-2 border-b-2 border-primary text-text-heading text-sm font-medium" data-tab="integrations">Integrations</button>
+      <button class="settings-tab pb-2 border-b-2 border-primary text-text-heading text-sm font-medium" data-tab="general">General</button>
+      <button class="settings-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-tab="integrations">Integrations</button>
       <button class="settings-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-tab="tmdb">TMDB</button>
       <button class="settings-tab pb-2 border-b-2 border-transparent text-text-muted hover:text-text-heading text-sm font-medium" data-tab="account">Account</button>
     </nav>
@@ -17,7 +17,7 @@
   <!-- ================================================================
        Tab Panel: General
        ================================================================ -->
-  <div id="tab-general" class="settings-panel hidden">
+  <div id="tab-general" class="settings-panel">
     <div class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
       <h2 class="text-lg font-semibold text-text-heading mb-4">General</h2>
 
@@ -74,7 +74,7 @@
   <!-- ================================================================
        Tab Panel: Integrations
        ================================================================ -->
-  <div id="tab-integrations" class="settings-panel">
+  <div id="tab-integrations" class="settings-panel hidden">
     <!-- Service sub-tab navigation -->
     <div class="border-b border-border-subtle mb-6">
       <nav class="flex space-x-4" id="service-tabs">

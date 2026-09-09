@@ -1494,14 +1494,30 @@ class TestGeneralTimezoneTab:
         assert "Bogus/Zone" in body
         assert "using UTC instead" in body
 
-    def test_general_timezone_tab_does_not_change_default_active_panel(self, client):
+    def test_general_is_the_default_active_panel(self, client):
+        """General is both the leftmost tab and the panel open on load.
+
+        Superseded the original UI-SPEC line 130 ("initially-active panel stays
+        Integrations"), which justified itself on avoiding test churn rather than on
+        user experience. Changed at the 14-08 human-verify checkpoint on developer
+        feedback; settings.js needed no change because initSettingsTabs is generic.
+        """
         response = client.get("/settings")
         body = response.get_data(as_text=True)
 
         assert response.status_code == 200
+
+        general = body[body.index('data-tab="general"') - 140 : body.index('data-tab="general"') + 80]
+        assert "border-primary" in general
+        assert "text-text-heading" in general
+
         integrations = body[body.index('data-tab="integrations"') - 140 : body.index('data-tab="integrations"') + 80]
-        assert "border-primary" in integrations
-        assert "text-text-heading" in integrations
+        assert "border-primary" not in integrations
+        assert "border-transparent" in integrations
+
+        # The General panel is visible on load; Integrations is click-to-open.
+        assert '<div id="tab-general" class="settings-panel">' in body
+        assert '<div id="tab-integrations" class="settings-panel hidden">' in body
 
 
 class TestGeneralTimezoneSave:
