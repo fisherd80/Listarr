@@ -798,14 +798,19 @@ function initTimezoneFilter() {
 
     for (i = 0; i < groups.length; i++) {
       var kids = groups[i].getElementsByTagName('option');
-      var anyVisible = false;
+      var anyMatch = false;
       for (j = 0; j < kids.length; j++) {
-        if (!isHidden(kids[j])) {
-          anyVisible = true;
+        // IN-05: ask whether the child *matched*, not whether it is visible. The WR-06
+        // fix forces the selected option visible whether it matches or not, so reading
+        // the hidden class kept the saved zone's region header on screen for a query
+        // that matched nothing in it - one unrelated entry under a heading that implied
+        // it was a result.
+        if (matches.indexOf(kids[j]) !== -1) {
+          anyMatch = true;
           break;
         }
       }
-      setHidden(groups[i], !anyVisible);
+      setHidden(groups[i], !anyMatch);
     }
 
     if (emptyEl) {
@@ -922,15 +927,20 @@ function applySavedTimezoneToPage(data) {
   }
 
   // The "Current" optgroup exists only to carry a saved zone that is not in the curated
-  // list. Once something else is selected it is no longer current, and leaving it there
-  // labels a stale zone as the active one.
+  // list. Once something else is selected it is no longer current, and leaving the label
+  // as-is presents a stale zone as the active one.
+  //
+  // IN-04: relabel rather than remove. That group is the only place a non-curated zone
+  // appears in the picker, so removing it made the zone the user had just moved away from
+  // unreachable - it is in no region group, and nothing else would ever re-add it. They
+  // could not change their mind without reloading the page.
   var select = document.getElementById('app-timezone');
   if (select) {
     var groups = select.getElementsByTagName('optgroup');
     for (var i = groups.length - 1; i >= 0; i--) {
       if (groups[i].label !== 'Current') continue;
       var opt = groups[i].getElementsByTagName('option')[0];
-      if (!opt || opt.value !== select.value) groups[i].remove();
+      if (!opt || opt.value !== select.value) groups[i].label = 'Other';
     }
   }
 }
