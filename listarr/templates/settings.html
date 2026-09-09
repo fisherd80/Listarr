@@ -21,12 +21,12 @@
     <div class="bg-bg-panel border border-border-subtle rounded p-4 max-w-2xl">
       <h2 class="text-lg font-semibold text-text-heading mb-4">General</h2>
 
-      {% if tz_unresolvable %}
+      {% if tz.unresolvable %}
       <div id="tz-fallback-notice" role="status" class="mb-4 flex items-start gap-2 bg-warning/10 border border-warning/30 rounded p-4 text-sm text-warning">
         <svg class="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        <span>Configured timezone "{{ tz_configured_value }}" could not be loaded; using {{ tz_fallback_name }} instead. Check that the tzdata package is installed.</span>
+        <span>Configured timezone "{{ tz.configured }}" could not be loaded; using {{ tz.fallback }} instead. Check that the tzdata package is installed.</span>
       </div>
       {% endif %}
 
@@ -37,16 +37,16 @@
           class="block w-full px-3 py-2 mb-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary" />
         <select id="app-timezone"
           class="block w-full px-3 py-2 rounded border border-input-border bg-input-bg text-text-base focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary">
-          <option value="" {% if not app_config_timezone %}selected{% endif %}>System default (currently {{ resolved_tz_display }})</option>
+          <option value="" {% if not tz.configured %}selected{% endif %}>System default (currently {{ tz.fallback }})</option>
           {% if not timezone_is_curated %}
           <optgroup label="Current">
-            <option value="{{ app_config_timezone }}" selected>{{ app_config_timezone }}</option>
+            <option value="{{ tz.configured }}" selected>{{ tz.configured }}</option>
           </optgroup>
           {% endif %}
           {% for region, zones in curated_timezones.items() %}
           <optgroup label="{{ region }}">
             {% for zone in zones %}
-            <option value="{{ zone }}" {% if app_config_timezone == zone %}selected{% endif %}>{{ zone }}</option>
+            <option value="{{ zone }}" {% if tz.configured == zone %}selected{% endif %}>{{ zone }}</option>
             {% endfor %}
           </optgroup>
           {% endfor %}
@@ -54,7 +54,7 @@
         <p class="mt-1 text-xs text-text-muted">Used for the scheduler and for timestamps shown across Listarr.</p>
         <p id="tz-filter-empty" class="mt-1 text-xs text-text-muted hidden"></p>
         <div class="mt-2 flex flex-col sm:flex-row sm:items-baseline sm:gap-3">
-          <p id="tz-preview" aria-live="off" data-fallback-zone="{{ tz_fallback_name }}" class="text-sm text-text-muted">
+          <p id="tz-preview" aria-live="off" data-fallback-zone="{{ tz.fallback }}" class="text-sm text-text-muted">
             Current time: <span class="text-text-base font-medium tabular-nums">{{ server_rendered_preview }}</span>
           </p>
         </div>

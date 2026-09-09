@@ -174,11 +174,12 @@ def settings_page():
         }
 
     tmdb_cfg = ServiceConfig.query.filter_by(service="TMDB").first()
+    # IN-04: one timezone object in the context. The template reads tz.configured /
+    # tz.fallback so the two halves can no longer drift apart.
     tz_state = get_app_timezone_state()
-    app_config_timezone = tz_state["configured"]
-    resolved_tz_display = tz_state["fallback"]
+    configured_tz = tz_state["configured"]
     server_rendered_preview = datetime.now(get_app_timezone()).strftime("%I:%M:%S %p %Z")
-    timezone_is_curated = not app_config_timezone or app_config_timezone in curated_zone_keys()
+    timezone_is_curated = not configured_tz or configured_tz in curated_zone_keys()
 
     return render_template(
         "settings.html",
@@ -187,12 +188,8 @@ def settings_page():
         tmdb=_service_state("TMDB"),
         tmdb_region=tmdb_cfg.tmdb_region if tmdb_cfg else None,
         region_choices=REGION_CHOICES,
-        app_config_timezone=app_config_timezone,
+        tz=tz_state,
         curated_timezones=CURATED_TIMEZONES,
-        resolved_tz_display=resolved_tz_display,
-        tz_unresolvable=tz_state["unresolvable"],
-        tz_configured_value=tz_state["configured"],
-        tz_fallback_name=tz_state["fallback"],
         server_rendered_preview=server_rendered_preview,
         timezone_is_curated=timezone_is_curated,
         change_password_form=ChangePasswordForm(),
