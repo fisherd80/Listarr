@@ -1568,10 +1568,29 @@ class TestGeneralTimezoneSave:
         assert response.status_code == 200
         assert get_app_config().timezone is None
 
-    def test_general_timezone_post_missing_key_is_system_default(self, client):
+    def test_general_timezone_post_missing_key_rejected_without_write(self, client):
+        """WR-02: a body without a timezone key must not wipe the configured zone."""
         self._set_app_timezone("Europe/London")
 
         response = client.post("/api/settings/general", json={}, content_type="application/json")
+
+        assert response.status_code == 400
+        assert response.get_json()["success"] is False
+        assert get_app_config().timezone == "Europe/London"
+
+    def test_general_timezone_explicit_empty_string_clears_to_system_default(self, client):
+        """WR-02: clearing still works, but only when explicitly requested."""
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json={"timezone": ""}, content_type="application/json")
+
+        assert response.status_code == 200
+        assert get_app_config().timezone is None
+
+    def test_general_timezone_explicit_null_clears_to_system_default(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json={"timezone": None}, content_type="application/json")
 
         assert response.status_code == 200
         assert get_app_config().timezone is None

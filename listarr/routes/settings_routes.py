@@ -342,7 +342,13 @@ def _validate_timezone(value):
 def save_general_settings():
     """Save application-wide settings."""
     data = request.json or {}
-    raw = data.get("timezone")
+
+    # WR-02: an absent key means "no setting supplied", not "reset to System default".
+    # Clearing the timezone requires an explicit empty string (or null).
+    if "timezone" not in data:
+        return jsonify({"success": False, "message": "No settings supplied."}), 400
+
+    raw = data["timezone"]
 
     if raw is None or raw == "":
         submitted = ""
