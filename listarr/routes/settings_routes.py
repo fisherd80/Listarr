@@ -1,3 +1,4 @@
+import zoneinfo
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -17,6 +18,8 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from listarr import db
 from listarr.forms.auth_forms import ChangePasswordForm
 from listarr.forms.settings_forms import REGION_CHOICES
+from listarr.models.app_config_model import get_app_config
+from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.routes import bp
 from listarr.services.arr_service import (
@@ -29,8 +32,15 @@ from listarr.services.arr_service import (
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
 from listarr.services.sonarr_service import MONITOR_MODE_TOKENS, normalize_monitor_mode
 from listarr.services.tmdb_service import validate_tmdb_api_key
-from listarr.utils.time_utils import get_app_timezone, get_app_timezone_state
+from listarr.utils.time_utils import (
+    get_app_timezone,
+    get_app_timezone_name,
+    get_app_timezone_state,
+    invalidate_app_timezone_memo,
+)
 from listarr.utils.timezones import CURATED_TIMEZONES, curated_zone_keys
+
+TIMEZONE_INVALID_MESSAGE = "Unknown or invalid timezone. Nothing was saved."
 
 # ---------------------------------------------------------------------------
 # Helpers (TMDB)
@@ -312,6 +322,74 @@ def save_tmdb_settings():
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to save configuration. Please try again."}), 500
+
+
+def _validate_timezone(value):
+    if value == "":
+        return None, None
+
+    try:
+        zoneinfo.ZoneInfo(value)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        return None, TIMEZONE_INVALID_MESSAGE
+
+    return value, None
+
+
+@bp.route("/api/settings/general", methods=["POST"])
+@login_required
+def save_general_settings():
+    """Save application-wide settings."""
+    data = request.json or {}
+    raw = data.get("timezone")
+
+    if raw is None or raw == "":
+        submitted = ""
+    elif not isinstance(raw, str):
+        return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
+    else:
+        submitted = raw.strip()
+
+    stored, error = _validate_timezone(submitted)
+    if error:
+        current_app.logger.info("Rejected invalid application timezone")
+        return jsonify({"success": False, "message": error}), 400
+
+    try:
+        cfg = get_app_config()
+        cfg.timezone = stored
+        db.session.commit()
+        invalidate_app_timezone_memo()
+
+        effective_tz = stored or get_app_timezone_name()
+
+        scheduler_worker = False
+        try:
+            from listarr.services import scheduler as sched
+
+            scheduler_worker = sched._scheduler is not None
+            if scheduler_worker:
+                n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
+            else:
+                n_ok = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).count()  # noqa: E712
+                n_fail = 0
+        except Exception as e:
+            current_app.logger.error(f"Error rescheduling lists after timezone save: {e}", exc_info=True)
+            n_ok, n_fail = 0, 0
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Timezone saved.",
+                "scheduler_worker": scheduler_worker,
+                "n_rescheduled": n_ok,
+                "n_failed": n_fail,
+            }
+        )
+    except (IntegrityError, OperationalError) as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving general settings: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to save configuration. Please try again."}), 500
 
 
