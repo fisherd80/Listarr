@@ -1782,6 +1782,21 @@ class TestGeneralTimezoneSave:
         assert data["n_failed"] == 0
         assert get_app_config().timezone == "Europe/London"
 
+    def test_scheduler_worker_flag_comes_from_the_public_predicate(self, client, monkeypatch):
+        """WR-06: the route must consult is_scheduler_worker(), not scheduler._scheduler."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (1, 0))
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is True
+        assert data["n_rescheduled"] == 1
+
     def test_general_timezone_persists_even_when_reschedule_raises(self, client, monkeypatch):
         from listarr.services import scheduler as sched
 

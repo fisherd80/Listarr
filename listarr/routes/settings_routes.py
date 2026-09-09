@@ -374,7 +374,9 @@ def save_general_settings():
         try:
             from listarr.services import scheduler as sched
 
-            scheduler_worker = sched._scheduler is not None
+            # WR-06: use the module's intentional predicate rather than reaching into
+            # its private singleton.
+            scheduler_worker = sched.is_scheduler_worker()
             if scheduler_worker:
                 n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
             else:
