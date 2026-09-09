@@ -880,8 +880,20 @@ function initTimezonePreview() {
 
   renderPreview();
   if (select) select.addEventListener('change', renderPreview);
-  // Keep ticking even after a failure so recovery is automatic once a valid zone is picked.
-  setInterval(renderPreview, 1000);
+
+  // IN-05: the timer used to run unconditionally and forever, rebuilding an
+  // Intl.DateTimeFormat every second even while the General panel sat hidden behind
+  // another settings tab. Skip the work when it cannot be seen, and keep the handle so
+  // it can actually be cancelled. It still ticks after a failure, so recovery is
+  // automatic once a valid zone is picked.
+  var panel = document.getElementById('tab-general');
+  var previewTimer = setInterval(function () {
+    if (!panel || !panel.classList.contains('hidden')) renderPreview();
+  }, 1000);
+
+  window.addEventListener('pagehide', function () {
+    clearInterval(previewTimer);
+  });
 }
 
 /**
