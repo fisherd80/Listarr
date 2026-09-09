@@ -8,7 +8,7 @@ import logging
 import os
 import re
 import zoneinfo
-from datetime import datetime
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -25,6 +25,7 @@ from listarr.models.service_config_model import ServiceConfig
 from listarr.services.arr_service import validate_api_key
 from listarr.services.crypto_utils import decrypt_data
 from listarr.services.job_executor import is_list_running, submit_job
+from listarr.utils.time_utils import get_app_timezone_name, resolve_db_timezone_string
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +61,23 @@ def _posix_cron_to_apscheduler(cron_expr):
 def _get_scheduler_timezone():
     """Return the configured scheduler timezone.
 
-    Uses the live scheduler timezone when available. In non-scheduler workers,
-    falls back to the TZ environment variable, matching init_scheduler().
+    Resolution order is AppConfig.timezone, live scheduler timezone, TZ env var,
+    then UTC. This function never raises and always returns a tzinfo object.
     """
+    stored = resolve_db_timezone_string()
+    if stored:
+        try:
+            return zoneinfo.ZoneInfo(stored)
+        except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+            logger.warning("Configured timezone %r could not be loaded by scheduler; falling back", stored)
+
     if _scheduler is not None:
         return _scheduler.timezone
-    tz_str = os.environ.get("TZ", "UTC")
-    return zoneinfo.ZoneInfo(tz_str)
+
+    try:
+        return zoneinfo.ZoneInfo(os.environ.get("TZ", "UTC"))
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        return timezone.utc
 
 
 def init_scheduler(app):
@@ -95,8 +106,8 @@ def init_scheduler(app):
     # Use _get_current_object() if app is a proxy, otherwise use app directly
     _app = app._get_current_object() if hasattr(app, "_get_current_object") else app
 
-    # Get timezone from environment or default to UTC
-    tz = os.environ.get("TZ", "UTC")
+    # Get timezone from the application resolver.
+    tz = get_app_timezone_name()
 
     # Create scheduler with configuration
     _scheduler = BackgroundScheduler(
