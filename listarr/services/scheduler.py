@@ -42,6 +42,13 @@ _app = None
 _reschedule_lock = threading.Lock()
 _tz_poll_last_bad_value = None
 
+# CR-01: a rebuild that leaves stale triggers behind must not look "converged" to
+# the poll. _reschedule_incomplete records that state; the poll spends a bounded
+# retry budget on it so a permanently unbuildable cron cannot spin forever.
+_RESCHEDULE_MAX_RETRIES = 3
+_reschedule_incomplete = False
+_reschedule_retries_left = _RESCHEDULE_MAX_RETRIES
+
 # POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
 # Converting to name strings avoids the ambiguity entirely.
 _POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
@@ -148,13 +155,26 @@ def init_scheduler(app):
     logger.info(f"Scheduler initialized (timezone: {tz})")
 
 
+def is_scheduler_worker() -> bool:
+    """True when this process owns the APScheduler instance."""
+    return _scheduler is not None
+
+
+def reschedule_is_incomplete() -> bool:
+    """True when the last rebuild left at least one list on a stale trigger."""
+    return _reschedule_incomplete
+
+
 def shutdown_scheduler():
     """Gracefully shutdown the scheduler."""
     global _scheduler
-    if _scheduler is not None:
-        _scheduler.shutdown(wait=False)
-        _scheduler = None
-        logger.info("Scheduler shutdown")
+    # WR-07: serialize with the reschedule/poll consumers so an in-flight rebuild
+    # never dereferences a scheduler that was nulled mid-flight.
+    with _reschedule_lock:
+        if _scheduler is not None:
+            _scheduler.shutdown(wait=False)
+            _scheduler = None
+            logger.info("Scheduler shutdown")
 
 
 def _load_schedules_from_db():
@@ -189,7 +209,10 @@ def reschedule_all_lists(tz_str, blocking=True):
     construction: add_job without next_run_time computes the next fire from now,
     so misfire_grace_time is never consulted for rebuilt jobs.
     """
-    if _scheduler is None:
+    global _reschedule_incomplete
+
+    scheduler = _scheduler
+    if scheduler is None:
         logger.debug("Scheduler not running in this worker; skipping in-process timezone reschedule")
         return (0, 0)
     if _app is None:
@@ -198,6 +221,7 @@ def reschedule_all_lists(tz_str, blocking=True):
 
     acquired = _reschedule_lock.acquire(blocking=blocking)
     if not acquired:
+        # The lock holder owns the convergence state; do not overwrite it here.
         logger.debug("Reschedule already in progress; skipping this attempt")
         return (0, 0)
 
@@ -205,7 +229,7 @@ def reschedule_all_lists(tz_str, blocking=True):
     n_fail = 0
     try:
         try:
-            _scheduler.timezone = astimezone(tz_str)
+            new_tz = astimezone(tz_str)
         except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError) as e:
             logger.error(f"Could not apply scheduler timezone {tz_str!r}: {e}")
             return (0, 0)
@@ -213,18 +237,24 @@ def reschedule_all_lists(tz_str, blocking=True):
         with _app.app_context():
             try:
                 lists = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).all()  # noqa: E712
-
-                for list_obj in lists:
-                    try:
-                        schedule_list(list_obj.id, list_obj.schedule_cron)
-                        n_ok += 1
-                    except (ValueError, KeyError) as e:
-                        logger.error(f"Timezone reschedule failed for list {list_obj.id}: {e}")
-                        n_fail += 1
             except OperationalError as e:
+                # CR-01: leave scheduler.timezone untouched so the poll still sees a
+                # divergence and retries on its next tick.
                 logger.error(f"Failed to load schedules for timezone reschedule: {e}")
-                return (n_ok, n_fail)
+                _reschedule_incomplete = True
+                return (0, 0)
 
+            # The timezone assignment is the commit of the rebuild, not its prelude.
+            scheduler.timezone = new_tz
+            for list_obj in lists:
+                try:
+                    schedule_list(list_obj.id, list_obj.schedule_cron)
+                    n_ok += 1
+                except (ValueError, KeyError) as e:
+                    logger.error(f"Timezone reschedule failed for list {list_obj.id}: {e}")
+                    n_fail += 1
+
+        _reschedule_incomplete = bool(n_fail)
         logger.info(f"Rescheduled {n_ok} lists into {tz_str} ({n_fail} failed)")
         return (n_ok, n_fail)
     finally:
@@ -233,9 +263,10 @@ def reschedule_all_lists(tz_str, blocking=True):
 
 def _tz_poll_tick():
     """Converge the live scheduler onto the effective resolved app timezone."""
-    global _tz_poll_last_bad_value
+    global _tz_poll_last_bad_value, _reschedule_retries_left
 
-    if _scheduler is None or _app is None:
+    scheduler = _scheduler
+    if scheduler is None or _app is None:
         return
 
     with _app.app_context():
@@ -255,8 +286,17 @@ def _tz_poll_tick():
                 desired = get_app_timezone_fallback_name()
                 _tz_poll_last_bad_value = None
 
-            if tz_key(desired) == tz_key(_scheduler.timezone):
+            converged = tz_key(desired) == tz_key(scheduler.timezone)
+            if converged and not _reschedule_incomplete:
+                _reschedule_retries_left = _RESCHEDULE_MAX_RETRIES
                 return
+
+            if converged:
+                # The zone itself is applied and only stale per-list triggers remain,
+                # which is a deterministic failure - retry, but not forever.
+                if _reschedule_retries_left <= 0:
+                    return
+                _reschedule_retries_left -= 1
 
             reschedule_all_lists(desired, blocking=False)
         except (OperationalError, SQLAlchemyError) as e:
@@ -286,13 +326,20 @@ def schedule_list(list_id, cron_expression):
     # Create job ID
     job_id = f"list_{list_id}"
 
-    # Remove existing job if present (for updates)
+    # CR-02: build the trigger before touching the existing job. If construction
+    # fails (cronsim and APScheduler do not accept the same grammar), the list
+    # keeps its current schedule instead of being silently unscheduled forever.
+    try:
+        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=_scheduler.timezone)
+    except (ValueError, KeyError) as e:
+        logger.error(f"Failed to build trigger for list {list_id}: {e}")
+        raise
+
+    # Swap the job only once the replacement trigger exists.
     if _scheduler.get_job(job_id):
         _scheduler.remove_job(job_id)
 
-    # Add job with cron trigger
     try:
-        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=_scheduler.timezone)
         _scheduler.add_job(
             _run_scheduled_import,
             trigger=trigger,

@@ -30,6 +30,7 @@ from unittest.mock import Mock
 
 import pytest
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy.exc import OperationalError
 
 from listarr import db
 from listarr.models.app_config_model import get_app_config
@@ -55,6 +56,21 @@ SCHEDULER_TZ = "America/New_York"
 # 02:00 every Monday. Shared by the List row and the schedule_list() call so the
 # "Monday" / "hour 2" intent stays synced with the assertions below.
 SMOKE_CRON = "0 2 * * 1"
+
+# Accepted by cronsim (validate_cron_expression) but rejected by APScheduler's
+# CronTrigger.from_crontab. This grammar gap is the live trigger-build failure
+# path guarded by CR-01/CR-02.
+APS_UNSUPPORTED_CRON = "0 2 L * *"
+
+
+@pytest.fixture(autouse=True)
+def _reset_reschedule_convergence_state():
+    """CR-01 added module-level convergence state; keep it from leaking across tests."""
+    sched._reschedule_incomplete = False
+    sched._reschedule_retries_left = sched._RESCHEDULE_MAX_RETRIES
+    yield
+    sched._reschedule_incomplete = False
+    sched._reschedule_retries_left = sched._RESCHEDULE_MAX_RETRIES
 
 
 def _make_real_scheduler(timezone_name=SCHEDULER_TZ):
@@ -399,6 +415,138 @@ def test_reschedule_lock_skips_colliding_non_blocking_entrant(app, monkeypatch):
     finally:
         if lock_acquired:
             sched._reschedule_lock.release()
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_schedule_list_keeps_existing_job_when_trigger_build_fails(app, monkeypatch):
+    """CR-02: a cron that cronsim accepts but APScheduler cannot build must leave the
+    previously registered job intact instead of silently unscheduling the list."""
+    scheduler = _make_real_scheduler()
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            list_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(list_id, SMOKE_CRON)
+            before = scheduler.get_job(f"list_{list_id}").next_run_time
+
+            with pytest.raises(ValueError):
+                sched.schedule_list(list_id, APS_UNSUPPORTED_CRON)
+
+            job = scheduler.get_job(f"list_{list_id}")
+            assert job is not None, "a failed trigger build must not remove the existing job"
+            assert job.next_run_time == before
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_poll_retries_after_partial_failure_then_stops(app, monkeypatch):
+    """CR-01: a partial rebuild must not read as converged on the next poll tick, and the
+    retry must be bounded so a permanently unbuildable cron cannot spin forever."""
+    scheduler = _make_real_scheduler()
+    calls = []
+    real_reschedule = sched.reschedule_all_lists
+
+    def spy_reschedule(tz_str, blocking=True):
+        calls.append((tz_str, blocking))
+        return real_reschedule(tz_str, blocking=blocking)
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            good_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(good_id, SMOKE_CRON)
+            _make_list_row(APS_UNSUPPORTED_CRON)
+
+            assert real_reschedule("Asia/Tokyo") == (1, 1)
+            assert tz_key(scheduler.timezone) == "Asia/Tokyo"
+            assert sched.reschedule_is_incomplete() is True
+
+            monkeypatch.setattr(sched, "reschedule_all_lists", spy_reschedule)
+
+            # Zone matches but triggers are stale: the poll must keep retrying.
+            for _ in range(sched._RESCHEDULE_MAX_RETRIES):
+                sched._tz_poll_tick()
+            assert calls == [("Asia/Tokyo", False)] * sched._RESCHEDULE_MAX_RETRIES
+
+            # Budget exhausted - no unbounded retry loop.
+            sched._tz_poll_tick()
+            assert len(calls) == sched._RESCHEDULE_MAX_RETRIES
+
+            # A later genuine timezone change still converges, clears the signal and
+            # restores the retry budget.
+            for stale in List.query.filter(List.id != good_id).all():
+                db.session.delete(stale)
+            db.session.commit()
+            _set_app_timezone("Europe/London")
+
+            calls.clear()
+            sched._tz_poll_tick()
+            assert calls == [("Europe/London", False)]
+            assert tz_key(scheduler.timezone) == "Europe/London"
+            assert sched.reschedule_is_incomplete() is False
+
+            calls.clear()
+            sched._tz_poll_tick()
+            assert calls == []
+            assert sched._reschedule_retries_left == sched._RESCHEDULE_MAX_RETRIES
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_reschedule_db_failure_leaves_timezone_unapplied_for_next_poll(app, monkeypatch):
+    """CR-01: when the schedule query fails, scheduler.timezone must stay untouched so the
+    poll still sees a divergence and retries instead of believing it converged."""
+    scheduler = _make_real_scheduler()
+
+    class _BoomQuery:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def all(self):
+            raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+    class _BoomList:
+        query = _BoomQuery()
+        id = List.id
+        schedule_cron = List.schedule_cron
+        is_active = List.is_active
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            list_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(list_id, SMOKE_CRON)
+
+            monkeypatch.setattr(sched, "List", _BoomList)
+            assert sched.reschedule_all_lists("Asia/Tokyo") == (0, 0)
+            assert tz_key(scheduler.timezone) == SCHEDULER_TZ, "timezone must not be committed"
+            assert sched.reschedule_is_incomplete() is True
+
+            monkeypatch.setattr(sched, "List", List)
+            sched._tz_poll_tick()
+
+            assert tz_key(scheduler.timezone) == "Asia/Tokyo"
+            assert sched.reschedule_is_incomplete() is False
+            job = scheduler.get_job(f"list_{list_id}")
+            assert job is not None
+            assert job.next_run_time > datetime.now(timezone.utc)
+    finally:
         time_utils.invalidate_app_timezone_memo()
         if scheduler.running:
             scheduler.shutdown(wait=False)
