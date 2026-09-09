@@ -19,6 +19,7 @@ blocks). The session-scoped app fixture keeps an app context open for the
 entire session; nested contexts corrupt Flask's ContextVar stack.
 """
 
+import re
 from datetime import datetime, timezone
 from unittest.mock import patch
 
@@ -26,8 +27,11 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from listarr import db
+from listarr.models.app_config_model import get_app_config
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services.crypto_utils import encrypt_data
+from listarr.utils.time_utils import invalidate_app_timezone_memo
+from listarr.utils.timezones import CURATED_TIMEZONES, curated_zone_keys
 
 
 class TestSettingsPage:
@@ -1396,6 +1400,107 @@ class TestSonarrImportSettingsMonitorMode:
         row = MediaImportSettings.query.filter_by(service="SONARR").first()
         assert row is not None
         assert row.sonarr_monitor_mode == "firstSeason"
+
+
+class TestGeneralTimezoneTab:
+    """General settings timezone tab render contract."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        invalidate_app_timezone_memo()
+        yield
+        invalidate_app_timezone_memo()
+
+    def _set_app_timezone(self, value):
+        cfg = get_app_config()
+        cfg.timezone = value
+        db.session.commit()
+        invalidate_app_timezone_memo()
+
+    def test_general_timezone_tab_renders_curated_optgroups(self, client):
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert 'data-tab="general"' in body
+        assert 'id="tab-general"' in body
+        for region in CURATED_TIMEZONES:
+            assert f'<optgroup label="{region}">' in body
+        for zone in ("Europe/London", "America/New_York", "Asia/Tokyo"):
+            assert f'value="{zone}"' in body
+
+    def test_general_timezone_system_default_option_is_first_and_selected(self, client):
+        self._set_app_timezone(None)
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert re.search(r'<option value=""\s+selected>System default \(currently [^)]+\)</option>', body)
+        assert body.index('value=""') < body.index("<optgroup")
+
+    def test_general_timezone_stored_curated_value_is_selected(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert '<option value="Europe/London" selected>Europe/London</option>' in body
+        assert not re.search(r'<option value=""\s+selected>', body)
+
+    def test_general_timezone_non_curated_stored_value_round_trips(self, client):
+        timezone_name = "America/Argentina/Ushuaia"
+        assert timezone_name not in curated_zone_keys()
+        self._set_app_timezone(timezone_name)
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        current_start = body.index('<optgroup label="Current">')
+        current_end = body.index("</optgroup>", current_start)
+        current_group = body[current_start:current_end]
+        assert f'<option value="{timezone_name}" selected>{timezone_name}</option>' in current_group
+
+    def test_general_timezone_preview_is_server_rendered(self, client):
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        preview = body[body.index('id="tz-preview"') : body.index("</p>", body.index('id="tz-preview"'))]
+        match = re.search(r'<span class="text-text-base font-medium tabular-nums">([^<]+)</span>', preview)
+        assert match
+        assert match.group(1).strip()
+
+    def test_timezone_fallback_notice_hidden_when_resolvable(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.get("/settings")
+
+        assert response.status_code == 200
+        assert b"tz-fallback-notice" not in response.data
+
+    def test_timezone_fallback_notice_shown_when_unresolvable(self, client, monkeypatch):
+        monkeypatch.delenv("TZ", raising=False)
+        self._set_app_timezone("Bogus/Zone")
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert 'id="tz-fallback-notice"' in body
+        assert "Bogus/Zone" in body
+        assert "using UTC instead" in body
+
+    def test_general_timezone_tab_does_not_change_default_active_panel(self, client):
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        integrations = body[body.index('data-tab="integrations"') - 140 : body.index('data-tab="integrations"') + 80]
+        assert "border-primary" in integrations
+        assert "text-text-heading" in integrations
 
 
 class TestHelperFunctions:
