@@ -63,6 +63,14 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/**
+ * Escape a value for interpolation into a double-quoted HTML attribute.
+ * escapeHtml() alone leaves quotes intact, which is not safe in attribute position.
+ */
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function getCsrfToken() {
   const metaTag = document.querySelector('meta[name="csrf-token"]');
   return metaTag ? metaTag.content : "";
@@ -185,10 +193,16 @@ function generateStatusHTML(success, timestamp) {
     : "text-error";
   const formattedTime = formatTimestamp(timestamp, "utc");
 
+  // WR-04: applyAppTzTooltips() only runs on DOMContentLoaded, so markup injected
+  // later must carry its own app-timezone tooltip rather than wait to be swept.
+  const tooltip = appTzTooltip(timestamp);
+  const titleAttr = tooltip ? ` title="${escapeAttr(tooltip)}"` : "";
+  const tsAttr = escapeAttr(timestamp || "");
+
   return `
     <span class="inline-flex items-center gap-1">
       <span class="${statusClass}">${statusIcon}</span>
-      Last tested: <span data-timestamp="${timestamp}">${formattedTime}</span>
+      Last tested: <span data-timestamp="${tsAttr}"${titleAttr}>${formattedTime}</span>
     </span>
   `;
 }
