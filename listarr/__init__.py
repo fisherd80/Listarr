@@ -345,12 +345,18 @@ def _ensure_app_config_row(app):
 
     from listarr.models.app_config_model import get_app_config
 
-    try:
-        with app.app_context():
+    # IN-06: the try/except goes *inside* the context, not around it. Flask-SQLAlchemy 3.1
+    # scopes the session to the app context, so an except body outside the `with` runs
+    # after that session has already been torn down - db.session there resolves to a
+    # different session and the rollback is a no-op for the failure it is meant to clean
+    # up. Harmless in practice (the context teardown discards the failed session anyway),
+    # but the line promised a guarantee it did not deliver.
+    with app.app_context():
+        try:
             get_app_config()
-    except (OperationalError, SQLAlchemyError) as e:
-        db.session.rollback()
-        app.logger.warning(f"Could not seed AppConfig row: {e}")
+        except (OperationalError, SQLAlchemyError) as e:
+            db.session.rollback()
+            app.logger.warning(f"Could not seed AppConfig row: {e}")
 
 
 def recover_interrupted_jobs(app):

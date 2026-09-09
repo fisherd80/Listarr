@@ -93,6 +93,34 @@ def test_ensure_app_config_row_degrades_to_warning_on_operational_error(app):
         mock_warning.assert_called_once()
 
 
+def test_ensure_app_config_row_rolls_back_the_session_that_failed(app):
+    """IN-06: the rollback used to sit outside the `with app.app_context()`, where
+    Flask-SQLAlchemy has already torn the scoped session down - so it cleaned up a
+    different session from the one that raised. Pin that it now runs while the failing
+    session is still the live one."""
+    with app.app_context():
+        boom = OperationalError("stmt", {}, Exception("database is locked"))
+        seen = {}
+
+        def record_rollback():
+            # Identity of the session object the rollback actually targets, captured
+            # while the inner context is still on the stack.
+            seen["session"] = db.session()
+
+        with (
+            patch.object(db.session, "get", side_effect=boom),
+            patch.object(db.session, "rollback", side_effect=record_rollback),
+            patch.object(app.logger, "warning"),
+        ):
+            _ensure_app_config_row(app)
+            outer_session = db.session()
+
+        assert "session" in seen, "rollback was never reached"
+        assert seen["session"] is not outer_session, (
+            "the rollback ran against the outer session, so it did not clean up the failure"
+        )
+
+
 def test_read_app_config_returns_none_without_creating_a_row(app):
     """WR-01: the read-only accessor must not insert or commit when the row is absent."""
     with app.app_context():
