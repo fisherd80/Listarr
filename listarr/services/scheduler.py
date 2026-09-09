@@ -327,6 +327,17 @@ def reschedule_all_lists(tz_str, blocking=True):
                 return (0, 0)
 
             # The timezone assignment is the commit of the rebuild, not its prelude.
+            #
+            # IN-08: BaseScheduler.timezone is normally set by configure(), which refuses
+            # to run while the scheduler is started — hence the direct assignment. It is
+            # not documented as a mutable attribute, so this leans on an internal detail:
+            # validated against APScheduler 3.11.3 (pinned with == in requirements.txt),
+            # where add_job reads self.timezone only at trigger-construction time, which
+            # is exactly what the rebuild loop below relies on.
+            #
+            # If a future bump turns timezone into a read-only property, the real signal
+            # is tests/integration/test_scheduler_bump_smoke.py, which drives a real
+            # BackgroundScheduler through this path for that purpose.
             scheduler.timezone = new_tz
             quarantine = {}
             for list_obj in lists:
