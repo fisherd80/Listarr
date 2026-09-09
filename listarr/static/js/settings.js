@@ -726,8 +726,208 @@ function initImportSettingsButtons() {
 // Initialise on DOM ready
 // ---------------------------------------------------------------------------
 
+
+// ---------------------------------------------------------------------------
+// General tab: timezone filter, live preview, save (Phase 14)
+// ---------------------------------------------------------------------------
+
+function initTimezoneFilter() {
+  var filter = document.getElementById('tz-filter');
+  var select = document.getElementById('app-timezone');
+  var emptyEl = document.getElementById('tz-filter-empty');
+  if (!filter || !select) return;
+
+  function resetAll() {
+    var i;
+    var options = select.options;
+    for (i = 0; i < options.length; i++) options[i].hidden = false;
+    var groups = select.getElementsByTagName('optgroup');
+    for (i = 0; i < groups.length; i++) groups[i].hidden = false;
+    if (emptyEl) {
+      emptyEl.textContent = '';
+      emptyEl.classList.add('hidden');
+    }
+  }
+
+  function applyFilter() {
+    var typed = filter.value.trim();
+    if (!typed) {
+      resetAll();
+      return;
+    }
+
+    var query = typed.toLowerCase();
+    var options = select.options;
+    var groups = select.getElementsByTagName('optgroup');
+    var matched = 0;
+    var i;
+    var j;
+
+    for (i = 0; i < options.length; i++) {
+      // The "System default" entry has no value and always stays selectable.
+      if (options[i].value === '') {
+        options[i].hidden = false;
+        continue;
+      }
+      var hit = options[i].textContent.toLowerCase().indexOf(query) !== -1;
+      options[i].hidden = !hit;
+      if (hit) matched++;
+    }
+
+    for (i = 0; i < groups.length; i++) {
+      var kids = groups[i].getElementsByTagName('option');
+      var anyVisible = false;
+      for (j = 0; j < kids.length; j++) {
+        if (!kids[j].hidden) {
+          anyVisible = true;
+          break;
+        }
+      }
+      groups[i].hidden = !anyVisible;
+    }
+
+    if (emptyEl) {
+      if (matched === 0) {
+        // textContent, never innerHTML - the query is user input (T-14-02).
+        emptyEl.textContent = 'No zones match "' + typed + '".';
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.textContent = '';
+        emptyEl.classList.add('hidden');
+      }
+    }
+  }
+
+  filter.addEventListener('input', applyFilter);
+
+  filter.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      // Never submit anything from the filter.
+      e.preventDefault();
+      var options = select.options;
+      var visible = [];
+      for (var i = 0; i < options.length; i++) {
+        if (!options[i].hidden && options[i].value !== '') visible.push(options[i]);
+      }
+      if (visible.length === 1) {
+        select.value = visible[0].value;
+        select.dispatchEvent(new Event('change'));
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      filter.value = '';
+      resetAll();
+      filter.focus();
+    }
+  });
+}
+
+function initTimezonePreview() {
+  var previewEl = document.getElementById('tz-preview');
+  var select = document.getElementById('app-timezone');
+  if (!previewEl) return;
+
+  var valueSpan = previewEl.querySelector('span');
+  var spanClass = valueSpan ? valueSpan.className : 'text-text-base font-medium tabular-nums';
+
+  function renderPreview() {
+    var zone = select && select.value ? select.value : window.APP_TZ;
+    try {
+      var fmt = new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: zone,
+        timeZoneName: 'short',
+      });
+      var text = fmt.format(new Date());
+      // The error branch replaces the whole node, so rebuild the styled span on recovery.
+      if (!previewEl.contains(valueSpan)) {
+        previewEl.textContent = 'Current time: ';
+        valueSpan = document.createElement('span');
+        valueSpan.className = spanClass;
+        previewEl.appendChild(valueSpan);
+      }
+      valueSpan.textContent = text;
+    } catch (err) {
+      previewEl.textContent = 'Current time: unavailable for this zone';
+    }
+  }
+
+  renderPreview();
+  if (select) select.addEventListener('change', renderPreview);
+  // Keep ticking even after a failure so recovery is automatic once a valid zone is picked.
+  setInterval(renderPreview, 1000);
+}
+
+function saveGeneralTimezone() {
+  var select = document.getElementById('app-timezone');
+  var saveBtn = document.getElementById('general-save-btn');
+  var statusEl = document.getElementById('general-status');
+  if (!select || !saveBtn) return;
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving\u2026';
+
+  apiFetch('/api/settings/general', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timezone: select.value }),
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+
+      if (data.success) {
+        setStatus(statusEl, true, 'Timezone saved.');
+
+        var n = data.n_rescheduled || 0;
+        var m = data.n_failed || 0;
+        var msg;
+
+        if (data.scheduler_worker) {
+          if (n === 0) {
+            msg = 'Timezone saved. No scheduled lists needed rescheduling.';
+          } else if (n === 1) {
+            msg = 'Timezone saved. 1 scheduled list rescheduled.';
+          } else {
+            msg = 'Timezone saved. ' + n + ' scheduled lists rescheduled.';
+          }
+          if (m > 0) {
+            msg += m === 1
+              ? ' (1 list could not be rescheduled \u2014 see logs)'
+              : ' (' + m + ' lists could not be rescheduled \u2014 see logs)';
+          }
+        } else {
+          if (n === 0) {
+            msg = 'Timezone saved. No scheduled lists to re-apply.';
+          } else if (n === 1) {
+            msg = 'Timezone saved. 1 scheduled list will re-apply within ~60s.';
+          } else {
+            msg = 'Timezone saved. ' + n + ' scheduled lists will re-apply within ~60s.';
+          }
+        }
+
+        showToast(msg, m > 0 ? 'warning' : 'success', m > 0 ? 6000 : 3000);
+      } else {
+        var errMsg = data.message || 'Unknown or invalid timezone. Nothing was saved.';
+        setStatus(statusEl, false, errMsg);
+        showToast(errMsg, 'error', 5000);
+      }
+    })
+    .catch(function (err) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      setStatus(statusEl, false, 'Request failed.');
+      console.error('saveGeneralTimezone error:', err);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   initSettingsTabs();
+  initTimezoneFilter();
+  initTimezonePreview();
   initServiceTabs();
   initImportSettingsButtons();
 
