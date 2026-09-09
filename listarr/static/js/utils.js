@@ -83,21 +83,32 @@ function formatTimestamp(isoString, mode = "relative") {
     const date = new Date(isoString);
     const now = new Date();
     const diffMs = now - date;
+    const tz = window.APP_TZ || undefined;
 
     switch (mode) {
       case "utc":
-        // "2024-01-15 12:30 UTC" - used by generateStatusHTML
-        return date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
-
-      case "absolute":
-        // "Jan 15, 2024, 12:30 PM" - used by jobs table
-        return date.toLocaleString(undefined, {
+        // "Jan 15, 2024, 12:30 PM EST" - app timezone, used by generateStatusHTML
+        return new Intl.DateTimeFormat(undefined, {
           year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
-        });
+          timeZone: tz,
+          timeZoneName: "short",
+        }).format(date);
+
+      case "absolute":
+        // "Jan 15, 2024, 12:30 PM EST" - app timezone, used by jobs table
+        return new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: tz,
+          timeZoneName: "short",
+        }).format(date);
 
       case "relative":
       default:
@@ -120,16 +131,51 @@ function formatRelativeTimeInternal(diffMs, date) {
     if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
     if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: window.APP_TZ || undefined });
   } else {
     if (diffSeconds < 60) return "In less than a minute";
     if (diffMinutes < 60) return `In ${diffMinutes} minute${diffMinutes > 1 ? "s" : ""}`;
     if (diffHours < 24) return `In ${diffHours} hour${diffHours > 1 ? "s" : ""}`;
     if (diffDays === 1) {
-      return `Tomorrow at ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+      return `Tomorrow at ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: window.APP_TZ || undefined })}`;
     }
-    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: window.APP_TZ || undefined });
   }
+}
+
+function appTzTooltip(isoString) {
+  if (!isoString) return "";
+
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: window.APP_TZ || undefined,
+      timeZoneName: "longOffset",
+    }).format(date);
+  } catch (e) {
+    return "";
+  }
+}
+
+function applyAppTzTooltips(root) {
+  if (!root) root = document;
+
+  root.querySelectorAll("[data-timestamp]").forEach(function (el) {
+    if (!el.dataset.timestamp) return;
+
+    const tooltip = appTzTooltip(el.dataset.timestamp);
+    if (tooltip) {
+      el.title = tooltip;
+    }
+  });
 }
 
 function generateStatusHTML(success, timestamp) {
@@ -321,3 +367,7 @@ function applyMonitorGating(cfg) {
     setHelpText(cfg.searchHelpEl, searchHelp);
   }
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  applyAppTzTooltips();
+});
