@@ -1780,6 +1780,51 @@ class TestGeneralTimezoneSave:
         assert data["n_failed"] == 0
         assert data["reschedule_error"] is False
 
+    def test_timezone_transient_reschedule_failure_reports_pending_not_nothing_to_do(self, client, monkeypatch):
+        """WR-04: the transient paths in reschedule_all_lists() return (0, 0) without
+        raising, so the route's except never fires. Reported as-is that renders "No
+        scheduled lists needed rescheduling" while every list is still on the old zone."""
+        from listarr.services import scheduler as sched
+
+        db.session.add(
+            List(
+                name="pending",
+                target_service="RADARR",
+                tmdb_list_type="popular_movies",
+                filters_json={},
+                schedule_cron="0 2 * * *",
+                is_active=True,
+            )
+        )
+        db.session.commit()
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (0, 0))
+        monkeypatch.setattr(sched, "reschedule_is_incomplete", lambda: True)
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["success"] is True
+        assert data["reschedule_error"] is False
+        assert data["reschedule_pending"] is True
+        assert data["n_rescheduled"] == 0
+        assert data["n_pending"] == 1
+
+    def test_timezone_clean_reschedule_is_not_marked_pending(self, client, monkeypatch):
+        """The other half of WR-04: a genuine "nothing to do" must stay unflagged."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (0, 0))
+        monkeypatch.setattr(sched, "reschedule_is_incomplete", lambda: False)
+
+        data = self._post_timezone(client, "Europe/London").get_json()
+
+        assert data["reschedule_pending"] is False
+        assert data["n_pending"] == 0
+
     def test_timezone_toast_non_scheduler_counts_from_db(self, client, monkeypatch):
         from listarr.services import scheduler as sched
 

@@ -975,6 +975,23 @@ function saveGeneralTimezone() {
         var m = data.n_failed || 0;
         var msg;
 
+        // WR-04: the rebuild declined rather than failed (locked DB, busy scheduler), so
+        // it returned zero counts without raising. Reporting that as "nothing needed
+        // rescheduling" told the user the opposite of the truth - every list is still on
+        // the old zone. The convergence poll retries on its own, so say that instead.
+        if (data.reschedule_pending) {
+          var q = data.n_pending || 0;
+          if (q === 1) {
+            msg = 'Timezone saved. 1 scheduled list could not be re-applied yet — retrying within ~60s.';
+          } else if (q > 1) {
+            msg = 'Timezone saved. ' + q + ' scheduled lists could not be re-applied yet — retrying within ~60s.';
+          } else {
+            msg = 'Timezone saved. Scheduled lists could not be re-applied yet — retrying within ~60s.';
+          }
+          showToast(msg, 'warning', 6000);
+          return;
+        }
+
         if (data.scheduler_worker) {
           if (n === 0) {
             msg = 'Timezone saved. No scheduled lists needed rescheduling.';

@@ -389,6 +389,10 @@ def save_general_settings():
 
         scheduler_worker = False
         reschedule_error = False
+        # WR-04: distinct from reschedule_error. The rebuild did not raise, it declined -
+        # a locked DB or a busy scheduler - and the convergence poll will retry on its own.
+        # "Saved, retrying shortly" is a different fact from "saved, it broke".
+        reschedule_pending = False
         n_ok = 0
         n_fail = 0
         # IN-03: lists this worker rescheduled (n_rescheduled) and lists another worker
@@ -406,6 +410,18 @@ def save_general_settings():
                 # diagnosis, rather than inheriting a verdict from an earlier zone.
                 sched.reset_reschedule_state()
                 n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
+                # WR-04: the transient paths inside reschedule_all_lists() return (0, 0)
+                # without raising, which is indistinguishable from "there was nothing to
+                # do" at this call site. Left unexamined it produced the flatly untrue
+                # "No scheduled lists needed rescheduling" while every list was still on
+                # the old zone. reschedule_is_incomplete() is the module's own signal for
+                # exactly this state; consult it rather than inferring from the counts.
+                if sched.reschedule_is_incomplete():
+                    reschedule_pending = True
+                    n_pending = List.query.filter(
+                        List.schedule_cron.isnot(None),
+                        List.is_active == True,  # noqa: E712
+                    ).count()
             else:
                 n_pending = List.query.filter(
                     List.schedule_cron.isnot(None),
@@ -416,6 +432,7 @@ def save_general_settings():
             # explicitly instead of letting n_rescheduled == 0 read as "nothing to do".
             current_app.logger.error(f"Error rescheduling lists after timezone save: {e}", exc_info=True)
             n_ok, n_fail, n_pending = 0, 0, 0
+            reschedule_pending = False
             reschedule_error = True
 
         return jsonify(
@@ -427,6 +444,7 @@ def save_general_settings():
                 "n_failed": n_fail,
                 "n_pending": n_pending,
                 "reschedule_error": reschedule_error,
+                "reschedule_pending": reschedule_pending,
                 "effective_tz": effective_tz,
                 "unresolvable": tz_state["unresolvable"],
             }
