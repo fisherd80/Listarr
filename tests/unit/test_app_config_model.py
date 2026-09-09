@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from listarr import _ensure_app_config_row, db
 from listarr.models.app_config_model import AppConfig, get_app_config, read_app_config
@@ -41,6 +41,42 @@ def test_get_app_config_is_idempotent(app):
         assert second.timezone == "Europe/London"
         assert AppConfig.query.count() == 1
 
+        _clear_app_config()
+
+
+def test_get_app_config_returns_the_winner_of_a_first_boot_race(app):
+    """WR-03: a concurrent insert of id=1 is the one recoverable IntegrityError."""
+    with app.app_context():
+        _clear_app_config()
+        winner = AppConfig(id=1, timezone="Europe/London")
+
+        boom = IntegrityError("INSERT", {}, Exception("UNIQUE constraint failed"))
+        with (
+            patch.object(db.session, "get", side_effect=[None, winner]),
+            patch.object(db.session, "commit", side_effect=boom),
+        ):
+            assert get_app_config() is winner
+
+        db.session.rollback()
+        _clear_app_config()
+
+
+def test_get_app_config_reraises_when_the_row_is_still_absent(app):
+    """WR-03: any other IntegrityError (NOT NULL, CHECK) left the row absent, and the old
+    code returned None. Callers then hit AttributeError outside their except clause, 500ing
+    with an un-rolled-back session that poisoned the next request on the same thread."""
+    with app.app_context():
+        _clear_app_config()
+
+        boom = IntegrityError("INSERT", {}, Exception("NOT NULL constraint failed"))
+        with (
+            patch.object(db.session, "get", side_effect=[None, None]),
+            patch.object(db.session, "commit", side_effect=boom),
+            pytest.raises(IntegrityError),
+        ):
+            get_app_config()
+
+        db.session.rollback()
         _clear_app_config()
 
 

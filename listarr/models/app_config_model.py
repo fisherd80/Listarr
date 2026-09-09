@@ -41,6 +41,10 @@ def get_app_config():
     IntegrityError is handled for first-boot races between workers. OperationalError
     is intentionally left to callers so startup and resolver paths can apply their
     own fallback posture.
+
+    WR-03: never returns None. Only a concurrent insert of id=1 makes the IntegrityError
+    recoverable; any other constraint violation is re-raised so callers see an error they
+    already handle, rather than an AttributeError on a None they were never told to expect.
     """
     cfg = db.session.get(AppConfig, 1)
     if cfg is not None:
@@ -53,4 +57,6 @@ def get_app_config():
     except IntegrityError:
         db.session.rollback()
         cfg = db.session.get(AppConfig, 1)
+        if cfg is None:
+            raise
     return cfg
