@@ -937,9 +937,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // If the URL contains a hash that matches a settings tab, activate it.
   // e.g. /settings#account activates the Account tab.
+  // WR-09: never splice location.hash into a selector - a hash containing a quote
+  // makes querySelector throw SyntaxError out of this listener, which would stop
+  // maybeLoadImportDefaults() below from ever running.
   var hash = window.location.hash ? window.location.hash.slice(1) : '';
   if (hash) {
-    var targetTab = document.querySelector('.settings-tab[data-tab="' + hash + '"]');
+    var targetTab = Array.prototype.find.call(
+      document.querySelectorAll('.settings-tab'),
+      function (tab) { return tab.dataset.tab === hash; }
+    );
     if (targetTab) {
       targetTab.click();
     }
