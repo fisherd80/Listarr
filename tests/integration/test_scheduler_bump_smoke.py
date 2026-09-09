@@ -32,9 +32,12 @@ import pytest
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from listarr import db
+from listarr.models.app_config_model import get_app_config
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import ServiceConfig
 from listarr.services import scheduler as sched
+from listarr.utils import time_utils
+from listarr.utils.time_utils import tz_key
 
 pytestmark = [pytest.mark.integration, pytest.mark.database]
 
@@ -54,9 +57,9 @@ SCHEDULER_TZ = "America/New_York"
 SMOKE_CRON = "0 2 * * 1"
 
 
-def _make_real_scheduler():
+def _make_real_scheduler(timezone_name=SCHEDULER_TZ):
     """Build a real BackgroundScheduler configured exactly like the production one."""
-    return BackgroundScheduler(timezone=SCHEDULER_TZ, job_defaults=dict(PROD_JOB_DEFAULTS))
+    return BackgroundScheduler(timezone=timezone_name, job_defaults=dict(PROD_JOB_DEFAULTS))
 
 
 def _make_list_row(cron=SMOKE_CRON):
@@ -72,6 +75,13 @@ def _make_list_row(cron=SMOKE_CRON):
     db.session.add(lst)
     db.session.commit()
     return lst.id
+
+
+def _set_app_timezone(value):
+    cfg = get_app_config()
+    cfg.timezone = value
+    db.session.commit()
+    time_utils.invalidate_app_timezone_memo()
 
 
 def test_real_scheduler_registers_job_and_runs_import_synchronously(app, monkeypatch):
@@ -176,3 +186,219 @@ def test_tzdatetime_round_trips_non_utc_aware_datetime_through_real_sqlite(app):
         assert read_back.utcoffset().total_seconds() == 0, "value was not stored/returned as UTC"
         assert read_back == written, "round-trip changed the instant"
         assert read_back.astimezone(timezone.utc) == written.astimezone(timezone.utc)
+
+
+def test_reschedule_all_moves_every_job_forward_into_new_zone(app, monkeypatch):
+    scheduler = _make_real_scheduler()
+    submit_job = Mock()
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+        monkeypatch.setattr(sched, "submit_job", submit_job)
+
+        with app.app_context():
+            _set_app_timezone("Europe/London")
+            list_ids = [_make_list_row(SMOKE_CRON) for _ in range(3)]
+            for list_id in list_ids:
+                sched.schedule_list(list_id, SMOKE_CRON)
+
+            before = {list_id: scheduler.get_job(f"list_{list_id}").next_run_time for list_id in list_ids}
+
+            assert sched.reschedule_all_lists("Europe/London") == (3, 0)
+
+            assert tz_key(scheduler.timezone) == "Europe/London"
+            for list_id in list_ids:
+                job = scheduler.get_job(f"list_{list_id}")
+                assert job is not None
+                next_run = job.next_run_time
+                assert next_run is not None
+                assert next_run != before[list_id]
+                assert next_run.tzinfo is not None
+                assert next_run > datetime.now(timezone.utc)
+                assert next_run.weekday() == 0
+                assert next_run.hour == 2
+                assert next_run.utcoffset() in (timedelta(0), timedelta(hours=1))
+            submit_job.assert_not_called()
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_reschedule_all_partial_failure_returns_counts(app, monkeypatch):
+    scheduler = _make_real_scheduler()
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            valid_ids = [_make_list_row(SMOKE_CRON) for _ in range(2)]
+            _make_list_row("not a cron")
+            for list_id in valid_ids:
+                sched.schedule_list(list_id, SMOKE_CRON)
+
+            assert sched.reschedule_all_lists("Asia/Tokyo") == (2, 1)
+
+            for list_id in valid_ids:
+                job = scheduler.get_job(f"list_{list_id}")
+                assert job is not None
+                assert job.next_run_time is not None
+                assert job.next_run_time > datetime.now(timezone.utc)
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_tz_poll_converges_then_no_ops_and_ignores_bad_value(app, monkeypatch, caplog):
+    scheduler = _make_real_scheduler()
+    calls = []
+    real_reschedule = sched.reschedule_all_lists
+
+    def spy_reschedule(tz_str, blocking=True):
+        calls.append((tz_str, blocking))
+        return real_reschedule(tz_str, blocking=blocking)
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+        monkeypatch.setattr(sched, "reschedule_all_lists", spy_reschedule)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            sched._tz_poll_tick()
+
+            assert calls == [("Asia/Tokyo", False)]
+            assert tz_key(scheduler.timezone) == "Asia/Tokyo"
+
+            sched._tz_poll_tick()
+            assert calls == [("Asia/Tokyo", False)]
+
+            monkeypatch.setenv("TZ", "Europe/London")
+            _set_app_timezone("Bogus/Zone")
+            calls.clear()
+
+            with caplog.at_level("WARNING", logger="listarr.services.scheduler"):
+                sched._tz_poll_tick()
+                sched._tz_poll_tick()
+                sched._tz_poll_tick()
+
+            assert calls == [("Europe/London", False)]
+            assert tz_key(scheduler.timezone) == "Europe/London"
+            warnings = [record for record in caplog.records if "Bogus/Zone" in record.getMessage()]
+            assert len(warnings) == 1
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        sched._tz_poll_last_bad_value = None
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_tz_poll_registered_and_scheduler_built_from_db_tz(app, monkeypatch):
+    monkeypatch.setenv("SCHEDULER_WORKER", "true")
+    monkeypatch.setattr(sched, "_scheduler", None)
+    monkeypatch.setattr(sched, "_app", None)
+
+    try:
+        with app.app_context():
+            _set_app_timezone("Australia/Sydney")
+            sched.init_scheduler(app)
+
+        job = sched._scheduler.get_job("_tz_poll")
+        assert tz_key(sched._scheduler.timezone) == "Australia/Sydney"
+        assert job is not None
+        assert job.max_instances == 1
+        assert job.coalesce is True
+        assert job.trigger.interval == timedelta(seconds=60)
+    finally:
+        sched.shutdown_scheduler()
+        time_utils.invalidate_app_timezone_memo()
+
+
+def test_tz_poll_system_default_converges_to_fallback_zone(app, monkeypatch):
+    scheduler = _make_real_scheduler("Asia/Tokyo")
+    calls = []
+    real_reschedule = sched.reschedule_all_lists
+
+    def spy_reschedule(tz_str, blocking=True):
+        calls.append((tz_str, blocking))
+        return real_reschedule(tz_str, blocking=blocking)
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+        monkeypatch.setattr(sched, "reschedule_all_lists", spy_reschedule)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            list_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(list_id, SMOKE_CRON)
+
+            monkeypatch.setenv("TZ", "Europe/London")
+            _set_app_timezone(None)
+            sched._tz_poll_tick()
+
+            assert calls == [("Europe/London", False)]
+            assert tz_key(scheduler.timezone) == "Europe/London"
+            job = scheduler.get_job(f"list_{list_id}")
+            assert job is not None
+            assert job.next_run_time is not None
+            assert job.next_run_time.tzinfo is not None
+            assert job.next_run_time > datetime.now(timezone.utc)
+            assert job.next_run_time.utcoffset() in (timedelta(0), timedelta(hours=1))
+
+            sched._tz_poll_tick()
+            assert calls == [("Europe/London", False)]
+
+            monkeypatch.delenv("TZ", raising=False)
+            _set_app_timezone(None)
+            sched._tz_poll_tick()
+
+            assert calls[-1] == ("UTC", False)
+            assert tz_key(scheduler.timezone) == "UTC"
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
+def test_reschedule_lock_skips_colliding_non_blocking_entrant(app, monkeypatch):
+    scheduler = _make_real_scheduler()
+    lock_acquired = False
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            for _ in range(2):
+                list_id = _make_list_row(SMOKE_CRON)
+                sched.schedule_list(list_id, SMOKE_CRON)
+
+            lock_acquired = sched._reschedule_lock.acquire(blocking=False)
+            assert lock_acquired is True
+
+            assert sched.reschedule_all_lists("Asia/Tokyo", blocking=False) == (0, 0)
+            assert tz_key(scheduler.timezone) == "America/New_York"
+
+            sched._tz_poll_tick()
+            assert tz_key(scheduler.timezone) == "America/New_York"
+
+            sched._reschedule_lock.release()
+            lock_acquired = False
+
+            sched._tz_poll_tick()
+            assert tz_key(scheduler.timezone) == "Asia/Tokyo"
+
+            assert sched._reschedule_lock.acquire(blocking=False) is True
+            sched._reschedule_lock.release()
+    finally:
+        if lock_acquired:
+            sched._reschedule_lock.release()
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
