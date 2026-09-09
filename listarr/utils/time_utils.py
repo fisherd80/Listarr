@@ -1,6 +1,122 @@
-"""Time formatting utilities."""
+"""Time formatting and application timezone utilities."""
 
+import logging
+import os
+import threading
+import time
+import zoneinfo
 from datetime import datetime, timezone
+
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
+
+logger = logging.getLogger(__name__)
+
+_TZ_MEMO_TTL = 5.0
+_UNSET = object()
+_tz_memo_lock = threading.Lock()
+_tz_memo = {"record": _UNSET, "expires": 0.0}
+
+
+def tz_key(tz) -> str:
+    """Return a stable string key for a timezone or timezone name."""
+    if tz is timezone.utc or str(tz) == "UTC":
+        return "UTC"
+    return str(tz)
+
+
+def _coerce_zone(name):
+    """Resolve a timezone name to tzinfo, returning None for invalid keys."""
+    if name == "UTC":
+        return timezone.utc
+    try:
+        return zoneinfo.ZoneInfo(name)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        return None
+
+
+def _read_db_timezone_string():
+    """Read AppConfig.timezone without raising; None means use the system fallback."""
+    try:
+        from listarr.models.app_config_model import get_app_config
+
+        cfg = get_app_config()
+        return cfg.timezone if cfg else None
+    except (RuntimeError, OperationalError, SQLAlchemyError):
+        return None
+
+
+def _build_timezone_record(raw):
+    zone = _coerce_zone(raw) if raw else None
+    warned = False
+    if raw and zone is None:
+        logger.warning("Configured timezone %r could not be loaded; falling back", raw)
+        warned = True
+    return {"raw": raw, "zone": zone, "warned": warned}
+
+
+def _get_timezone_record(use_cache=True):
+    """Return the memoized DB timezone record, caching resolved and failed outcomes."""
+    if not use_cache:
+        return _build_timezone_record(_read_db_timezone_string())
+
+    now = time.monotonic()
+    with _tz_memo_lock:
+        record = _tz_memo["record"]
+        if record is not _UNSET and now < _tz_memo["expires"]:
+            return record
+
+    record = _build_timezone_record(_read_db_timezone_string())
+    with _tz_memo_lock:
+        _tz_memo["record"] = record
+        _tz_memo["expires"] = time.monotonic() + _TZ_MEMO_TTL
+    return record
+
+
+def resolve_db_timezone_string(use_cache=True):
+    """Return the stored DB timezone string or None, using the short-TTL memo by default."""
+    return _get_timezone_record(use_cache)["raw"]
+
+
+def invalidate_app_timezone_memo() -> None:
+    """Clear the in-process application timezone memo after a local settings save."""
+    with _tz_memo_lock:
+        _tz_memo["record"] = _UNSET
+        _tz_memo["expires"] = 0.0
+
+
+def get_app_timezone_fallback_name() -> str:
+    """Return the resolvable TZ environment fallback name, or UTC."""
+    tz_name = os.environ.get("TZ", "UTC")
+    return tz_name if _coerce_zone(tz_name) is not None else "UTC"
+
+
+def get_app_timezone():
+    """Resolve the application timezone as DB AppConfig.timezone -> TZ env -> UTC."""
+    record = _get_timezone_record()
+    if record["zone"] is not None:
+        return record["zone"]
+
+    fallback = _coerce_zone(os.environ.get("TZ", "UTC"))
+    if fallback is not None:
+        return fallback
+
+    return timezone.utc
+
+
+def get_app_timezone_name() -> str:
+    """Return the canonical string name for the resolved application timezone."""
+    return tz_key(get_app_timezone())
+
+
+def get_app_timezone_state() -> dict:
+    """Return stored, resolved, fallback and unresolvable state for the General tab."""
+    record = _get_timezone_record()
+    return {
+        "configured": record["raw"],
+        "resolved": get_app_timezone_name(),
+        "fallback": get_app_timezone_fallback_name(),
+        "unresolvable": bool(record["raw"] and record["zone"] is None),
+    }
 
 
 def format_relative_time(dt):
