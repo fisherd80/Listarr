@@ -387,6 +387,10 @@ def save_general_settings():
             # its private singleton.
             scheduler_worker = sched.is_scheduler_worker()
             if scheduler_worker:
+                # WR-08: a deliberate save is a recovery action. Clear any quarantine so
+                # every list gets a genuine fresh attempt and the user sees a current
+                # diagnosis, rather than inheriting a verdict from an earlier zone.
+                sched.reset_reschedule_state()
                 n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
             else:
                 n_pending = List.query.filter(

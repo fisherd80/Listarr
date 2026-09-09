@@ -1703,6 +1703,22 @@ class TestGeneralTimezoneSave:
         assert data["n_failed"] == 0
         assert data["n_pending"] == 0
 
+    def test_timezone_save_clears_the_quarantine_before_rescheduling(self, client, monkeypatch):
+        """WR-08: re-saving is how a user recovers from a list the poll has quarantined.
+        Without the reset, that deliberate action inherits the earlier verdict and the
+        list is never re-attempted at all."""
+        from listarr.services import scheduler as sched
+
+        order = []
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "reset_reschedule_state", lambda: order.append("reset"))
+        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (order.append("reschedule"), (1, 0))[1])
+
+        response = self._post_timezone(client, "Europe/London")
+
+        assert response.status_code == 200
+        assert order == ["reset", "reschedule"], "the quarantine must be cleared before the retry"
+
     def test_timezone_toast_payload_scheduler_worker_partial_failure(self, client, monkeypatch):
         from listarr.services import scheduler as sched
 
