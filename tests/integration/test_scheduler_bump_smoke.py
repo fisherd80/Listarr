@@ -506,6 +506,38 @@ def test_unbuildable_cron_is_quarantined_not_retried(app, monkeypatch):
             scheduler.shutdown(wait=False)
 
 
+def test_rebuild_drops_list_jobs_the_query_no_longer_covers(app, monkeypatch):
+    """WR-02: assigning scheduler.timezone does not rebuild existing triggers, so a job
+    outside the active-and-scheduled query silently keeps firing on the old zone. A list
+    deactivated by a non-scheduler worker is exactly that case."""
+    scheduler = _make_real_scheduler()
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            keep_id = _make_list_row(SMOKE_CRON)
+            orphan_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(keep_id, SMOKE_CRON)
+            sched.schedule_list(orphan_id, SMOKE_CRON)
+
+            # Another gunicorn worker deactivates the list: the DB row changes, but
+            # unschedule_list() was a no-op over there, so the job survives here.
+            List.query.filter(List.id == orphan_id).one().is_active = False
+            db.session.commit()
+
+            _set_app_timezone("Asia/Tokyo")
+            assert sched.reschedule_all_lists("Asia/Tokyo") == (1, 0)
+
+            assert scheduler.get_job(f"list_{keep_id}") is not None
+            assert scheduler.get_job(f"list_{orphan_id}") is None, "orphan kept its old-zone trigger"
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
 def test_transient_db_failure_retries_indefinitely(app, monkeypatch):
     """CR-01: a locked database is recoverable, so the poll must keep retrying it. The
     old bounded budget gave up after three ticks and stranded every list on the previous

@@ -11,6 +11,7 @@ import threading
 import zoneinfo
 from datetime import datetime, timezone
 
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.util import astimezone
@@ -250,6 +251,30 @@ def _load_schedules_from_db():
             logger.error(f"Failed to load schedules from database: {e}")
 
 
+def _drop_orphaned_list_jobs(scheduler, rebuilt_list_ids):
+    """Remove list jobs the rebuild did not cover, which are still on the previous zone.
+
+    WR-02: assigning scheduler.timezone changes nothing about jobs that already exist —
+    APScheduler only consults it while *constructing* a trigger. So any list_* job outside
+    the "active and scheduled" query keeps its old-zone CronTrigger forever, and the
+    convergence check (which only compares scheduler.timezone) reports success anyway.
+
+    This is reachable today: deactivating a list from a non-scheduler gunicorn worker
+    makes unschedule_list() a no-op in that process, so the job survives here. Leaving it
+    would fire imports for an inactive list, in the wrong timezone, indefinitely.
+    """
+    rebuilt = {f"list_{list_id}" for list_id in rebuilt_list_ids}
+    for job in scheduler.get_jobs():
+        if not job.id.startswith("list_") or job.id in rebuilt:
+            continue
+        logger.warning("Removing orphaned scheduler job %s during timezone rebuild", job.id)
+        try:
+            scheduler.remove_job(job.id)
+        except JobLookupError:
+            # Already gone (another worker or a concurrent unschedule won the race).
+            pass
+
+
 def reschedule_all_lists(tz_str, blocking=True):
     """Rebuild every active scheduled list in the requested timezone.
 
@@ -321,6 +346,8 @@ def reschedule_all_lists(tz_str, blocking=True):
                             e,
                             cron,
                         )
+
+            _drop_orphaned_list_jobs(scheduler, {list_obj.id for list_obj in lists})
 
         # The loop ran to completion, so nothing recoverable is outstanding. Entries for
         # lists that have since been deleted or deactivated drop out with the rebind.
