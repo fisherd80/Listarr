@@ -830,8 +830,12 @@ function initTimezonePreview() {
   var valueSpan = previewEl.querySelector('span');
   var spanClass = valueSpan ? valueSpan.className : 'text-text-base font-medium tabular-nums';
 
+  // WR-03: "System default" (value === '') must preview the fallback zone the label
+  // promises, not window.APP_TZ (which is the currently *saved* zone).
+  var fallbackZone = previewEl.dataset.fallbackZone || window.APP_TZ;
+
   function renderPreview() {
-    var zone = select && select.value ? select.value : window.APP_TZ;
+    var zone = select && select.value ? select.value : fallbackZone;
     try {
       var fmt = new Intl.DateTimeFormat(undefined, {
         hour: '2-digit',

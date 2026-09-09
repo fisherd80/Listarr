@@ -1474,6 +1474,20 @@ class TestGeneralTimezoneTab:
         assert match
         assert match.group(1).strip()
 
+    def test_general_timezone_preview_publishes_fallback_zone(self, client, monkeypatch):
+        """WR-03: the preview element carries the fallback zone so the 'System default'
+        selection previews the zone its label promises, not the saved zone."""
+        monkeypatch.setenv("TZ", "America/New_York")
+        self._set_app_timezone("Asia/Tokyo")
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        preview_start = body.index('id="tz-preview"')
+        preview_tag = body[preview_start : body.index(">", preview_start)]
+        assert 'data-fallback-zone="America/New_York"' in preview_tag
+
     def test_timezone_fallback_notice_hidden_when_resolvable(self, client):
         self._set_app_timezone("Europe/London")
 
