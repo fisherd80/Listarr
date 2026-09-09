@@ -688,3 +688,44 @@ class TestTimezoneMemo:
 
                 warnings = [record for record in caplog.records if "Bogus/Zone" in record.getMessage()]
                 assert len(warnings) == 2
+
+
+class TestSchedulerShutdownLocking:
+    """WR-07: shutdown must not null the singleton out from under a live reschedule."""
+
+    def test_shutdown_scheduler_holds_the_reschedule_lock(self, monkeypatch):
+        observed = {}
+
+        mock_scheduler = MagicMock()
+
+        def _shutdown(wait=False):
+            observed["locked_during_shutdown"] = sched._reschedule_lock.locked()
+
+        mock_scheduler.shutdown.side_effect = _shutdown
+        monkeypatch.setattr(sched, "_scheduler", mock_scheduler)
+
+        sched.shutdown_scheduler()
+
+        assert observed["locked_during_shutdown"] is True
+        assert sched._scheduler is None
+        assert sched.is_scheduler_worker() is False
+        assert sched._reschedule_lock.locked() is False
+
+    def test_shutdown_scheduler_is_a_noop_when_not_initialized(self, monkeypatch):
+        monkeypatch.setattr(sched, "_scheduler", None)
+
+        sched.shutdown_scheduler()
+
+        assert sched._scheduler is None
+        assert sched._reschedule_lock.locked() is False
+
+    def test_reschedule_binds_scheduler_locally(self, monkeypatch):
+        """A concurrent shutdown that nulls the global must not raise AttributeError
+        inside an in-flight reschedule."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.timezone = zoneinfo.ZoneInfo("UTC")
+        monkeypatch.setattr(sched, "_scheduler", mock_scheduler)
+        monkeypatch.setattr(sched, "_app", None)
+
+        # _app is None -> returns early, but the guard already read the local binding.
+        assert sched.reschedule_all_lists("Europe/London") == (0, 0)
