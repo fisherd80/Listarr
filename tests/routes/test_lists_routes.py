@@ -17,6 +17,7 @@ Tests cover:
 - GET /lists/<id>/status - Get job status
 """
 
+import re
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -95,6 +96,25 @@ class TestListsPage:
         response = client.get("/lists")
         assert response.status_code == 200
         assert b"My Trending List" in response.data
+
+    @patch("listarr.routes.lists_routes.get_next_run_time")
+    def test_lists_page_last_run_data_timestamp_cell(self, mock_next_run, client, db_session):
+        """Last-run cell keeps the relative text and exposes a UTC ISO tooltip source."""
+        mock_next_run.return_value = None
+
+        with_run = make_list(name="Recently Run", last_run_at=datetime.now(timezone.utc))
+        never_run = make_list(name="Never Run")
+        db.session.add_all([with_run, never_run])
+        db.session.commit()
+
+        response = client.get("/lists")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert re.search(r'data-timestamp="[^"]+\+00:00"', body)
+        assert "Today" in body
+        assert "Never Run" in body
+        assert 'data-timestamp=""' in body
 
     @patch("listarr.routes.lists_routes.get_next_run_time")
     def test_shows_next_run_for_active_scheduled_list(self, mock_next_run, client, db_session):
