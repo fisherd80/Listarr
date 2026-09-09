@@ -741,6 +741,37 @@ class TestTimezoneMemo:
                 assert len(warnings) == 2
 
 
+class TestResetRescheduleStateLocking:
+    """IN-03: the reset rebinds the same global the rebuild rebinds when it finishes."""
+
+    def test_reset_reschedule_state_holds_the_reschedule_lock(self, monkeypatch):
+        """Clearing outside the lock could be silently undone: if the poll thread was
+        mid-rebuild it rebound _reschedule_quarantine afterwards, restoring the very
+        verdict the reset existed to discard, so no fresh diagnosis was ever logged."""
+        observed = {}
+
+        monkeypatch.setattr(sched, "_reschedule_quarantine", {7: ("0 2 L * *", "Asia/Tokyo")})
+
+        original_lock = sched._reschedule_lock
+
+        class _WatchingLock:
+            def __enter__(self):
+                observed["entered"] = True
+                return original_lock.__enter__()
+
+            def __exit__(self, *exc):
+                observed["exited"] = True
+                return original_lock.__exit__(*exc)
+
+        monkeypatch.setattr(sched, "_reschedule_lock", _WatchingLock())
+
+        sched.reset_reschedule_state()
+
+        assert observed == {"entered": True, "exited": True}
+        assert sched.get_unschedulable_lists() == {}
+        assert original_lock.locked() is False
+
+
 class TestSchedulerShutdownLocking:
     """WR-07: shutdown must not null the singleton out from under a live reschedule."""
 

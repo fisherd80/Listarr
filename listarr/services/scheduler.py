@@ -248,10 +248,19 @@ def reset_reschedule_state() -> None:
     WR-08: a deliberate recovery action must not get fewer attempts than the automatic
     poll. Clearing also re-arms the per-list error log, so the operator sees a fresh
     diagnosis for a still-broken cron instead of silence.
+
+    IN-03: under _reschedule_lock, because this rebinds the same global that
+    reschedule_all_lists() rebinds at the end of its walk. Clearing while the poll thread
+    was mid-rebuild simply lost the reset - the poll's own rebind restored the pre-reset
+    verdict, and the "fresh diagnosis" half of the WR-08 fix silently did not happen.
+    Taking the lock makes the clear happen strictly between rebuilds, so the next one
+    genuinely re-logs. Safe because reschedule_all_lists() never calls this (the lock is a
+    non-reentrant Lock), and the wait is bounded by one rebuild.
     """
     global _reschedule_quarantine, _quarantine_reminder_countdown
-    _reschedule_quarantine = {}
-    _quarantine_reminder_countdown = 0
+    with _reschedule_lock:
+        _reschedule_quarantine = {}
+        _quarantine_reminder_countdown = 0
 
 
 def shutdown_scheduler():
