@@ -1703,6 +1703,20 @@ class TestGeneralTimezoneSave:
         assert data["n_failed"] == 0
         assert data["n_pending"] == 0
 
+    def test_whitespace_only_timezone_is_rejected_not_treated_as_clearing(self, client, monkeypatch):
+        """IN-06: clearing the setting is meant to require an explicit empty string, but
+        "   " stripped to "" and quietly reset the zone to System default."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+        self._post_timezone(client, "Asia/Tokyo")
+
+        response = self._post_timezone(client, "   ")
+
+        assert response.status_code == 400
+        assert response.get_json()["success"] is False
+        assert get_app_config().timezone == "Asia/Tokyo", "whitespace silently cleared the setting"
+
     def test_timezone_save_returns_the_new_effective_state(self, client, monkeypatch):
         """WR-04: the page was rendered against the previous zone. The client needs the new
         effective zone for window.APP_TZ, and the unresolvable flag to decide whether the

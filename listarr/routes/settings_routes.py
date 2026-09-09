@@ -362,6 +362,12 @@ def save_general_settings():
         return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
     else:
         submitted = raw.strip()
+        # IN-06: raw is a non-empty string here, so stripping to nothing means the payload
+        # was whitespace. Treating that as "clear the setting" contradicts the rule above
+        # that clearing requires an explicit empty string.
+        if not submitted:
+            current_app.logger.info("Rejected whitespace-only application timezone")
+            return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
 
     stored, error = _validate_timezone(submitted)
     if error:
