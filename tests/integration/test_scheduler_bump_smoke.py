@@ -445,6 +445,36 @@ def test_schedule_list_keeps_existing_job_when_trigger_build_fails(app, monkeypa
             scheduler.shutdown(wait=False)
 
 
+def test_schedule_list_keeps_existing_job_when_add_job_fails(app, monkeypatch):
+    """WR-07: CR-02 moved trigger construction ahead of the swap, but the old job was
+    still removed before add_job ran. A failing add_job then left the list with no job at
+    all, silently discarding the schedule the CR-02 comment promises to keep."""
+    scheduler = _make_real_scheduler()
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            list_id = _make_list_row(SMOKE_CRON)
+            sched.schedule_list(list_id, SMOKE_CRON)
+            before = scheduler.get_job(f"list_{list_id}").next_run_time
+
+            def boom(*args, **kwargs):
+                raise ValueError("jobstore rejected the job")
+
+            monkeypatch.setattr(scheduler, "add_job", boom)
+            with pytest.raises(ValueError):
+                sched.schedule_list(list_id, SMOKE_CRON)
+
+            job = scheduler.get_job(f"list_{list_id}")
+            assert job is not None, "a failed add_job must not leave the list unscheduled"
+            assert job.next_run_time == before
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
 def test_unbuildable_cron_is_quarantined_not_retried(app, monkeypatch):
     """CR-01: a cron that can never build a trigger is a deterministic failure. It must be
     quarantined and reported rather than retried, and must not consume anything that a

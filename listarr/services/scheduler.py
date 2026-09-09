@@ -467,10 +467,9 @@ def schedule_list(list_id, cron_expression):
         logger.error(f"Failed to build trigger for list {list_id}: {e}")
         raise
 
-    # Swap the job only once the replacement trigger exists.
-    if scheduler.get_job(job_id):
-        scheduler.remove_job(job_id)
-
+    # WR-07: replace_existing makes the swap a single jobstore operation. The previous
+    # remove-then-add left the list with no job at all if add_job raised, discarding the
+    # old schedule the CR-02 comment above promises to keep.
     try:
         scheduler.add_job(
             _run_scheduled_import,
@@ -478,6 +477,7 @@ def schedule_list(list_id, cron_expression):
             id=job_id,
             args=[list_id],
             name=f"List {list_id} import",
+            replace_existing=True,
         )
         logger.info(f"Scheduled list {list_id} with cron: {cron_expression}")
     except (ValueError, KeyError) as e:
