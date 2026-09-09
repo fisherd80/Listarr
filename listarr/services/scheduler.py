@@ -74,6 +74,25 @@ _reschedule_quarantine = {}
 _QUARANTINE_REMINDER_TICKS = 60
 _quarantine_reminder_countdown = 0
 
+
+def _clear_quarantine(list_id):
+    """Drop a standing verdict the moment the list is successfully scheduled or removed.
+
+    WR-01: the quarantine used to be re-evaluated only inside reschedule_all_lists(),
+    which runs only when the zone diverges or a transient failure is outstanding.
+    Correcting the cron does neither - the edit routes call schedule_list() directly - so
+    the hourly WARN went on claiming the list "is still firing on the previous zone" long
+    after the very remedy it recommends had been applied. The same leak kept entries alive
+    for lists that were later deleted or deactivated.
+
+    Deliberately does not take _reschedule_lock: that lock is a non-reentrant Lock and
+    reschedule_all_lists() holds it while calling schedule_list(), so acquiring here would
+    self-deadlock. dict.pop on the live global is atomic under the GIL, which is all the
+    mutual exclusion a single key removal needs.
+    """
+    _reschedule_quarantine.pop(list_id, None)
+
+
 # POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
 # Converting to name strings avoids the ambiguity entirely.
 _POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
@@ -491,6 +510,9 @@ def schedule_list(list_id, cron_expression):
             replace_existing=True,
         )
         logger.info(f"Scheduled list {list_id} with cron: {cron_expression}")
+        # WR-01: this list now has a trigger built in the *current* scheduler timezone,
+        # so any standing "cannot be rebuilt" verdict against it is obsolete.
+        _clear_quarantine(list_id)
     except (ValueError, KeyError) as e:
         logger.error(f"Failed to schedule list {list_id}: {e}")
         raise
@@ -513,6 +535,11 @@ def unschedule_list(list_id):
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
         logger.info(f"Unscheduled list {list_id}")
+
+    # WR-01: unconditional, and outside the get_job() guard. A list that is being
+    # deactivated or deleted has no schedule to rebuild, so a standing verdict about it is
+    # meaningless whether or not a job happened to be registered in this process.
+    _clear_quarantine(list_id)
 
 
 def _run_scheduled_import(list_id):

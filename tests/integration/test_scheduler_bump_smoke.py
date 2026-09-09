@@ -536,6 +536,48 @@ def test_unbuildable_cron_is_quarantined_not_retried(app, monkeypatch):
             scheduler.shutdown(wait=False)
 
 
+def test_quarantine_is_cleared_by_the_remedy_its_warning_recommends(app, monkeypatch):
+    """WR-01: the hourly WARN tells the operator to correct the cron, and the edit routes
+    apply that correction through schedule_list() alone. Neither the zone nor the
+    convergence flag changes, so reschedule_all_lists() never runs - yet the verdict must
+    still clear, or the warning goes on making a claim that is no longer true. Deleting or
+    deactivating the list must clear it too, rather than stranding a dead list id."""
+    scheduler = _make_real_scheduler()
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            bad_id = _make_list_row(APS_UNSUPPORTED_CRON)
+            assert sched.reschedule_all_lists("Asia/Tokyo") == (0, 1)
+            assert sched.get_unschedulable_lists() == {bad_id: APS_UNSUPPORTED_CRON}
+
+            # Exactly what lists_routes does after committing a corrected cron: no
+            # timezone save, no poll tick, no rebuild.
+            List.query.filter(List.id == bad_id).one().schedule_cron = SMOKE_CRON
+            db.session.commit()
+            sched.schedule_list(bad_id, SMOKE_CRON)
+
+            assert sched.get_unschedulable_lists() == {}
+            assert scheduler.get_job(f"list_{bad_id}") is not None
+
+            # And the removal path: a quarantined list that is deactivated or deleted must
+            # not leave a verdict behind referencing an id that no longer schedules.
+            other_id = _make_list_row(APS_UNSUPPORTED_CRON)
+            assert sched.reschedule_all_lists("Asia/Tokyo") == (1, 1)
+            assert sched.get_unschedulable_lists() == {other_id: APS_UNSUPPORTED_CRON}
+
+            sched.unschedule_list(other_id)
+            assert sched.get_unschedulable_lists() == {}
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
 def test_rebuild_drops_list_jobs_the_query_no_longer_covers(app, monkeypatch):
     """WR-02: assigning scheduler.timezone does not rebuild existing triggers, so a job
     outside the active-and-scheduled query silently keeps firing on the old zone. A list
