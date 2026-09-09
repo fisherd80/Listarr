@@ -80,8 +80,13 @@ function getCsrfToken() {
 
 /**
  * Format timestamp with multiple display modes.
+ *
+ * Absolute output is rendered in the application timezone (window.APP_TZ).
+ * 'utc' is a deprecated alias for 'absolute' kept for older call sites; it has not
+ * rendered UTC since the app-timezone work (IN-06).
+ *
  * @param {string} isoString - ISO 8601 timestamp
- * @param {string} mode - 'relative' | 'absolute' | 'utc' (default: 'relative')
+ * @param {string} mode - 'relative' | 'absolute' (default: 'relative')
  * @returns {string} Formatted date string
  */
 function formatTimestamp(isoString, mode = "relative") {
@@ -94,20 +99,9 @@ function formatTimestamp(isoString, mode = "relative") {
     const tz = window.APP_TZ || undefined;
 
     switch (mode) {
-      case "utc":
-        // "Jan 15, 2024, 12:30 PM EST" - app timezone, used by generateStatusHTML
-        return new Intl.DateTimeFormat(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: tz,
-          timeZoneName: "short",
-        }).format(date);
-
+      case "utc": // deprecated alias for "absolute"
       case "absolute":
-        // "Jan 15, 2024, 12:30 PM EST" - app timezone, used by jobs table
+        // "Jan 15, 2024, 12:30 PM EST" - app timezone
         return new Intl.DateTimeFormat(undefined, {
           year: "numeric",
           month: "short",
@@ -191,7 +185,7 @@ function generateStatusHTML(success, timestamp) {
   const statusClass = success
     ? "text-success"
     : "text-error";
-  const formattedTime = formatTimestamp(timestamp, "utc");
+  const formattedTime = formatTimestamp(timestamp, "absolute");
 
   // WR-04: applyAppTzTooltips() only runs on DOMContentLoaded, so markup injected
   // later must carry its own app-timezone tooltip rather than wait to be swept.
