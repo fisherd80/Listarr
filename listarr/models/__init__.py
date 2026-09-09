@@ -1,5 +1,6 @@
 # Import the db instance (SQLAlchemy) from your main app package
 from listarr import db as db
+from listarr.models.app_config_model import AppConfig as AppConfig
 from listarr.models.jobs_model import Job as Job
 from listarr.models.jobs_model import JobItem as JobItem
 from listarr.models.lists_model import List as List

@@ -1,0 +1,41 @@
+from datetime import datetime, timezone
+
+from sqlalchemy.exc import IntegrityError
+
+from listarr import db
+from listarr.models.custom_types import TZDateTime
+
+
+class AppConfig(db.Model):
+    """Single-row global app config table pinned to id=1.
+
+    The table is created by db.create_all(); there is no Alembic migration and
+    no ALTER/PRAGMA startup helper for it. A NULL timezone means "System default".
+    """
+
+    __tablename__ = "app_config"
+
+    id = db.Column(db.Integer, primary_key=True)
+    timezone = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))
+
+
+def get_app_config():
+    """Return the singleton app config row, creating it if absent.
+
+    IntegrityError is handled for first-boot races between workers. OperationalError
+    is intentionally left to callers so startup and resolver paths can apply their
+    own fallback posture.
+    """
+    cfg = db.session.get(AppConfig, 1)
+    if cfg is not None:
+        return cfg
+
+    cfg = AppConfig(id=1, timezone=None)
+    db.session.add(cfg)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        cfg = db.session.get(AppConfig, 1)
+    return cfg
