@@ -218,6 +218,7 @@ def lists_page():
     # N+1 query pattern is acceptable at <50 list scale (per project requirements Out of Scope note).
     for list_obj in lists:
         list_obj.last_run_formatted = format_past_time(list_obj.last_run_at)
+        list_obj.last_run_at_iso = list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
         recent_job = Job.query.filter_by(list_id=list_obj.id).order_by(Job.started_at.desc()).first()
         if recent_job and recent_job.status == "completed":
             list_obj.last_run_result = f"{recent_job.items_added or 0} add / {recent_job.items_skipped or 0} skip"

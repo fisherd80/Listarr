@@ -181,7 +181,7 @@
             <td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">
               {{ list.next_run_formatted or '—' }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted" data-timestamp="{{ list.last_run_at_iso or '' }}">
               {{ list.last_run_formatted or '—' }}
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-text-muted">
