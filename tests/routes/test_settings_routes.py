@@ -1703,6 +1703,23 @@ class TestGeneralTimezoneSave:
         assert data["n_failed"] == 0
         assert data["n_pending"] == 0
 
+    def test_timezone_save_returns_the_new_effective_state(self, client, monkeypatch):
+        """WR-04: the page was rendered against the previous zone. The client needs the new
+        effective zone for window.APP_TZ, and the unresolvable flag to decide whether the
+        fallback banner it is still displaying is now false."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+
+        data = self._post_timezone(client, "Asia/Tokyo").get_json()
+        assert data["effective_tz"] == "Asia/Tokyo"
+        assert data["unresolvable"] is False
+
+        # Clearing to System default resolves to the environment fallback, not to "".
+        data = self._post_timezone(client, "").get_json()
+        assert data["effective_tz"]
+        assert data["unresolvable"] is False
+
     def test_timezone_save_clears_the_quarantine_before_rescheduling(self, client, monkeypatch):
         """WR-08: re-saving is how a user recovers from a list the poll has quarantined.
         Without the reset, that deliberate action inherits the earlier verdict and the

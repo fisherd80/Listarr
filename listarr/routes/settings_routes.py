@@ -34,7 +34,6 @@ from listarr.services.tmdb_service import validate_tmdb_api_key
 from listarr.utils.time_utils import (
     coerce_zone,
     get_app_timezone,
-    get_app_timezone_name,
     get_app_timezone_state,
     invalidate_app_timezone_memo,
 )
@@ -371,7 +370,12 @@ def save_general_settings():
         db.session.commit()
         invalidate_app_timezone_memo()
 
-        effective_tz = stored or get_app_timezone_name()
+        # WR-04: read the authoritative post-save state once. The page was rendered
+        # against the *previous* zone, so the client needs the new effective zone (for
+        # window.APP_TZ and every timestamp it drives) and the unresolvable flag (for the
+        # fallback banner) handed back to it.
+        tz_state = get_app_timezone_state()
+        effective_tz = tz_state["resolved"]
 
         scheduler_worker = False
         reschedule_error = False
@@ -413,6 +417,8 @@ def save_general_settings():
                 "n_failed": n_fail,
                 "n_pending": n_pending,
                 "reschedule_error": reschedule_error,
+                "effective_tz": effective_tz,
+                "unresolvable": tz_state["unresolvable"],
             }
         )
     except (IntegrityError, OperationalError) as e:

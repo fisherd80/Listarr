@@ -884,6 +884,45 @@ function initTimezonePreview() {
   setInterval(renderPreview, 1000);
 }
 
+/**
+ * WR-04: bring the already-rendered page into line with the zone that was just saved.
+ *
+ * Everything below was emitted server-side against the previous zone, so without this a
+ * green "Timezone saved" toast sat next to timestamps still formatted in the old zone
+ * and, in the unresolvable case, next to a warning banner that had become false.
+ *
+ * Deliberately not refreshed: the "System default (currently X)" label and
+ * data-fallback-zone. Both derive from get_app_timezone_fallback_name(), which reads only
+ * the TZ environment variable — saving an application timezone cannot change it.
+ */
+function applySavedTimezoneToPage(data) {
+  if (data.effective_tz) {
+    window.APP_TZ = data.effective_tz;
+    // Re-render every tooltip that was built from the old zone.
+    if (typeof applyAppTzTooltips === 'function') applyAppTzTooltips();
+  }
+
+  // A save can only store a zone that resolves, so this banner is stale by definition
+  // once the request succeeds. Guarded on the server's own answer rather than assumed.
+  if (!data.unresolvable) {
+    var notice = document.getElementById('tz-fallback-notice');
+    if (notice) notice.remove();
+  }
+
+  // The "Current" optgroup exists only to carry a saved zone that is not in the curated
+  // list. Once something else is selected it is no longer current, and leaving it there
+  // labels a stale zone as the active one.
+  var select = document.getElementById('app-timezone');
+  if (select) {
+    var groups = select.getElementsByTagName('optgroup');
+    for (var i = groups.length - 1; i >= 0; i--) {
+      if (groups[i].label !== 'Current') continue;
+      var opt = groups[i].getElementsByTagName('option')[0];
+      if (!opt || opt.value !== select.value) groups[i].remove();
+    }
+  }
+}
+
 function saveGeneralTimezone() {
   var select = document.getElementById('app-timezone');
   var saveBtn = document.getElementById('general-save-btn');
@@ -904,6 +943,11 @@ function saveGeneralTimezone() {
       saveBtn.textContent = 'Save';
 
       if (data.success) {
+        // WR-04: the zone is saved, so the page's rendered state now describes the
+        // *previous* one. Refresh it before anything returns early below - this holds
+        // whether or not the reschedule succeeded.
+        applySavedTimezoneToPage(data);
+
         // IN-02: the save succeeded but the reschedule blew up - do not toast the
         // reassuring "nothing needed rescheduling" message.
         if (data.reschedule_error) {
