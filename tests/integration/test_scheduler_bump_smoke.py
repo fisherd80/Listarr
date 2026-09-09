@@ -536,6 +536,47 @@ def test_unbuildable_cron_is_quarantined_not_retried(app, monkeypatch):
             scheduler.shutdown(wait=False)
 
 
+def test_unclassified_exception_after_the_commit_still_arms_the_retry(app, monkeypatch):
+    """WR-02: scheduler.timezone is the commit point, and only (ValueError, KeyError) were
+    classified per list. Any other exception escaping after the commit used to unwind with
+    _reschedule_incomplete still False, so the poll saw "converged" forever while the
+    un-rebuilt remainder kept firing on the old zone. Unknown must mean recoverable."""
+    scheduler = _make_real_scheduler()
+
+    try:
+        scheduler.start(paused=True)
+        monkeypatch.setattr(sched, "_scheduler", scheduler)
+        monkeypatch.setattr(sched, "_app", app)
+
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            _make_list_row(SMOKE_CRON)
+
+            def boom(list_id, cron_expression):
+                # Not ValueError and not KeyError: the whole point of the finding.
+                raise RuntimeError("jobstore exploded")
+
+            monkeypatch.setattr(sched, "schedule_list", boom)
+
+            with pytest.raises(RuntimeError):
+                sched.reschedule_all_lists("Asia/Tokyo")
+
+            # The commit landed, so the zone moved...
+            assert tz_key(scheduler.timezone) == "Asia/Tokyo"
+            # ...but the rebuild did not finish, so this must not read as converged.
+            assert sched.reschedule_is_incomplete() is True
+            # And it is not a quarantine either - retrying is exactly what may help.
+            assert sched.get_unschedulable_lists() == {}
+
+            # The lock was released by the finally, so the poll can actually retry.
+            assert sched._reschedule_lock.acquire(blocking=False) is True
+            sched._reschedule_lock.release()
+    finally:
+        time_utils.invalidate_app_timezone_memo()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+
 def test_quarantine_is_cleared_by_the_remedy_its_warning_recommends(app, monkeypatch):
     """WR-01: the hourly WARN tells the operator to correct the cron, and the edit routes
     apply that correction through schedule_list() alone. Neither the zone nor the

@@ -357,6 +357,23 @@ def reschedule_all_lists(tz_str, blocking=True):
             # If a future bump turns timezone into a read-only property, the real signal
             # is tests/integration/test_scheduler_bump_smoke.py, which drives a real
             # BackgroundScheduler through this path for that purpose.
+            #
+            # WR-02: flag *before* the commit, clear only after the walk completes. The
+            # previous shape enumerated the failures it expected to see - (ValueError,
+            # KeyError) per list - and implicitly classified everything else as success,
+            # because _reschedule_incomplete was still False when the unexpected exception
+            # unwound past it. That left scheduler.timezone already advanced with an
+            # un-rebuilt remainder behind it, which _tz_poll_tick() reads as converged
+            # forever: exactly the stale-trigger state this machinery exists to prevent.
+            #
+            # Setting it here makes the classification total by construction rather than by
+            # enumeration. Anything that escapes - a lazy attribute load on list_obj, a
+            # non-JobLookupError from _drop_orphaned_list_jobs(), an exception type
+            # schedule_list() grows later - leaves the retry signal armed, and the poll
+            # tries again in ~60s. Unknown means recoverable, which is the safe default:
+            # the cost of a needless retry is one rebuild, the cost of a missed one is
+            # imports firing in the wrong timezone indefinitely.
+            _reschedule_incomplete = True
             scheduler.timezone = new_tz
             quarantine = {}
             for list_obj in lists:
@@ -386,6 +403,7 @@ def reschedule_all_lists(tz_str, blocking=True):
 
         # The loop ran to completion, so nothing recoverable is outstanding. Entries for
         # lists that have since been deleted or deactivated drop out with the rebind.
+        # Reaching this statement is the only thing that clears the WR-02 flag set above.
         _reschedule_quarantine = quarantine
         _reschedule_incomplete = False
         logger.info(f"Rescheduled {n_ok} lists into {tz_str} ({n_fail} failed)")
@@ -769,8 +787,14 @@ def validate_cron_expression(cron_expr):
         result["next_runs"] = next_runs
         result["valid"] = True
 
-    except (ValueError, KeyError, CronSimError) as e:
-        result["error"] = str(e)
+    except (ValueError, KeyError, CronSimError, StopIteration) as e:
+        # WR-02: CronSim.advance() raises StopIteration for an expression that parses but
+        # matches nothing within 50 years. get_next_run_time() has always caught it; this
+        # call site did not, so the same expression was a handled "invalid cron" there and
+        # an unhandled 500 out of the validation endpoint here - and, via schedule_list(),
+        # an exception outside the (ValueError, KeyError) classification in
+        # reschedule_all_lists(). Treat it as what it is: an unusable expression.
+        result["error"] = str(e) or "Cron expression has no run times within the next 50 years"
         result["description"] = "Invalid cron expression"
 
     return result
