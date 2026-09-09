@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from listarr import _ensure_app_config_row, db
-from listarr.models.app_config_model import AppConfig, get_app_config
+from listarr.models.app_config_model import AppConfig, get_app_config, read_app_config
 
 pytestmark = pytest.mark.unit
 
@@ -55,3 +55,41 @@ def test_ensure_app_config_row_degrades_to_warning_on_operational_error(app):
 
         assert result is None
         mock_warning.assert_called_once()
+
+
+def test_read_app_config_returns_none_without_creating_a_row(app):
+    """WR-01: the read-only accessor must not insert or commit when the row is absent."""
+    with app.app_context():
+        _clear_app_config()
+
+        assert read_app_config() is None
+        assert AppConfig.query.count() == 0
+
+
+def test_read_app_config_does_not_commit_pending_session_state(app):
+    """WR-01: resolving the timezone from a request/render path must not flush unrelated
+    pending ORM state, which get_app_config()'s unconditional commit would do."""
+    with app.app_context():
+        _clear_app_config()
+        db.session.add(AppConfig(id=1, timezone="Europe/London"))
+        db.session.commit()
+
+        cfg = read_app_config()
+        cfg.timezone = "Asia/Tokyo"  # pending, uncommitted
+
+        assert read_app_config().timezone == "Asia/Tokyo"
+        db.session.rollback()
+        assert read_app_config().timezone == "Europe/London", "the read path committed"
+
+        _clear_app_config()
+
+
+def test_resolver_uses_the_read_only_accessor(app):
+    """WR-01: _read_db_timezone_string must not go through the create-on-miss variant."""
+    from listarr.utils import time_utils
+
+    with app.app_context():
+        _clear_app_config()
+
+        assert time_utils._read_db_timezone_string() is None
+        assert AppConfig.query.count() == 0

@@ -37,9 +37,11 @@ def _coerce_zone(name):
 def _read_db_timezone_string():
     """Read AppConfig.timezone without raising; None means use the system fallback."""
     try:
-        from listarr.models.app_config_model import get_app_config
+        # read_app_config never writes: this resolver runs inside the request session
+        # (context processor) and on the scheduler poll thread.
+        from listarr.models.app_config_model import read_app_config
 
-        cfg = get_app_config()
+        cfg = read_app_config()
         return cfg.timezone if cfg else None
     except (RuntimeError, OperationalError, SQLAlchemyError):
         return None

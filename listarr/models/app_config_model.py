@@ -20,6 +20,16 @@ class AppConfig(db.Model):
     created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))
 
 
+def read_app_config():
+    """Return the singleton app config row without ever writing.
+
+    Read-only paths (the timezone resolver, which runs on every template render and
+    on the scheduler poll) must use this. get_app_config() commits when the row is
+    absent, which would also flush unrelated pending ORM state on the request session.
+    """
+    return db.session.get(AppConfig, 1)
+
+
 def get_app_config():
     """Return the singleton app config row, creating it if absent.
 
