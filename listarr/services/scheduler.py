@@ -105,6 +105,11 @@ def _get_scheduler_timezone():
     Resolution order is AppConfig.timezone, live scheduler timezone, TZ env var,
     then UTC. This function never raises and always returns a tzinfo object.
     """
+    # WR-05: bind once. shutdown_scheduler() nulls the global from the atexit handler on
+    # another thread, so re-reading it between the check and the dereference would raise
+    # AttributeError out of a function documented as never raising.
+    scheduler = _scheduler
+
     stored = resolve_db_timezone_string()
     if stored:
         try:
@@ -112,8 +117,8 @@ def _get_scheduler_timezone():
         except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
             logger.warning("Configured timezone %r could not be loaded by scheduler; falling back", stored)
 
-    if _scheduler is not None:
-        return _scheduler.timezone
+    if scheduler is not None:
+        return scheduler.timezone
 
     try:
         return zoneinfo.ZoneInfo(os.environ.get("TZ", "UTC"))
@@ -438,7 +443,10 @@ def schedule_list(list_id, cron_expression):
     Raises:
         ValueError: If cron expression is invalid
     """
-    if _scheduler is None:
+    # WR-05: bind once so a concurrent shutdown_scheduler() cannot null the global
+    # between the guard below and any dereference that follows it.
+    scheduler = _scheduler
+    if scheduler is None:
         logger.debug("Scheduler not running in this worker — schedule saved to DB, skipping in-process update")
         return
 
@@ -454,17 +462,17 @@ def schedule_list(list_id, cron_expression):
     # fails (cronsim and APScheduler do not accept the same grammar), the list
     # keeps its current schedule instead of being silently unscheduled forever.
     try:
-        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=_scheduler.timezone)
+        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=scheduler.timezone)
     except (ValueError, KeyError) as e:
         logger.error(f"Failed to build trigger for list {list_id}: {e}")
         raise
 
     # Swap the job only once the replacement trigger exists.
-    if _scheduler.get_job(job_id):
-        _scheduler.remove_job(job_id)
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
 
     try:
-        _scheduler.add_job(
+        scheduler.add_job(
             _run_scheduled_import,
             trigger=trigger,
             id=job_id,
@@ -484,13 +492,15 @@ def unschedule_list(list_id):
     Args:
         list_id: ID of the list to unschedule
     """
-    if _scheduler is None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is None:
         logger.warning("Scheduler not initialized, cannot unschedule")
         return
 
     job_id = f"list_{list_id}"
-    if _scheduler.get_job(job_id):
-        _scheduler.remove_job(job_id)
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
         logger.info(f"Unscheduled list {list_id}")
 
 
@@ -561,7 +571,9 @@ def _run_scheduled_import(list_id):
 
 def pause_scheduler():
     """Pause all scheduled job execution (global pause toggle)."""
-    if _scheduler is None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is None:
         logger.warning("Scheduler not initialized, cannot pause")
         return
 
@@ -578,7 +590,7 @@ def pause_scheduler():
                 db.session.commit()
 
             # Pause scheduler
-            _scheduler.pause()
+            scheduler.pause()
             logger.info("Scheduler paused")
         except (OperationalError, RuntimeError) as e:
             logger.error(f"Failed to pause scheduler: {e}")
@@ -587,7 +599,9 @@ def pause_scheduler():
 
 def resume_scheduler():
     """Resume all scheduled job execution."""
-    if _scheduler is None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is None:
         logger.warning("Scheduler not initialized, cannot resume")
         return
 
@@ -604,7 +618,7 @@ def resume_scheduler():
                 db.session.commit()
 
             # Resume scheduler
-            _scheduler.resume()
+            scheduler.resume()
             logger.info("Scheduler resumed")
         except (OperationalError, RuntimeError) as e:
             logger.error(f"Failed to resume scheduler: {e}")
@@ -643,10 +657,12 @@ def get_next_run_time(list_id):
     Returns:
         datetime: Next run time (timezone-aware) or None if not scheduled
     """
-    if _scheduler is not None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is not None:
         # Scheduler worker: get next run time from APScheduler (preferred path)
         job_id = f"list_{list_id}"
-        job = _scheduler.get_job(job_id)
+        job = scheduler.get_job(job_id)
         if job:
             return job.next_run_time
         return None
