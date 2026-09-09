@@ -167,6 +167,10 @@ def format_past_time(dt):
     """
     Format a datetime as a backward-looking relative time string.
 
+    Day labels are calendar-based in the application timezone: "Today" means the same
+    calendar date as now in that zone, not "less than 24 hours ago" (WR-05). This keeps
+    the label consistent with the app-timezone tooltip rendered beside it.
+
     Args:
         dt: datetime object (timezone-aware or naive; naive treated as UTC)
 
@@ -182,14 +186,12 @@ def format_past_time(dt):
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
 
-        diff = now - dt
-        total_seconds = diff.total_seconds()
-
-        if total_seconds < 0:
+        if (now - dt).total_seconds() < 0:
             # Future timestamp
             return "unknown"
 
-        days = int(total_seconds / 86400)
+        app_tz = get_app_timezone()
+        days = (now.astimezone(app_tz).date() - dt.astimezone(app_tz).date()).days
 
         if days == 0:
             return "Today"
