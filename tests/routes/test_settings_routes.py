@@ -39,14 +39,14 @@ class TestSettingsPage:
         assert response.status_code == 200
         assert b"Settings" in response.data
 
-    def test_settings_page_has_three_tabs(self, client):
-        """Settings page has 3 tab buttons: Integrations, TMDB, Account. No General tab."""
+    def test_settings_page_has_four_tabs(self, client):
+        """Settings page has 4 tab buttons: General, Integrations, TMDB, Account."""
         response = client.get("/settings")
         assert response.status_code == 200
+        assert b"General" in response.data
         assert b"Integrations" in response.data
         assert b"TMDB" in response.data
         assert b"Account" in response.data
-        assert b"General" not in response.data
 
     def test_settings_page_renders_sonarr_monitor_mode_only(self, client):
         """Sonarr Import Defaults renders Monitor Mode; Radarr remains unchanged."""
