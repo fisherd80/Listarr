@@ -656,6 +656,57 @@ class TestTimezoneMemo:
         assert time_utils.resolve_db_timezone_string() == "Europe/London"
         assert calls == 2
 
+    def test_invalidation_during_an_in_flight_read_is_not_undone(self, monkeypatch):
+        """WR-08: a reader that was already querying the DB when a save invalidated the
+        memo must not write its pre-save record back with a fresh TTL."""
+        reads = []
+
+        def fake_read():
+            reads.append(len(reads))
+            if len(reads) == 1:
+                # A save lands while this read is in flight.
+                time_utils.invalidate_app_timezone_memo()
+                return "Europe/London"
+            return "Asia/Tokyo"
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        assert time_utils.resolve_db_timezone_string() == "Europe/London"
+        # The stale value must not have been memoized over the invalidation.
+        assert time_utils.resolve_db_timezone_string() == "Asia/Tokyo"
+        assert len(reads) == 2
+
+    def test_state_is_built_from_a_single_record(self, monkeypatch):
+        """WR-08: get_app_timezone_state must not re-read the record for 'resolved'."""
+        monkeypatch.setattr(time_utils, "_TZ_MEMO_TTL", 0.0)
+        values = iter(["Asia/Tokyo", "Europe/London"])
+        reads = []
+
+        def fake_read():
+            reads.append(1)
+            return next(values)
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        state = time_utils.get_app_timezone_state()
+
+        assert len(reads) == 1, "state re-read the DB and can report an inconsistent pair"
+        assert state["configured"] == "Asia/Tokyo"
+        assert state["resolved"] == "Asia/Tokyo"
+        assert state["unresolvable"] is False
+
+    def test_state_stays_consistent_for_an_unresolvable_value(self, monkeypatch):
+        monkeypatch.setattr(time_utils, "_TZ_MEMO_TTL", 0.0)
+        monkeypatch.setenv("TZ", "America/New_York")
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", lambda: "Bogus/Zone")
+
+        state = time_utils.get_app_timezone_state()
+
+        assert state["configured"] == "Bogus/Zone"
+        assert state["unresolvable"] is True
+        assert state["resolved"] == "America/New_York"
+        assert state["fallback"] == "America/New_York"
+
     def test_memo_caches_none_value(self, monkeypatch):
         calls = 0
 

@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 _TZ_MEMO_TTL = 5.0
 _UNSET = object()
 _tz_memo_lock = threading.Lock()
-_tz_memo = {"record": _UNSET, "expires": 0.0}
+# "gen" is bumped by every invalidation so a reader that was already mid-DB-read
+# cannot store its pre-save record back over a fresh invalidation (WR-08).
+_tz_memo = {"record": _UNSET, "expires": 0.0, "gen": 0}
 
 
 def tz_key(tz) -> str:
@@ -66,11 +68,14 @@ def _get_timezone_record(use_cache=True):
         record = _tz_memo["record"]
         if record is not _UNSET and now < _tz_memo["expires"]:
             return record
+        gen = _tz_memo["gen"]
 
     record = _build_timezone_record(_read_db_timezone_string())
     with _tz_memo_lock:
-        _tz_memo["record"] = record
-        _tz_memo["expires"] = time.monotonic() + _TZ_MEMO_TTL
+        if _tz_memo["gen"] == gen:
+            # Nobody invalidated while the DB read was in flight.
+            _tz_memo["record"] = record
+            _tz_memo["expires"] = time.monotonic() + _TZ_MEMO_TTL
     return record
 
 
@@ -84,6 +89,7 @@ def invalidate_app_timezone_memo() -> None:
     with _tz_memo_lock:
         _tz_memo["record"] = _UNSET
         _tz_memo["expires"] = 0.0
+        _tz_memo["gen"] += 1
 
 
 def get_app_timezone_fallback_name() -> str:
@@ -92,9 +98,8 @@ def get_app_timezone_fallback_name() -> str:
     return tz_name if _coerce_zone(tz_name) is not None else "UTC"
 
 
-def get_app_timezone():
-    """Resolve the application timezone as DB AppConfig.timezone -> TZ env -> UTC."""
-    record = _get_timezone_record()
+def _zone_from_record(record):
+    """Apply the DB -> TZ env -> UTC fallback chain to an already-read record."""
     if record["zone"] is not None:
         return record["zone"]
 
@@ -105,6 +110,11 @@ def get_app_timezone():
     return timezone.utc
 
 
+def get_app_timezone():
+    """Resolve the application timezone as DB AppConfig.timezone -> TZ env -> UTC."""
+    return _zone_from_record(_get_timezone_record())
+
+
 def get_app_timezone_name() -> str:
     """Return the canonical string name for the resolved application timezone."""
     return tz_key(get_app_timezone())
@@ -112,10 +122,12 @@ def get_app_timezone_name() -> str:
 
 def get_app_timezone_state() -> dict:
     """Return stored, resolved, fallback and unresolvable state for the General tab."""
+    # WR-08: every field is derived from one record, so the tab can never render a
+    # self-contradicting pair when the memo expires mid-call.
     record = _get_timezone_record()
     return {
         "configured": record["raw"],
-        "resolved": get_app_timezone_name(),
+        "resolved": tz_key(_zone_from_record(record)),
         "fallback": get_app_timezone_fallback_name(),
         "unresolvable": bool(record["raw"] and record["zone"] is None),
     }
