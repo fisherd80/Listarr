@@ -151,6 +151,12 @@ def create_app(test_config=None):
             "app_version_url": f"{release_base}{normalized_version}" if normalized_version else repo_root,
         }
 
+    @app.context_processor
+    def inject_app_timezone():
+        from listarr.utils.time_utils import get_app_timezone_name
+
+        return {"app_timezone": get_app_timezone_name()}
+
     @app.after_request
     def add_security_headers(response):
         """Add security headers to all responses."""
