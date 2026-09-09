@@ -19,7 +19,7 @@ from cronsim import CronSim
 from cronsim.cronsim import CronSimError
 from cryptography.fernet import InvalidToken
 from requests.exceptions import RequestException
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from listarr import db
 from listarr.models.lists_model import List
@@ -27,7 +27,12 @@ from listarr.models.service_config_model import ServiceConfig
 from listarr.services.arr_service import validate_api_key
 from listarr.services.crypto_utils import decrypt_data
 from listarr.services.job_executor import is_list_running, submit_job
-from listarr.utils.time_utils import get_app_timezone_name, resolve_db_timezone_string
+from listarr.utils.time_utils import (
+    get_app_timezone_fallback_name,
+    get_app_timezone_name,
+    resolve_db_timezone_string,
+    tz_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,7 @@ logger = logging.getLogger(__name__)
 _scheduler = None
 _app = None
 _reschedule_lock = threading.Lock()
+_tz_poll_last_bad_value = None
 
 # POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
 # Converting to name strings avoids the ambiguity entirely.
@@ -128,6 +134,15 @@ def init_scheduler(app):
     # Load existing schedules from database
     _load_schedules_from_db()
 
+    _scheduler.add_job(
+        _tz_poll_tick,
+        trigger="interval",
+        seconds=60,
+        id="_tz_poll",
+        max_instances=1,
+        coalesce=True,
+    )
+
     # Start the scheduler
     _scheduler.start()
     logger.info(f"Scheduler initialized (timezone: {tz})")
@@ -214,6 +229,38 @@ def reschedule_all_lists(tz_str, blocking=True):
         return (n_ok, n_fail)
     finally:
         _reschedule_lock.release()
+
+
+def _tz_poll_tick():
+    """Converge the live scheduler onto the effective resolved app timezone."""
+    global _tz_poll_last_bad_value
+
+    if _scheduler is None or _app is None:
+        return
+
+    with _app.app_context():
+        try:
+            stored = resolve_db_timezone_string(use_cache=False)
+            if stored:
+                try:
+                    astimezone(stored)
+                    desired = stored
+                    _tz_poll_last_bad_value = None
+                except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError):
+                    desired = get_app_timezone_fallback_name()
+                    if _tz_poll_last_bad_value != stored:
+                        logger.warning("Configured timezone %r could not be loaded; using %s", stored, desired)
+                        _tz_poll_last_bad_value = stored
+            else:
+                desired = get_app_timezone_fallback_name()
+                _tz_poll_last_bad_value = None
+
+            if tz_key(desired) == tz_key(_scheduler.timezone):
+                return
+
+            reschedule_all_lists(desired, blocking=False)
+        except (OperationalError, SQLAlchemyError) as e:
+            logger.error(f"Timezone poll failed: {e}", exc_info=True)
 
 
 def schedule_list(list_id, cron_expression):

@@ -45,10 +45,10 @@ def _read_db_timezone_string():
         return None
 
 
-def _build_timezone_record(raw):
+def _build_timezone_record(raw, warn=True):
     zone = _coerce_zone(raw) if raw else None
     warned = False
-    if raw and zone is None:
+    if warn and raw and zone is None:
         logger.warning("Configured timezone %r could not be loaded; falling back", raw)
         warned = True
     return {"raw": raw, "zone": zone, "warned": warned}
@@ -57,7 +57,7 @@ def _build_timezone_record(raw):
 def _get_timezone_record(use_cache=True):
     """Return the memoized DB timezone record, caching resolved and failed outcomes."""
     if not use_cache:
-        return _build_timezone_record(_read_db_timezone_string())
+        return _build_timezone_record(_read_db_timezone_string(), warn=False)
 
     now = time.monotonic()
     with _tz_memo_lock:
