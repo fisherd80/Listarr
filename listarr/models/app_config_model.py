@@ -27,7 +27,12 @@ def read_app_config():
     on the scheduler poll) must use this. get_app_config() commits when the row is
     absent, which would also flush unrelated pending ORM state on the request session.
     """
-    return db.session.get(AppConfig, 1)
+    # WR-01: Session.get() emits a SELECT whenever the row is not already in the
+    # identity map, and SQLAlchemy autoflushes before that SELECT. Without this guard a
+    # function documented as never writing would flush a route's half-finished ORM
+    # mutations the moment it rendered a template.
+    with db.session.no_autoflush:
+        return db.session.get(AppConfig, 1)
 
 
 def get_app_config():

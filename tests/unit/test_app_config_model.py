@@ -84,6 +84,40 @@ def test_read_app_config_does_not_commit_pending_session_state(app):
         _clear_app_config()
 
 
+def test_read_app_config_does_not_autoflush_unrelated_pending_state(app):
+    """WR-01: Session.get() autoflushes before the SELECT it emits when the row is not in
+    the identity map. Unguarded, a function documented as never writing would push a
+    route's half-finished ORM mutation to the DB simply by rendering a template."""
+    from listarr.models.lists_model import List
+
+    with app.app_context():
+        _clear_app_config()
+        db.session.add(AppConfig(id=1, timezone="Europe/London"))
+        lst = List(
+            name="before",
+            target_service="RADARR",
+            tmdb_list_type="popular_movies",
+            filters_json={},
+            is_active=True,
+        )
+        db.session.add(lst)
+        db.session.commit()
+
+        # Force the SELECT path: an identity-map hit would not autoflush at all. Done
+        # before the mutation below, because this get() would autoflush it too.
+        db.session.expunge(db.session.get(AppConfig, 1))
+
+        lst.name = "half-finished"  # an unrelated, deliberately unflushed mutation
+        assert read_app_config().timezone == "Europe/London"
+
+        assert lst in db.session.dirty, "read_app_config() flushed unrelated pending state"
+
+        db.session.rollback()
+        db.session.delete(db.session.get(List, lst.id))
+        db.session.commit()
+        _clear_app_config()
+
+
 def test_resolver_uses_the_read_only_accessor(app):
     """WR-01: _read_db_timezone_string must not go through the create-on-miss variant."""
     from listarr.utils import time_utils
