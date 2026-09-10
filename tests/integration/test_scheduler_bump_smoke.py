@@ -330,7 +330,7 @@ def test_reconcile_is_idempotent(app, monkeypatch):
 
 def test_reconcile_removes_orphaned_list_jobs(app, monkeypatch):
     """A list_* job with no matching active-scheduled row is the "remove absent" arm of
-    the diff — this replaces the old standalone _drop_orphaned_list_jobs sweep."""
+    the reconcile diff — this replaces the old standalone orphan-sweep helper."""
     scheduler = _make_real_scheduler()
     try:
         scheduler.start(paused=True)
