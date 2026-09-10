@@ -164,10 +164,14 @@ def init_scheduler(app):
     # Load existing schedules from database
     _load_schedules_from_db()
 
+    # Backstop that converges the live scheduler onto the AppConfig timezone and
+    # retries a deferred reconcile. Settings saves trigger reconcile_scheduler_jobs
+    # directly, so a slow interval is enough here - timezone changes are rare admin
+    # actions and every tick logs at INFO.
     _scheduler.add_job(
         _tz_poll_tick,
         trigger="interval",
-        seconds=60,
+        seconds=300,
         id="_tz_poll",
         max_instances=1,
         coalesce=True,

@@ -473,7 +473,7 @@ def test_tz_poll_registered_and_scheduler_built_from_db_tz(app, monkeypatch):
         assert job is not None
         assert job.max_instances == 1
         assert job.coalesce is True
-        assert job.trigger.interval == timedelta(seconds=60)
+        assert job.trigger.interval == timedelta(seconds=300)
     finally:
         sched.shutdown_scheduler()
         time_utils.invalidate_app_timezone_memo()

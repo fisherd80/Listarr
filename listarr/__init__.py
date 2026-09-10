@@ -96,7 +96,7 @@ def create_app(test_config=None):
 
     # Suppress noisy library logs unless DEBUG mode
     if log_level > logging.DEBUG:
-        for logger_name in ["httpx", "httpcore", "urllib3", "werkzeug"]:
+        for logger_name in ["httpx", "httpcore", "urllib3", "werkzeug", "apscheduler"]:
             logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     # Ensure instance folder exists
