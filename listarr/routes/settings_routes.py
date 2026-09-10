@@ -383,56 +383,44 @@ def save_general_settings():
         tz_state = get_app_timezone_state()
         effective_tz = tz_state["resolved"]
 
-        scheduler_worker = False
-        reschedule_error = False
-        # WR-04: distinct from reschedule_error. The rebuild did not raise, it declined -
-        # a locked DB or a busy scheduler - and the convergence poll will retry on its own.
-        # "Saved, retrying shortly" is a different fact from "saved, it broke".
-        reschedule_pending = False
-        n_ok = 0
-        n_fail = 0
-        # IN-03: lists this worker rescheduled (n_rescheduled) and lists another worker
-        # still has to pick up (n_pending) are different facts and get different fields.
-        n_pending = 0
+        from listarr.services import scheduler as sched
+
+        # WR-06: use the module's intentional predicate rather than reaching into
+        # its private singleton.
+        scheduler_worker = sched.is_scheduler_worker()
+        applied = 0
+        unbuildable = 0
+        pending = 0
+        deferred = False
         try:
-            from listarr.services import scheduler as sched
-
-            # WR-06: use the module's intentional predicate rather than reaching into
-            # its private singleton.
-            scheduler_worker = sched.is_scheduler_worker()
             if scheduler_worker:
-                # WR-08: a deliberate save is a recovery action. Clear any quarantine so
-                # every list gets a genuine fresh attempt and the user sees a current
-                # diagnosis, rather than inheriting a verdict from an earlier zone.
-                sched.reset_reschedule_state()
-                n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
-
-            # A non-scheduler worker leaves every scheduled list for the convergence poll
-            # to pick up; the scheduler worker only has leftovers when the rebuild
-            # declined without raising (WR-04: reschedule_is_incomplete() is the module's
-            # own signal for that, since the transient paths return (0, 0) just like
-            # "nothing to do").
-            if not scheduler_worker or sched.reschedule_is_incomplete():
-                reschedule_pending = scheduler_worker
-                n_pending = List.active_scheduled_query().count()
+                result = sched.reconcile_scheduler_jobs(effective_tz)
+                applied = result.applied
+                unbuildable = len(result.unbuildable)
+                deferred = result.deferred
+                pending = result.pending if result.deferred else 0
+            else:
+                # A non-scheduler worker has nothing to apply in-process; a scheduler
+                # worker will pick this up on its next convergence poll.
+                pending = List.active_scheduled_query().count()
+                deferred = True
         except Exception as e:
-            # IN-02: the timezone is saved, but rescheduling did not happen. Report that
-            # explicitly instead of letting n_rescheduled == 0 read as "nothing to do".
-            current_app.logger.error(f"Error rescheduling lists after timezone save: {e}", exc_info=True)
-            n_ok, n_fail, n_pending = 0, 0, 0
-            reschedule_pending = False
-            reschedule_error = True
+            # The timezone is saved; the reconcile did not complete. "deferred" covers
+            # both the transient-decline path and any unexpected exception - a scheduler
+            # worker finishes it on the next poll.
+            current_app.logger.error(f"Error reconciling scheduler jobs after timezone save: {e}", exc_info=True)
+            deferred = True
+            applied = unbuildable = pending = 0
 
         return jsonify(
             {
                 "success": True,
                 "message": "Timezone saved.",
                 "scheduler_worker": scheduler_worker,
-                "n_rescheduled": n_ok,
-                "n_failed": n_fail,
-                "n_pending": n_pending,
-                "reschedule_error": reschedule_error,
-                "reschedule_pending": reschedule_pending,
+                "applied": applied,
+                "unbuildable": unbuildable,
+                "pending": pending,
+                "deferred": deferred,
                 "effective_tz": effective_tz,
                 "unresolvable": tz_state["unresolvable"],
             }

@@ -975,51 +975,30 @@ function saveGeneralTimezone() {
         // whether or not the reschedule succeeded.
         applySavedTimezoneToPage(data);
 
-        // IN-02: the save succeeded but the reschedule blew up - do not toast the
-        // reassuring "nothing needed rescheduling" message.
-        if (data.reschedule_error) {
-          var failMsg = 'Timezone saved, but scheduled lists could not be re-applied \u2014 see logs.';
-          setStatus(statusEl, false, failMsg);
-          showToast(failMsg, 'warning', 6000);
-          return;
-        }
-
         setStatus(statusEl, true, 'Timezone saved.');
 
-        var rescheduled = data.n_rescheduled || 0;
-        var failed = data.n_failed || 0;
-        var pending = data.n_pending || 0;
-        var msg;
+        var applied = data.applied || 0;
+        var unbuildable = data.unbuildable || 0;
+        var pending = data.pending || 0;
 
-        // WR-04: the rebuild declined rather than failed (locked DB, busy scheduler), so
-        // it returned zero counts without raising. Reporting that as "nothing needed
-        // rescheduling" told the user the opposite of the truth - every list is still on
-        // the old zone. The convergence poll retries on its own, so say that instead.
-        if (data.reschedule_pending) {
-          showToast(scheduledListPhrase(pending, {
-            zero: 'Timezone saved. Scheduled lists could not be re-applied yet — retrying within ~60s.',
-            one: 'Timezone saved. 1 scheduled list could not be re-applied yet — retrying within ~60s.',
-            many: 'Timezone saved. %d scheduled lists could not be re-applied yet — retrying within ~60s.',
-          }), 'warning', 6000);
-          return;
+        var msg = scheduledListPhrase(applied, {
+          zero: 'Timezone saved.',
+          one: 'Timezone saved. 1 scheduled list re-applied.',
+          many: 'Timezone saved. %d scheduled lists re-applied.',
+        });
+
+        if (unbuildable > 0) {
+          msg += scheduledListPhrase(unbuildable, {
+            zero: '',
+            one: ' (1 list has an invalid schedule — fix its cron)',
+            many: ' (%d lists have an invalid schedule — fix their crons)',
+          });
         }
 
-        if (data.scheduler_worker) {
-          msg = scheduledListPhrase(rescheduled, {
-            zero: 'Timezone saved. No scheduled lists needed rescheduling.',
-            one: 'Timezone saved. 1 scheduled list rescheduled.',
-            many: 'Timezone saved. %d scheduled lists rescheduled.',
-          });
-          if (failed > 0) {
-            msg += scheduledListPhrase(failed, {
-              zero: '',
-              one: ' (1 list could not be rescheduled — see logs)',
-              many: ' (%d lists could not be rescheduled — see logs)',
-            });
-          }
-        } else {
-          // IN-03: this worker rescheduled nothing; n_pending is what the scheduler
-          // worker still has to pick up on its next convergence poll.
+        // deferred: saved, but a scheduler worker still has to apply it (this is not a
+        // scheduler worker, or the reconcile declined transiently). The convergence poll
+        // retries on its own within ~60s.
+        if (data.deferred) {
           msg = scheduledListPhrase(pending, {
             zero: 'Timezone saved. No scheduled lists to re-apply.',
             one: 'Timezone saved. 1 scheduled list will re-apply within ~60s.',
@@ -1027,7 +1006,8 @@ function saveGeneralTimezone() {
           });
         }
 
-        showToast(msg, failed > 0 ? 'warning' : 'success', failed > 0 ? 6000 : 3000);
+        var warn = unbuildable > 0 || data.deferred;
+        showToast(msg, warn ? 'warning' : 'success', warn ? 6000 : 3000);
       } else {
         var errMsg = data.message || 'Unknown or invalid timezone. Nothing was saved.';
         setStatus(statusEl, false, errMsg);

@@ -678,12 +678,9 @@ def validate_cron_expression(cron_expr):
         result["valid"] = True
 
     except (ValueError, KeyError, CronSimError, StopIteration) as e:
-        # WR-02: CronSim.advance() raises StopIteration for an expression that parses but
-        # matches nothing within 50 years. get_next_run_time() has always caught it; this
-        # call site did not, so the same expression was a handled "invalid cron" there and
-        # an unhandled 500 out of the validation endpoint here - and, via schedule_list(),
-        # an exception outside the (ValueError, KeyError) classification in
-        # reschedule_all_lists(). Treat it as what it is: an unusable expression.
+        # CronSim.advance() raises StopIteration for an expression that parses but matches
+        # nothing within 50 years. get_next_run_time() has always caught it; catch it here
+        # too so the validation endpoint returns "invalid cron" instead of a 500.
         result["error"] = str(e) or "Cron expression has no run times within the next 50 years"
         result["description"] = "Invalid cron expression"
 
