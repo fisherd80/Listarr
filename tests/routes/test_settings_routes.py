@@ -1692,16 +1692,18 @@ class TestGeneralTimezoneSave:
         from listarr.services import scheduler as sched
 
         monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (3, 0))
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult(applied=3))
 
         response = self._post_timezone(client, "Europe/London")
         data = response.get_json()
 
         assert response.status_code == 200
         assert data["scheduler_worker"] is True
-        assert data["n_rescheduled"] == 3
-        assert data["n_failed"] == 0
-        assert data["n_pending"] == 0
+        assert data["applied"] == 3
+        assert data["unbuildable"] == 0
+        assert data["deferred"] is False
+        assert data["pending"] == 0
 
     def test_whitespace_only_timezone_is_rejected_not_treated_as_clearing(self, client, monkeypatch):
         """IN-06: clearing the setting is meant to require an explicit empty string, but
@@ -1734,41 +1736,32 @@ class TestGeneralTimezoneSave:
         assert data["effective_tz"]
         assert data["unresolvable"] is False
 
-    def test_timezone_save_clears_the_quarantine_before_rescheduling(self, client, monkeypatch):
-        """WR-08: re-saving is how a user recovers from a list the poll has quarantined.
-        Without the reset, that deliberate action inherits the earlier verdict and the
-        list is never re-attempted at all."""
-        from listarr.services import scheduler as sched
-
-        order = []
-        monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reset_reschedule_state", lambda: order.append("reset"))
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (order.append("reschedule"), (1, 0))[1])
-
-        response = self._post_timezone(client, "Europe/London")
-
-        assert response.status_code == 200
-        assert order == ["reset", "reschedule"], "the quarantine must be cleared before the retry"
-
-    def test_timezone_toast_payload_scheduler_worker_partial_failure(self, client, monkeypatch):
+    def test_timezone_toast_payload_scheduler_worker_unbuildable(self, client, monkeypatch):
         from listarr.services import scheduler as sched
 
         monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (2, 1))
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(
+            sched,
+            "reconcile_scheduler_jobs",
+            lambda tz: sched.ReconcileResult(applied=2, unbuildable={7: "0 2 L * *"}),
+        )
 
         response = self._post_timezone(client, "Europe/London")
         data = response.get_json()
 
         assert response.status_code == 200
         assert data["scheduler_worker"] is True
-        assert data["n_rescheduled"] == 2
-        assert data["n_failed"] == 1
+        assert data["applied"] == 2
+        assert data["unbuildable"] == 1
+        assert data["deferred"] is False
 
     def test_timezone_toast_payload_scheduler_worker_zero_lists(self, client, monkeypatch):
         from listarr.services import scheduler as sched
 
         monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (0, 0))
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult())
 
         response = self._post_timezone(client, "Europe/London")
         data = response.get_json()
@@ -1776,54 +1769,44 @@ class TestGeneralTimezoneSave:
         assert response.status_code == 200
         assert data["success"] is True
         assert data["scheduler_worker"] is True
-        assert data["n_rescheduled"] == 0
-        assert data["n_failed"] == 0
-        assert data["reschedule_error"] is False
+        assert data["applied"] == 0
+        assert data["unbuildable"] == 0
+        assert data["deferred"] is False
 
-    def test_timezone_transient_reschedule_failure_reports_pending_not_nothing_to_do(self, client, monkeypatch):
-        """WR-04: the transient paths in reschedule_all_lists() return (0, 0) without
-        raising, so the route's except never fires. Reported as-is that renders "No
-        scheduled lists needed rescheduling" while every list is still on the old zone."""
+    def test_timezone_deferred_reconcile_reports_pending_not_nothing_to_do(self, client, monkeypatch):
+        """A transient decline returns deferred=True with the backlog count, so the client
+        can render "will re-apply within ~60s" instead of "nothing needed rescheduling"."""
         from listarr.services import scheduler as sched
 
-        db.session.add(
-            List(
-                name="pending",
-                target_service="RADARR",
-                tmdb_list_type="popular_movies",
-                filters_json={},
-                schedule_cron="0 2 * * *",
-                is_active=True,
-            )
-        )
-        db.session.commit()
-
         monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (0, 0))
-        monkeypatch.setattr(sched, "reschedule_is_incomplete", lambda: True)
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(
+            sched,
+            "reconcile_scheduler_jobs",
+            lambda tz: sched.ReconcileResult(deferred=True, pending=2),
+        )
 
         response = self._post_timezone(client, "Europe/London")
         data = response.get_json()
 
         assert response.status_code == 200
         assert data["success"] is True
-        assert data["reschedule_error"] is False
-        assert data["reschedule_pending"] is True
-        assert data["n_rescheduled"] == 0
-        assert data["n_pending"] == 1
+        assert data["deferred"] is True
+        assert data["pending"] == 2
+        assert data["applied"] == 0
 
-    def test_timezone_clean_reschedule_is_not_marked_pending(self, client, monkeypatch):
-        """The other half of WR-04: a genuine "nothing to do" must stay unflagged."""
+    def test_timezone_clean_reconcile_is_not_marked_deferred(self, client, monkeypatch):
+        """The other half: a genuine "nothing to do" stays unflagged."""
         from listarr.services import scheduler as sched
 
         monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (0, 0))
-        monkeypatch.setattr(sched, "reschedule_is_incomplete", lambda: False)
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult())
 
         data = self._post_timezone(client, "Europe/London").get_json()
 
-        assert data["reschedule_pending"] is False
-        assert data["n_pending"] == 0
+        assert data["deferred"] is False
+        assert data["pending"] == 0
 
     def test_timezone_toast_non_scheduler_counts_from_db(self, client, monkeypatch):
         from listarr.services import scheduler as sched
@@ -1872,10 +1855,12 @@ class TestGeneralTimezoneSave:
 
         assert response.status_code == 200
         assert data["scheduler_worker"] is False
-        # IN-03: a non-scheduler worker rescheduled nothing; the count is "pending".
-        assert data["n_rescheduled"] == 0
-        assert data["n_pending"] == 2
-        assert data["n_failed"] == 0
+        # A non-scheduler worker applied nothing; the backlog is the pending count and a
+        # scheduler worker will pick it up on its next poll (deferred).
+        assert data["applied"] == 0
+        assert data["deferred"] is True
+        assert data["pending"] == 2
+        assert data["unbuildable"] == 0
         assert get_app_config().timezone == "Europe/London"
 
     def test_validate_timezone_delegates_to_coerce_zone(self, monkeypatch):
@@ -1911,23 +1896,24 @@ class TestGeneralTimezoneSave:
 
         monkeypatch.setattr(sched, "_scheduler", None)
         monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
-        monkeypatch.setattr(sched, "reschedule_all_lists", lambda tz: (1, 0))
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult(applied=1))
 
         response = self._post_timezone(client, "Europe/London")
         data = response.get_json()
 
         assert response.status_code == 200
         assert data["scheduler_worker"] is True
-        assert data["n_rescheduled"] == 1
+        assert data["applied"] == 1
 
-    def test_general_timezone_persists_even_when_reschedule_raises(self, client, monkeypatch):
+    def test_general_timezone_persists_even_when_reconcile_raises(self, client, monkeypatch):
         from listarr.services import scheduler as sched
 
         def boom(tz):
             raise RuntimeError("scheduler unavailable")
 
         monkeypatch.setattr(sched, "_scheduler", object())
-        monkeypatch.setattr(sched, "reschedule_all_lists", boom)
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", boom)
 
         response = self._post_timezone(client, "Europe/London")
         data = response.get_json()
@@ -1935,9 +1921,9 @@ class TestGeneralTimezoneSave:
         assert response.status_code == 200
         assert data["success"] is True
         assert data["scheduler_worker"] is True
-        assert data["n_rescheduled"] == 0
-        # IN-02: the client must be able to tell "nothing to do" from "reschedule failed".
-        assert data["reschedule_error"] is True
+        assert data["applied"] == 0
+        # An unexpected exception folds into deferred: saved, a worker finishes it later.
+        assert data["deferred"] is True
         assert get_app_config().timezone == "Europe/London"
 
 

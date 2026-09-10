@@ -515,6 +515,16 @@ class TestSchedulerTimezone:
             assert "Z" not in next_run
             assert next_run[-6] in {"+", "-"}
 
+    @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_rejects_cronsim_valid_but_unbuildable(self):
+        """A cron cronsim accepts but CronTrigger.from_crontab rejects is invalid here, so
+        it can never be stored on a list and reach the reconcile as an unbuildable row."""
+        result = validate_cron_expression("0 2 L * *")
+
+        assert result["valid"] is False
+        assert result["error"]
+        assert result["next_runs"] == []
+
 
 @pytest.mark.unit
 class TestTimezoneResolution:
@@ -741,37 +751,6 @@ class TestTimezoneMemo:
                 assert len(warnings) == 2
 
 
-class TestResetRescheduleStateLocking:
-    """IN-03: the reset rebinds the same global the rebuild rebinds when it finishes."""
-
-    def test_reset_reschedule_state_holds_the_reschedule_lock(self, monkeypatch):
-        """Clearing outside the lock could be silently undone: if the poll thread was
-        mid-rebuild it rebound _reschedule_quarantine afterwards, restoring the very
-        verdict the reset existed to discard, so no fresh diagnosis was ever logged."""
-        observed = {}
-
-        monkeypatch.setattr(sched, "_reschedule_quarantine", {7: ("0 2 L * *", "Asia/Tokyo")})
-
-        original_lock = sched._reschedule_lock
-
-        class _WatchingLock:
-            def __enter__(self):
-                observed["entered"] = True
-                return original_lock.__enter__()
-
-            def __exit__(self, *exc):
-                observed["exited"] = True
-                return original_lock.__exit__(*exc)
-
-        monkeypatch.setattr(sched, "_reschedule_lock", _WatchingLock())
-
-        sched.reset_reschedule_state()
-
-        assert observed == {"entered": True, "exited": True}
-        assert sched.get_unschedulable_lists() == {}
-        assert original_lock.locked() is False
-
-
 class TestSchedulerShutdownLocking:
     """WR-07: shutdown must not null the singleton out from under a live reschedule."""
 
@@ -801,13 +780,139 @@ class TestSchedulerShutdownLocking:
         assert sched._scheduler is None
         assert sched._reschedule_lock.locked() is False
 
-    def test_reschedule_binds_scheduler_locally(self, monkeypatch):
+    def test_reconcile_binds_scheduler_locally(self, monkeypatch):
         """A concurrent shutdown that nulls the global must not raise AttributeError
-        inside an in-flight reschedule."""
+        inside an in-flight reconcile."""
         mock_scheduler = MagicMock()
         mock_scheduler.timezone = zoneinfo.ZoneInfo("UTC")
         monkeypatch.setattr(sched, "_scheduler", mock_scheduler)
         monkeypatch.setattr(sched, "_app", None)
 
         # _app is None -> returns early, but the guard already read the local binding.
-        assert sched.reschedule_all_lists("Europe/London") == (0, 0)
+        result = sched.reconcile_scheduler_jobs("Europe/London")
+        assert result.deferred is False
+        assert result.applied == 0
+
+
+class _BoomQuery:
+    def filter(self, *args, **kwargs):
+        return self
+
+    def count(self):
+        raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+    def all(self):
+        raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+
+class _BoomList:
+    query = _BoomQuery()
+
+    @classmethod
+    def active_scheduled_query(cls):
+        return cls.query.filter()
+
+
+@pytest.mark.unit
+class TestReconcileSchedulerJobs:
+    """reconcile_scheduler_jobs(): one idempotent desired-vs-live diff."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_reconcile_state(self, monkeypatch):
+        monkeypatch.setattr(sched, "_last_reconciled_tz", None)
+        monkeypatch.setattr(sched, "_unbuildable_crons", {})
+        yield
+
+    def _make_list(self, cron):
+        from listarr.models.lists_model import List
+
+        row = List(
+            name="reconcile-unit",
+            target_service="RADARR",
+            tmdb_list_type="popular_movies",
+            filters_json={},
+            schedule_cron=cron,
+            is_active=True,
+        )
+        db.session.add(row)
+        db.session.commit()
+        return row.id
+
+    def test_applies_every_buildable_row(self, app, monkeypatch):
+        with app.app_context():
+            ids = [self._make_list("0 2 * * 1") for _ in range(3)]
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.deferred is False
+            assert result.applied == 3
+            assert result.unbuildable == {}
+            assert scheduler.add_job.call_count == 3
+            assert sched._last_reconciled_tz == "Europe/London"
+            assert {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list} == set(ids)
+
+    def test_unbuildable_row_recorded_and_others_still_applied(self, app, monkeypatch):
+        with app.app_context():
+            good = [self._make_list("0 2 * * 1") for _ in range(2)]
+            bad = self._make_list("0 2 L * *")
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.applied == 2
+            assert result.unbuildable == {bad: "0 2 L * *"}
+            assert {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list} == set(good)
+
+    def test_no_scheduler_reports_backlog_without_raising(self, app, monkeypatch):
+        with app.app_context():
+            for _ in range(2):
+                self._make_list("0 2 * * 1")
+            monkeypatch.setattr(sched, "_scheduler", None)
+            monkeypatch.setattr(sched, "_app", app)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.deferred is False
+            assert result.pending == 2
+            assert result.applied == 0
+
+    def test_lock_already_held_defers_without_advancing_state(self, app, monkeypatch):
+        with app.app_context():
+            self._make_list("0 2 * * 1")
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+            monkeypatch.setattr(sched, "_last_reconciled_tz", "Asia/Tokyo")
+
+            assert sched._reschedule_lock.acquire(blocking=False) is True
+            try:
+                result = sched.reconcile_scheduler_jobs("Europe/London", blocking=False)
+            finally:
+                sched._reschedule_lock.release()
+
+            assert result.deferred is True
+            assert sched._last_reconciled_tz == "Asia/Tokyo"
+            scheduler.add_job.assert_not_called()
+
+    def test_operational_error_defers_without_advancing_state(self, app, monkeypatch):
+        with app.app_context():
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+            monkeypatch.setattr(sched, "_last_reconciled_tz", "Asia/Tokyo")
+            monkeypatch.setattr(sched, "List", _BoomList)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.deferred is True
+            assert sched._last_reconciled_tz == "Asia/Tokyo"
+            scheduler.add_job.assert_not_called()
