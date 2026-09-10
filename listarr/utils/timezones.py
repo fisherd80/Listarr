@@ -157,6 +157,9 @@ CURATED_TIMEZONES: dict[str, list[str]] = {
 }
 
 
-def curated_zone_keys() -> set[str]:
+_CURATED_ZONE_KEYS: frozenset[str] = frozenset(zone for zones in CURATED_TIMEZONES.values() for zone in zones)
+
+
+def curated_zone_keys() -> frozenset[str]:
     """Return the flattened set of curated timezone keys."""
-    return {zone for zones in CURATED_TIMEZONES.values() for zone in zones}
+    return _CURATED_ZONE_KEYS

@@ -745,10 +745,6 @@ function initTimezoneFilter() {
     el.hidden = hidden;
   }
 
-  function isHidden(el) {
-    return el.classList.contains('hidden');
-  }
-
   // WR-06: "matches the query" and "is visible" are no longer the same set, because the
   // System default entry and the current selection stay visible regardless. The Enter
   // shortcut must key off matches, or a lone hit would stop being a lone hit.
@@ -945,6 +941,15 @@ function applySavedTimezoneToPage(data) {
   }
 }
 
+/**
+ * Pick a count-appropriate message. `templates.many` may contain "%d" for the count.
+ */
+function scheduledListPhrase(count, templates) {
+  if (count === 1) return templates.one;
+  if (count > 1) return templates.many.replace('%d', count);
+  return templates.zero;
+}
+
 function saveGeneralTimezone() {
   var select = document.getElementById('app-timezone');
   var saveBtn = document.getElementById('general-save-btn');
@@ -981,8 +986,9 @@ function saveGeneralTimezone() {
 
         setStatus(statusEl, true, 'Timezone saved.');
 
-        var n = data.n_rescheduled || 0;
-        var m = data.n_failed || 0;
+        var rescheduled = data.n_rescheduled || 0;
+        var failed = data.n_failed || 0;
+        var pending = data.n_pending || 0;
         var msg;
 
         // WR-04: the rebuild declined rather than failed (locked DB, busy scheduler), so
@@ -990,45 +996,38 @@ function saveGeneralTimezone() {
         // rescheduling" told the user the opposite of the truth - every list is still on
         // the old zone. The convergence poll retries on its own, so say that instead.
         if (data.reschedule_pending) {
-          var q = data.n_pending || 0;
-          if (q === 1) {
-            msg = 'Timezone saved. 1 scheduled list could not be re-applied yet — retrying within ~60s.';
-          } else if (q > 1) {
-            msg = 'Timezone saved. ' + q + ' scheduled lists could not be re-applied yet — retrying within ~60s.';
-          } else {
-            msg = 'Timezone saved. Scheduled lists could not be re-applied yet — retrying within ~60s.';
-          }
-          showToast(msg, 'warning', 6000);
+          showToast(scheduledListPhrase(pending, {
+            zero: 'Timezone saved. Scheduled lists could not be re-applied yet — retrying within ~60s.',
+            one: 'Timezone saved. 1 scheduled list could not be re-applied yet — retrying within ~60s.',
+            many: 'Timezone saved. %d scheduled lists could not be re-applied yet — retrying within ~60s.',
+          }), 'warning', 6000);
           return;
         }
 
         if (data.scheduler_worker) {
-          if (n === 0) {
-            msg = 'Timezone saved. No scheduled lists needed rescheduling.';
-          } else if (n === 1) {
-            msg = 'Timezone saved. 1 scheduled list rescheduled.';
-          } else {
-            msg = 'Timezone saved. ' + n + ' scheduled lists rescheduled.';
-          }
-          if (m > 0) {
-            msg += m === 1
-              ? ' (1 list could not be rescheduled \u2014 see logs)'
-              : ' (' + m + ' lists could not be rescheduled \u2014 see logs)';
+          msg = scheduledListPhrase(rescheduled, {
+            zero: 'Timezone saved. No scheduled lists needed rescheduling.',
+            one: 'Timezone saved. 1 scheduled list rescheduled.',
+            many: 'Timezone saved. %d scheduled lists rescheduled.',
+          });
+          if (failed > 0) {
+            msg += scheduledListPhrase(failed, {
+              zero: '',
+              one: ' (1 list could not be rescheduled — see logs)',
+              many: ' (%d lists could not be rescheduled — see logs)',
+            });
           }
         } else {
           // IN-03: this worker rescheduled nothing; n_pending is what the scheduler
           // worker still has to pick up on its next convergence poll.
-          var p = data.n_pending || 0;
-          if (p === 0) {
-            msg = 'Timezone saved. No scheduled lists to re-apply.';
-          } else if (p === 1) {
-            msg = 'Timezone saved. 1 scheduled list will re-apply within ~60s.';
-          } else {
-            msg = 'Timezone saved. ' + p + ' scheduled lists will re-apply within ~60s.';
-          }
+          msg = scheduledListPhrase(pending, {
+            zero: 'Timezone saved. No scheduled lists to re-apply.',
+            one: 'Timezone saved. 1 scheduled list will re-apply within ~60s.',
+            many: 'Timezone saved. %d scheduled lists will re-apply within ~60s.',
+          });
         }
 
-        showToast(msg, m > 0 ? 'warning' : 'success', m > 0 ? 6000 : 3000);
+        showToast(msg, failed > 0 ? 'warning' : 'success', failed > 0 ? 6000 : 3000);
       } else {
         var errMsg = data.message || 'Unknown or invalid timezone. Nothing was saved.';
         setStatus(statusEl, false, errMsg);

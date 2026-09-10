@@ -31,3 +31,8 @@ class List(db.Model):
     last_run_at = db.Column(TZDateTime)
 
     created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))
+
+    @classmethod
+    def active_scheduled_query(cls):
+        """Query for active lists that carry a cron schedule."""
+        return cls.query.filter(cls.schedule_cron.isnot(None), cls.is_active == True)  # noqa: E712

@@ -766,6 +766,10 @@ def test_transient_db_failure_retries_indefinitely(app, monkeypatch):
         schedule_cron = List.schedule_cron
         is_active = List.is_active
 
+        @classmethod
+        def active_scheduled_query(cls):
+            return cls.query.filter()
+
     def spy_reschedule(tz_str, blocking=True):
         calls.append((tz_str, blocking))
         return real_reschedule(tz_str, blocking=blocking)
@@ -855,6 +859,10 @@ def test_reschedule_db_failure_leaves_timezone_unapplied_for_next_poll(app, monk
         id = List.id
         schedule_cron = List.schedule_cron
         is_active = List.is_active
+
+        @classmethod
+        def active_scheduled_query(cls):
+            return cls.query.filter()
 
     try:
         scheduler.start(paused=True)

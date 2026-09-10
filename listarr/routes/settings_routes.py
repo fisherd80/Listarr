@@ -354,20 +354,16 @@ def save_general_settings():
     if "timezone" not in data:
         return jsonify({"success": False, "message": "No settings supplied."}), 400
 
-    raw = data["timezone"]
-
-    if raw is None or raw == "":
-        submitted = ""
-    elif not isinstance(raw, str):
+    raw = "" if data["timezone"] is None else data["timezone"]
+    if not isinstance(raw, str):
         return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
-    else:
-        submitted = raw.strip()
-        # IN-06: raw is a non-empty string here, so stripping to nothing means the payload
-        # was whitespace. Treating that as "clear the setting" contradicts the rule above
-        # that clearing requires an explicit empty string.
-        if not submitted:
-            current_app.logger.info("Rejected whitespace-only application timezone")
-            return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
+
+    submitted = raw.strip()
+    # IN-06: clearing the setting takes an explicit "" (or null); a payload that is only
+    # whitespace strips to "" but must not be read as "reset to System default".
+    if raw != "" and not submitted:
+        current_app.logger.info("Rejected whitespace-only application timezone")
+        return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
 
     stored, error = _validate_timezone(submitted)
     if error:
@@ -410,23 +406,15 @@ def save_general_settings():
                 # diagnosis, rather than inheriting a verdict from an earlier zone.
                 sched.reset_reschedule_state()
                 n_ok, n_fail = sched.reschedule_all_lists(effective_tz)
-                # WR-04: the transient paths inside reschedule_all_lists() return (0, 0)
-                # without raising, which is indistinguishable from "there was nothing to
-                # do" at this call site. Left unexamined it produced the flatly untrue
-                # "No scheduled lists needed rescheduling" while every list was still on
-                # the old zone. reschedule_is_incomplete() is the module's own signal for
-                # exactly this state; consult it rather than inferring from the counts.
-                if sched.reschedule_is_incomplete():
-                    reschedule_pending = True
-                    n_pending = List.query.filter(
-                        List.schedule_cron.isnot(None),
-                        List.is_active == True,  # noqa: E712
-                    ).count()
-            else:
-                n_pending = List.query.filter(
-                    List.schedule_cron.isnot(None),
-                    List.is_active == True,  # noqa: E712
-                ).count()
+
+            # A non-scheduler worker leaves every scheduled list for the convergence poll
+            # to pick up; the scheduler worker only has leftovers when the rebuild
+            # declined without raising (WR-04: reschedule_is_incomplete() is the module's
+            # own signal for that, since the transient paths return (0, 0) just like
+            # "nothing to do").
+            if not scheduler_worker or sched.reschedule_is_incomplete():
+                reschedule_pending = scheduler_worker
+                n_pending = List.active_scheduled_query().count()
         except Exception as e:
             # IN-02: the timezone is saved, but rescheduling did not happen. Report that
             # explicitly instead of letting n_rescheduled == 0 read as "nothing to do".

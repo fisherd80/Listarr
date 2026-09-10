@@ -29,6 +29,7 @@ from listarr.services.arr_service import validate_api_key
 from listarr.services.crypto_utils import decrypt_data
 from listarr.services.job_executor import is_list_running, submit_job
 from listarr.utils.time_utils import (
+    coerce_zone,
     get_app_timezone_fallback_name,
     get_app_timezone_name,
     resolve_db_timezone_string,
@@ -137,18 +138,15 @@ def _get_scheduler_timezone():
 
     stored = resolve_db_timezone_string()
     if stored:
-        try:
-            return zoneinfo.ZoneInfo(stored)
-        except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
-            logger.warning("Configured timezone %r could not be loaded by scheduler; falling back", stored)
+        zone = coerce_zone(stored)
+        if zone is not None:
+            return zone
+        logger.warning("Configured timezone %r could not be loaded by scheduler; falling back", stored)
 
     if scheduler is not None:
         return scheduler.timezone
 
-    try:
-        return zoneinfo.ZoneInfo(os.environ.get("TZ", "UTC"))
-    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
-        return timezone.utc
+    return coerce_zone(os.environ.get("TZ", "UTC")) or timezone.utc
 
 
 def init_scheduler(app):
@@ -283,8 +281,7 @@ def _load_schedules_from_db():
 
     with _app.app_context():
         try:
-            # Query all lists with schedules that are active
-            lists = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).all()  # noqa: E712
+            lists = List.active_scheduled_query().all()
 
             for list_obj in lists:
                 try:
@@ -329,13 +326,7 @@ def _drop_orphaned_list_jobs(scheduler):
     if not candidates:
         return
 
-    live = {
-        f"list_{row.id}"
-        for row in List.query.filter(
-            List.schedule_cron.isnot(None),
-            List.is_active == True,  # noqa: E712
-        ).all()
-    }
+    live = {f"list_{row.id}" for row in List.active_scheduled_query().all()}
 
     for job_id in candidates:
         if job_id in live:
@@ -384,7 +375,7 @@ def reschedule_all_lists(tz_str, blocking=True):
 
         with _app.app_context():
             try:
-                lists = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).all()  # noqa: E712
+                lists = List.active_scheduled_query().all()
             except OperationalError as e:
                 # CR-01: a locked or unavailable DB is transient. Leave scheduler.timezone
                 # untouched so the poll still sees a divergence, and flag the retry as
