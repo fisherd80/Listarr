@@ -855,8 +855,10 @@ function initTimezonePreview() {
   function renderPreview() {
     var zone = select && select.value ? select.value : fallbackZone;
     try {
-      // IN-05: hour12:false matches the server-rendered %H:%M:%S preview, so the
-      // value does not visibly flip format one second after load.
+      // IN-05: hour12:false matches the server-rendered "%H:%M:%S %Z" preview, so the
+      // time does not visibly flip format one second after load. IN-07: the server now
+      // renders a zone token too, so the line has its final width before the first tick
+      // (the abbreviation text may still change: tzdb "BST" vs Intl short "GMT+1").
       var fmt = new Intl.DateTimeFormat(undefined, {
         hour: '2-digit',
         minute: '2-digit',
@@ -956,7 +958,7 @@ function saveGeneralTimezone() {
   var statusEl = document.getElementById('general-status');
   if (!select || !saveBtn) return;
 
-  saveBtn.disabled = true;
+  setDisabledState(saveBtn, true);
   saveBtn.textContent = 'Saving\u2026';
 
   apiFetch('/api/settings/general', {
@@ -966,7 +968,7 @@ function saveGeneralTimezone() {
   })
     .then(function (res) { return res.json(); })
     .then(function (data) {
-      saveBtn.disabled = false;
+      setDisabledState(saveBtn, false);
       saveBtn.textContent = 'Save';
 
       if (data.success) {
@@ -982,16 +984,16 @@ function saveGeneralTimezone() {
         var pending = data.pending || 0;
 
         var msg = scheduledListPhrase(applied, {
-          zero: 'Timezone saved.',
-          one: 'Timezone saved. 1 scheduled list re-applied.',
-          many: 'Timezone saved. %d scheduled lists re-applied.',
+          zero: 'Timezone saved. No scheduled lists needed rescheduling.',
+          one: 'Timezone saved. 1 scheduled list rescheduled.',
+          many: 'Timezone saved. %d scheduled lists rescheduled.',
         });
 
         if (unbuildable > 0) {
           msg += scheduledListPhrase(unbuildable, {
             zero: '',
-            one: ' (1 list has an invalid schedule — fix its cron)',
-            many: ' (%d lists have an invalid schedule — fix their crons)',
+            one: ' (1 list could not be rescheduled — see logs)',
+            many: ' (%d lists could not be rescheduled — see logs)',
           });
         }
 
@@ -1015,7 +1017,7 @@ function saveGeneralTimezone() {
       }
     })
     .catch(function (err) {
-      saveBtn.disabled = false;
+      setDisabledState(saveBtn, false);
       saveBtn.textContent = 'Save';
       setStatus(statusEl, false, 'Request failed.');
       console.error('saveGeneralTimezone error:', err);

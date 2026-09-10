@@ -179,11 +179,12 @@ def settings_page():
     configured_tz = tz_state["configured"]
     # IN-05: 24-hour and locale-independent. %p renders empty under some locales, and
     # the JS preview that replaces this a second later is hour12:false.
-    # IN-07: no zone label. strftime("%Z") gives the tzdb abbreviation (BST), while Intl
-    # with timeZoneName:'short' gives whatever the browser locale prefers (GMT+1) — so
-    # the value visibly changed one second after load, which is the flicker IN-05 set out
-    # to remove. The zone is already named in the select right above this.
-    server_rendered_preview = datetime.now(get_app_timezone()).strftime("%H:%M:%S")
+    # IN-07: include the zone token so the element has its final width before the first
+    # JS tick (14-UI-SPEC §3 "no layout shift"). strftime("%Z") is the tzdb abbreviation
+    # (EDT / BST / JST); Intl timeZoneName:"short" may show an offset instead (GMT+1) for
+    # some zones/locales, so the abbreviation text can still change on the first tick —
+    # the width does not.
+    server_rendered_preview = datetime.now(get_app_timezone()).strftime("%H:%M:%S %Z")
     timezone_is_curated = not configured_tz or configured_tz in curated_zone_keys()
 
     return render_template(

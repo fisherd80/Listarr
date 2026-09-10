@@ -51,8 +51,8 @@
           </optgroup>
           {% endfor %}
         </select>
-        <p class="mt-1 text-xs text-text-muted">Used for the scheduler and for timestamps shown across Listarr.</p>
         <p id="tz-filter-empty" class="mt-1 text-xs text-text-muted hidden"></p>
+        <p class="mt-1 text-xs text-text-muted">Used for the scheduler and for timestamps shown across Listarr.</p>
         <div class="mt-2 flex flex-col sm:flex-row sm:items-baseline sm:gap-3">
           <p id="tz-preview" aria-live="off" data-fallback-zone="{{ tz.fallback }}" class="text-sm text-text-muted">
             Current time: <span class="text-text-base font-medium tabular-nums">{{ server_rendered_preview }}</span>
