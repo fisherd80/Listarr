@@ -664,6 +664,16 @@ def validate_cron_expression(cron_expr):
             # Move forward 1 second to get the next occurrence
             cron.tick()
 
+        # cronsim and APScheduler do not accept the same grammar. An expression cronsim
+        # parses but CronTrigger cannot build (e.g. "0 2 L * *") must be rejected here so
+        # it can never be stored on a list and reach the reconcile as an unbuildable row.
+        try:
+            CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expr))
+        except (ValueError, KeyError):
+            result["error"] = "Cron expression is valid syntax but builds no scheduler trigger"
+            result["description"] = "Invalid cron expression"
+            return result
+
         result["next_runs"] = next_runs
         result["valid"] = True
 
