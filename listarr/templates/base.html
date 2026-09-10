@@ -36,6 +36,9 @@
 {{ monitor_mode_choices | tojson | safe }}
     </script>
 
+    <!-- Must stay before utils.js; shared timestamp helpers read this global. -->
+    <script>window.APP_TZ = {{ app_timezone | tojson | safe }};</script>
+
     <!-- Shared Utilities -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <!-- Shared Toast Notification System -->

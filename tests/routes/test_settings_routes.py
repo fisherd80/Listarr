@@ -19,6 +19,7 @@ blocks). The session-scoped app fixture keeps an app context open for the
 entire session; nested contexts corrupt Flask's ContextVar stack.
 """
 
+import re
 from datetime import datetime, timezone
 from unittest.mock import patch
 
@@ -26,8 +27,12 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from listarr import db
+from listarr.models.app_config_model import AppConfig, get_app_config
+from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services.crypto_utils import encrypt_data
+from listarr.utils.time_utils import invalidate_app_timezone_memo
+from listarr.utils.timezones import CURATED_TIMEZONES, curated_zone_keys
 
 
 class TestSettingsPage:
@@ -39,14 +44,14 @@ class TestSettingsPage:
         assert response.status_code == 200
         assert b"Settings" in response.data
 
-    def test_settings_page_has_three_tabs(self, client):
-        """Settings page has 3 tab buttons: Integrations, TMDB, Account. No General tab."""
+    def test_settings_page_has_four_tabs(self, client):
+        """Settings page has 4 tab buttons: General, Integrations, TMDB, Account."""
         response = client.get("/settings")
         assert response.status_code == 200
+        assert b"General" in response.data
         assert b"Integrations" in response.data
         assert b"TMDB" in response.data
         assert b"Account" in response.data
-        assert b"General" not in response.data
 
     def test_settings_page_renders_sonarr_monitor_mode_only(self, client):
         """Sonarr Import Defaults renders Monitor Mode; Radarr remains unchanged."""
@@ -1396,6 +1401,530 @@ class TestSonarrImportSettingsMonitorMode:
         row = MediaImportSettings.query.filter_by(service="SONARR").first()
         assert row is not None
         assert row.sonarr_monitor_mode == "firstSeason"
+
+
+class TestGeneralTimezoneTab:
+    """General settings timezone tab render contract."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        invalidate_app_timezone_memo()
+        yield
+        invalidate_app_timezone_memo()
+
+    def _set_app_timezone(self, value):
+        cfg = get_app_config()
+        cfg.timezone = value
+        db.session.commit()
+        invalidate_app_timezone_memo()
+
+    def test_general_timezone_tab_renders_curated_optgroups(self, client):
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert 'data-tab="general"' in body
+        assert 'id="tab-general"' in body
+        for region in CURATED_TIMEZONES:
+            assert f'<optgroup label="{region}">' in body
+        for zone in ("Europe/London", "America/New_York", "Asia/Tokyo"):
+            assert f'value="{zone}"' in body
+
+    def test_general_timezone_system_default_option_is_first_and_selected(self, client):
+        self._set_app_timezone(None)
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert re.search(r'<option value=""\s+selected>System default \(currently [^)]+\)</option>', body)
+        assert body.index('value=""') < body.index("<optgroup")
+
+    def test_general_timezone_stored_curated_value_is_selected(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert '<option value="Europe/London" selected>Europe/London</option>' in body
+        assert not re.search(r'<option value=""\s+selected>', body)
+
+    def test_general_timezone_non_curated_stored_value_round_trips(self, client):
+        timezone_name = "America/Argentina/Ushuaia"
+        assert timezone_name not in curated_zone_keys()
+        self._set_app_timezone(timezone_name)
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        current_start = body.index('<optgroup label="Current">')
+        current_end = body.index("</optgroup>", current_start)
+        current_group = body[current_start:current_end]
+        assert f'<option value="{timezone_name}" selected>{timezone_name}</option>' in current_group
+
+    def test_general_timezone_preview_is_server_rendered(self, client):
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        preview = body[body.index('id="tz-preview"') : body.index("</p>", body.index('id="tz-preview"'))]
+        match = re.search(r'<span class="text-text-base font-medium tabular-nums">([^<]+)</span>', preview)
+        assert match
+        assert match.group(1).strip()
+
+    def test_general_timezone_preview_publishes_fallback_zone(self, client, monkeypatch):
+        """WR-03: the preview element carries the fallback zone so the 'System default'
+        selection previews the zone its label promises, not the saved zone."""
+        monkeypatch.setenv("TZ", "America/New_York")
+        self._set_app_timezone("Asia/Tokyo")
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        preview_start = body.index('id="tz-preview"')
+        preview_tag = body[preview_start : body.index(">", preview_start)]
+        assert 'data-fallback-zone="America/New_York"' in preview_tag
+
+    def test_timezone_fallback_notice_hidden_when_resolvable(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.get("/settings")
+
+        assert response.status_code == 200
+        assert b"tz-fallback-notice" not in response.data
+
+    def test_timezone_fallback_notice_shown_when_unresolvable(self, client, monkeypatch):
+        monkeypatch.delenv("TZ", raising=False)
+        self._set_app_timezone("Bogus/Zone")
+
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert 'id="tz-fallback-notice"' in body
+        assert "Bogus/Zone" in body
+        assert "using UTC instead" in body
+
+    def test_general_is_the_default_active_panel(self, client):
+        """General is both the leftmost tab and the panel open on load.
+
+        Superseded the original UI-SPEC line 130 ("initially-active panel stays
+        Integrations"), which justified itself on avoiding test churn rather than on
+        user experience. Changed at the 14-08 human-verify checkpoint on developer
+        feedback; settings.js needed no change because initSettingsTabs is generic.
+        """
+        response = client.get("/settings")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+
+        general = body[body.index('data-tab="general"') - 140 : body.index('data-tab="general"') + 80]
+        assert "border-primary" in general
+        assert "text-text-heading" in general
+
+        integrations = body[body.index('data-tab="integrations"') - 140 : body.index('data-tab="integrations"') + 80]
+        assert "border-primary" not in integrations
+        assert "border-transparent" in integrations
+
+        # The General panel is visible on load; Integrations is click-to-open.
+        assert '<div id="tab-general" class="settings-panel">' in body
+        assert '<div id="tab-integrations" class="settings-panel hidden">' in body
+
+
+class TestGeneralTimezoneSave:
+    """General settings timezone POST contract."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        invalidate_app_timezone_memo()
+        yield
+        invalidate_app_timezone_memo()
+
+    def _set_app_timezone(self, value):
+        cfg = get_app_config()
+        cfg.timezone = value
+        db.session.commit()
+        invalidate_app_timezone_memo()
+        return cfg
+
+    def _post_timezone(self, client, value):
+        return client.post(
+            "/api/settings/general",
+            json={"timezone": value},
+            content_type="application/json",
+        )
+
+    def test_general_timezone_post_persists_curated_zone(self, client):
+        response = self._post_timezone(client, "Europe/London")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert get_app_config().timezone == "Europe/London"
+
+    def test_general_timezone_post_persists_non_curated_resolvable_zone(self, client):
+        timezone_name = "America/Argentina/Ushuaia"
+        assert timezone_name not in curated_zone_keys()
+
+        response = self._post_timezone(client, timezone_name)
+
+        assert response.status_code == 200
+        assert get_app_config().timezone == timezone_name
+
+    def test_general_timezone_post_empty_string_persists_null(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = self._post_timezone(client, "")
+
+        assert response.status_code == 200
+        assert get_app_config().timezone is None
+
+    def test_general_timezone_post_missing_key_rejected_without_write(self, client):
+        """WR-02: a body without a timezone key must not wipe the configured zone."""
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json={}, content_type="application/json")
+
+        assert response.status_code == 400
+        assert response.get_json()["success"] is False
+        assert get_app_config().timezone == "Europe/London"
+
+    def test_general_timezone_explicit_empty_string_clears_to_system_default(self, client):
+        """WR-02: clearing still works, but only when explicitly requested."""
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json={"timezone": ""}, content_type="application/json")
+
+        assert response.status_code == 200
+        assert get_app_config().timezone is None
+
+    def test_general_timezone_explicit_null_clears_to_system_default(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json={"timezone": None}, content_type="application/json")
+
+        assert response.status_code == 200
+        assert get_app_config().timezone is None
+
+    def test_timezone_invalid_rejected_returns_400_and_no_write(self, client):
+        self._set_app_timezone("Europe/London")
+
+        response = self._post_timezone(client, "Not/AZone")
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert data["message"] == "Unknown or invalid timezone. Nothing was saved."
+        assert get_app_config().timezone == "Europe/London"
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "Etc/UTC\x00",
+            "../../etc/passwd",
+            "/etc/localtime",
+            "</script><script>alert(1)</script>",
+        ],
+    )
+    def test_timezone_invalid_rejected_for_hostile_values(self, client, value):
+        self._set_app_timezone("Europe/London")
+
+        response = self._post_timezone(client, value)
+
+        assert response.status_code == 400
+        assert response.get_json()["message"] == "Unknown or invalid timezone. Nothing was saved."
+        assert get_app_config().timezone == "Europe/London"
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"timezone": 123},
+            {"timezone": 12.5},
+            {"timezone": True},
+            {"timezone": {}},
+            {"timezone": []},
+            {"timezone": {"a": 1}},
+        ],
+    )
+    def test_timezone_invalid_rejected_for_non_string_payload(self, client, payload):
+        self._set_app_timezone("Europe/London")
+
+        response = client.post("/api/settings/general", json=payload, content_type="application/json")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["message"] == "Unknown or invalid timezone. Nothing was saved."
+        assert get_app_config().timezone == "Europe/London"
+        assert "AttributeError" not in body
+        assert "strip" not in body
+        assert "Traceback" not in body
+
+    def test_general_timezone_post_requires_authentication(self, auth_client, test_user, app_with_auth):
+        response = auth_client.post("/api/settings/general", json={"timezone": "Europe/London"})
+
+        assert response.status_code in (301, 302, 401, 403)
+        if response.status_code in (301, 302):
+            assert "/login" in response.location
+        with app_with_auth.app_context():
+            assert db.session.get(AppConfig, 1) is None
+
+    def test_general_timezone_post_without_csrf_token_rejected(self, client_with_csrf, app_with_csrf):
+        with app_with_csrf.app_context():
+            cfg = get_app_config()
+            cfg.timezone = "Europe/London"
+            db.session.commit()
+
+        response = client_with_csrf.post(
+            "/api/settings/general",
+            json={"timezone": "Asia/Tokyo"},
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        with app_with_csrf.app_context():
+            assert get_app_config().timezone == "Europe/London"
+
+    def test_timezone_toast_payload_scheduler_worker_all_ok(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult(applied=3))
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is True
+        assert data["applied"] == 3
+        assert data["unbuildable"] == 0
+        assert data["deferred"] is False
+        assert data["pending"] == 0
+
+    def test_whitespace_only_timezone_is_rejected_not_treated_as_clearing(self, client, monkeypatch):
+        """IN-06: clearing the setting is meant to require an explicit empty string, but
+        "   " stripped to "" and quietly reset the zone to System default."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+        self._post_timezone(client, "Asia/Tokyo")
+
+        response = self._post_timezone(client, "   ")
+
+        assert response.status_code == 400
+        assert response.get_json()["success"] is False
+        assert get_app_config().timezone == "Asia/Tokyo", "whitespace silently cleared the setting"
+
+    def test_timezone_save_returns_the_new_effective_state(self, client, monkeypatch):
+        """WR-04: the page was rendered against the previous zone. The client needs the new
+        effective zone for window.APP_TZ, and the unresolvable flag to decide whether the
+        fallback banner it is still displaying is now false."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+
+        data = self._post_timezone(client, "Asia/Tokyo").get_json()
+        assert data["effective_tz"] == "Asia/Tokyo"
+        assert data["unresolvable"] is False
+
+        # Clearing to System default resolves to the environment fallback, not to "".
+        data = self._post_timezone(client, "").get_json()
+        assert data["effective_tz"]
+        assert data["unresolvable"] is False
+
+    def test_timezone_toast_payload_scheduler_worker_unbuildable(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(
+            sched,
+            "reconcile_scheduler_jobs",
+            lambda tz: sched.ReconcileResult(applied=2, unbuildable={7: "0 2 L * *"}),
+        )
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is True
+        assert data["applied"] == 2
+        assert data["unbuildable"] == 1
+        assert data["deferred"] is False
+
+    def test_timezone_toast_payload_scheduler_worker_zero_lists(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult())
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["success"] is True
+        assert data["scheduler_worker"] is True
+        assert data["applied"] == 0
+        assert data["unbuildable"] == 0
+        assert data["deferred"] is False
+
+    def test_timezone_deferred_reconcile_reports_pending_not_nothing_to_do(self, client, monkeypatch):
+        """A transient decline returns deferred=True with the backlog count, so the client
+        can render "will re-apply within ~60s" instead of "nothing needed rescheduling"."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(
+            sched,
+            "reconcile_scheduler_jobs",
+            lambda tz: sched.ReconcileResult(deferred=True, pending=2),
+        )
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["success"] is True
+        assert data["deferred"] is True
+        assert data["pending"] == 2
+        assert data["applied"] == 0
+
+    def test_timezone_clean_reconcile_is_not_marked_deferred(self, client, monkeypatch):
+        """The other half: a genuine "nothing to do" stays unflagged."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult())
+
+        data = self._post_timezone(client, "Europe/London").get_json()
+
+        assert data["deferred"] is False
+        assert data["pending"] == 0
+
+    def test_timezone_toast_non_scheduler_counts_from_db(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+        db.session.add_all(
+            [
+                List(
+                    name="A",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron="0 1 * * *",
+                    is_active=True,
+                ),
+                List(
+                    name="B",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron="0 2 * * *",
+                    is_active=True,
+                ),
+                List(
+                    name="C",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron="0 3 * * *",
+                    is_active=False,
+                ),
+                List(
+                    name="D",
+                    target_service="RADARR",
+                    tmdb_list_type="popular_movies",
+                    filters_json={},
+                    schedule_cron=None,
+                    is_active=True,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is False
+        # A non-scheduler worker applied nothing; the backlog is the pending count and a
+        # scheduler worker will pick it up on its next poll (deferred).
+        assert data["applied"] == 0
+        assert data["deferred"] is True
+        assert data["pending"] == 2
+        assert data["unbuildable"] == 0
+        assert get_app_config().timezone == "Europe/London"
+
+    def test_validate_timezone_delegates_to_coerce_zone(self, monkeypatch):
+        """IN-01: the route must not carry a second copy of the ZoneInfo validation."""
+        from listarr.routes import settings_routes
+
+        seen = []
+
+        def fake_coerce(value):
+            seen.append(value)
+            return None
+
+        monkeypatch.setattr(settings_routes, "coerce_zone", fake_coerce)
+
+        stored, error = settings_routes._validate_timezone("Europe/London")
+
+        assert seen == ["Europe/London"]
+        assert stored is None
+        assert error == "Unknown or invalid timezone. Nothing was saved."
+
+    def test_validate_timezone_tolerates_none_without_raising(self):
+        """IN-01: ZoneInfo(None) used to raise TypeError out of this helper."""
+        from listarr.routes import settings_routes
+
+        stored, error = settings_routes._validate_timezone(None)
+
+        assert stored is None
+        assert error == "Unknown or invalid timezone. Nothing was saved."
+
+    def test_scheduler_worker_flag_comes_from_the_public_predicate(self, client, monkeypatch):
+        """WR-06: the route must consult is_scheduler_worker(), not scheduler._scheduler."""
+        from listarr.services import scheduler as sched
+
+        monkeypatch.setattr(sched, "_scheduler", None)
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", lambda tz: sched.ReconcileResult(applied=1))
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["scheduler_worker"] is True
+        assert data["applied"] == 1
+
+    def test_general_timezone_persists_even_when_reconcile_raises(self, client, monkeypatch):
+        from listarr.services import scheduler as sched
+
+        def boom(tz):
+            raise RuntimeError("scheduler unavailable")
+
+        monkeypatch.setattr(sched, "_scheduler", object())
+        monkeypatch.setattr(sched, "is_scheduler_worker", lambda: True)
+        monkeypatch.setattr(sched, "reconcile_scheduler_jobs", boom)
+
+        response = self._post_timezone(client, "Europe/London")
+        data = response.get_json()
+
+        assert response.status_code == 200
+        assert data["success"] is True
+        assert data["scheduler_worker"] is True
+        assert data["applied"] == 0
+        # An unexpected exception folds into deferred: saved, a worker finishes it later.
+        assert data["deferred"] is True
+        assert get_app_config().timezone == "Europe/London"
 
 
 class TestHelperFunctions:

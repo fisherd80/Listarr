@@ -31,6 +31,7 @@ Phase 7 baseline (captured 2026-04-21):
   * listarr/routes/activity_routes.py: 94%
 """
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -69,6 +70,13 @@ def _make_job(list_obj, status="completed", items_added=0, items_skipped=0):
     )
     db.session.add(job)
     return job
+
+
+def _assert_utc_offset_iso(value):
+    assert value is not None
+    assert re.search(r"(?:\+00:00|Z)$", value)
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    assert parsed.tzinfo is not None
 
 
 class TestActivityPage:
@@ -209,6 +217,21 @@ class TestGetActivity:
         assert len(data["jobs"]) == 25
         assert data["current_page"] == 1
 
+    def test_activity_list_started_at_iso_utc_offset(self, client, app):
+        """Activity list timestamps keep explicit UTC offsets for browser re-zoning."""
+        test_list = _make_list()
+        _make_job(test_list, status="completed")
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        job = data["jobs"][0]
+        _assert_utc_offset_iso(job["started_at"])
+        _assert_utc_offset_iso(job["completed_at"])
+
 
 class TestGetActivityListDeleted:
     """Tests for list_deleted field in GET /api/activity response."""
@@ -288,6 +311,39 @@ class TestGetActivityDetail:
         """Returns 404 when job does not exist."""
         response = client.get("/api/activity/99999")
         assert response.status_code == 404
+
+    def test_activity_detail_started_at_iso_utc_offset(self, client, app):
+        """Activity detail timestamps keep explicit UTC offsets for browser re-zoning."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="completed")
+        db.session.commit()
+        job_id = job.id
+
+        response = client.get(f"/api/activity/{job_id}")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        _assert_utc_offset_iso(data["started_at"])
+        _assert_utc_offset_iso(data["completed_at"])
+
+    def test_started_at_iso_utc_survives_naive_db_value(self, app):
+        """TZDateTime read-back keeps naive writes ISO-serializable with UTC offset."""
+        test_list = _make_list()
+        job = Job(
+            list_id=test_list.id,
+            list_name=test_list.name,
+            status="completed",
+            started_at=datetime(2026, 1, 15, 10, 30, 0),
+            completed_at=datetime(2026, 1, 15, 10, 35, 0),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        reread = db.session.get(Job, job.id)
+
+        payload = reread.to_dict()
+        _assert_utc_offset_iso(payload["started_at"])
+        _assert_utc_offset_iso(payload["completed_at"])
 
 
 class TestRerunActivity:

@@ -7,17 +7,21 @@ import atexit
 import logging
 import os
 import re
+import threading
 import zoneinfo
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.util import astimezone
 from cron_descriptor import get_description
 from cronsim import CronSim
 from cronsim.cronsim import CronSimError
 from cryptography.fernet import InvalidToken
 from requests.exceptions import RequestException
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from listarr import db
 from listarr.models.lists_model import List
@@ -25,12 +29,46 @@ from listarr.models.service_config_model import ServiceConfig
 from listarr.services.arr_service import validate_api_key
 from listarr.services.crypto_utils import decrypt_data
 from listarr.services.job_executor import is_list_running, submit_job
+from listarr.utils.time_utils import (
+    coerce_zone,
+    get_app_timezone_fallback_name,
+    get_app_timezone_name,
+    resolve_db_timezone_string,
+)
 
 logger = logging.getLogger(__name__)
 
 # Module-level scheduler instance (singleton pattern like job_executor)
 _scheduler = None
 _app = None
+_reschedule_lock = threading.Lock()
+_tz_poll_last_bad_value = None
+
+# The timezone reschedule is one idempotent desired-vs-live diff (reconcile_scheduler_jobs),
+# so there is no half-finished rebuild to describe and none of the old quarantine /
+# incomplete-flag / reminder-countdown state. Two plain values are enough:
+#
+#   _unbuildable_crons  - {list_id: cron} from the last reconcile pass, overwritten
+#                         wholesale each time. Defensive logging only: validate_cron_expression
+#                         rejects an unbuildable cron at list-save time, so a stored row that
+#                         builds no trigger is a near-impossibility.
+#   _last_reconciled_tz - the tz_name of the last non-deferred full pass. The poll retries
+#                         whenever the resolved zone name differs from this; a deferred
+#                         (transient DB/lock) pass leaves it unchanged so the next tick retries.
+_unbuildable_crons: dict[int, str] = {}
+_last_reconciled_tz: str | None = None
+
+
+@dataclass(frozen=True)
+class ReconcileResult:
+    """Outcome of one reconcile_scheduler_jobs() pass."""
+
+    applied: int = 0
+    removed: int = 0
+    unbuildable: dict = field(default_factory=dict)
+    deferred: bool = False
+    pending: int = 0
+
 
 # POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
 # Converting to name strings avoids the ambiguity entirely.
@@ -60,13 +98,25 @@ def _posix_cron_to_apscheduler(cron_expr):
 def _get_scheduler_timezone():
     """Return the configured scheduler timezone.
 
-    Uses the live scheduler timezone when available. In non-scheduler workers,
-    falls back to the TZ environment variable, matching init_scheduler().
+    Resolution order is AppConfig.timezone, live scheduler timezone, TZ env var,
+    then UTC. This function never raises and always returns a tzinfo object.
     """
-    if _scheduler is not None:
-        return _scheduler.timezone
-    tz_str = os.environ.get("TZ", "UTC")
-    return zoneinfo.ZoneInfo(tz_str)
+    # WR-05: bind once. shutdown_scheduler() nulls the global from the atexit handler on
+    # another thread, so re-reading it between the check and the dereference would raise
+    # AttributeError out of a function documented as never raising.
+    scheduler = _scheduler
+
+    stored = resolve_db_timezone_string()
+    if stored:
+        zone = coerce_zone(stored)
+        if zone is not None:
+            return zone
+        logger.warning("Configured timezone %r could not be loaded by scheduler; falling back", stored)
+
+    if scheduler is not None:
+        return scheduler.timezone
+
+    return coerce_zone(os.environ.get("TZ", "UTC")) or timezone.utc
 
 
 def init_scheduler(app):
@@ -95,8 +145,8 @@ def init_scheduler(app):
     # Use _get_current_object() if app is a proxy, otherwise use app directly
     _app = app._get_current_object() if hasattr(app, "_get_current_object") else app
 
-    # Get timezone from environment or default to UTC
-    tz = os.environ.get("TZ", "UTC")
+    # Get timezone from the application resolver.
+    tz = get_app_timezone_name()
 
     # Create scheduler with configuration
     _scheduler = BackgroundScheduler(
@@ -114,18 +164,39 @@ def init_scheduler(app):
     # Load existing schedules from database
     _load_schedules_from_db()
 
+    # Backstop that converges the live scheduler onto the AppConfig timezone and
+    # retries a deferred reconcile. Settings saves trigger reconcile_scheduler_jobs
+    # directly, so a slow interval is enough here - timezone changes are rare admin
+    # actions and every tick logs at INFO.
+    _scheduler.add_job(
+        _tz_poll_tick,
+        trigger="interval",
+        seconds=300,
+        id="_tz_poll",
+        max_instances=1,
+        coalesce=True,
+    )
+
     # Start the scheduler
     _scheduler.start()
     logger.info(f"Scheduler initialized (timezone: {tz})")
 
 
+def is_scheduler_worker() -> bool:
+    """True when this process owns the APScheduler instance."""
+    return _scheduler is not None
+
+
 def shutdown_scheduler():
     """Gracefully shutdown the scheduler."""
     global _scheduler
-    if _scheduler is not None:
-        _scheduler.shutdown(wait=False)
-        _scheduler = None
-        logger.info("Scheduler shutdown")
+    # WR-07: serialize with the reschedule/poll consumers so an in-flight rebuild
+    # never dereferences a scheduler that was nulled mid-flight.
+    with _reschedule_lock:
+        if _scheduler is not None:
+            _scheduler.shutdown(wait=False)
+            _scheduler = None
+            logger.info("Scheduler shutdown")
 
 
 def _load_schedules_from_db():
@@ -136,8 +207,7 @@ def _load_schedules_from_db():
 
     with _app.app_context():
         try:
-            # Query all lists with schedules that are active
-            lists = List.query.filter(List.schedule_cron.isnot(None), List.is_active == True).all()  # noqa: E712
+            lists = List.active_scheduled_query().all()
 
             for list_obj in lists:
                 try:
@@ -151,6 +221,154 @@ def _load_schedules_from_db():
             logger.error(f"Failed to load schedules from database: {e}")
 
 
+def reconcile_scheduler_jobs(tz_name, *, blocking=True) -> ReconcileResult:
+    """Reconcile the live jobstore to the desired {job_id: trigger} set for ``tz_name``.
+
+    One idempotent pass: compute the desired triggers from the active-scheduled lists,
+    build every trigger up front, then apply the diff against the live jobs — add/replace
+    what is present, remove what is absent. Running it twice with no DB change makes zero
+    effective jobstore changes.
+
+    Forward-only by construction: add_job is called without next_run_time, so the next
+    fire is computed from now and misfire_grace_time is never consulted. The "remove
+    absent" arm is the entire orphan-sweep responsibility.
+
+    Returns a ReconcileResult. ``deferred=True`` means a transient decline (no scheduler
+    in this process, lock contention, or a locked DB): nothing was applied and the caller
+    or the poll should retry. ``_last_reconciled_tz`` only advances on a non-deferred pass.
+    """
+    global _last_reconciled_tz, _unbuildable_crons
+
+    # WR-05: bind once. A concurrent shutdown_scheduler() nulls the global.
+    scheduler = _scheduler
+    if scheduler is None or _app is None:
+        pending = 0
+        if _app is not None:
+            with _app.app_context():
+                try:
+                    pending = List.active_scheduled_query().count()
+                except OperationalError:
+                    pending = 0
+        logger.debug("Scheduler not running in this worker; nothing to reconcile in-process")
+        return ReconcileResult(deferred=False, pending=pending)
+
+    acquired = _reschedule_lock.acquire(blocking=blocking)
+    if not acquired:
+        # A concurrent reconcile owns the outcome; the poll will see _last_reconciled_tz
+        # unchanged and retry.
+        logger.debug("Reconcile already in progress; deferring this attempt")
+        return ReconcileResult(deferred=True)
+
+    try:
+        target = coerce_zone(tz_name)
+        if target is None:
+            # An unresolvable name is not retryable; the caller already fell back.
+            logger.error("Cannot reconcile scheduler jobs: timezone %r does not resolve", tz_name)
+            return ReconcileResult(deferred=False)
+
+        with _app.app_context():
+            try:
+                rows = List.active_scheduled_query().all()
+            except OperationalError as e:
+                # A locked or unavailable DB is transient: defer, advance no state, let
+                # the poll retry. No finite allowance to consume.
+                logger.error(f"Failed to load schedules for scheduler reconcile: {e}")
+                return ReconcileResult(deferred=True)
+
+            # Build every trigger before any jobstore mutation, so construction can never
+            # half-apply the diff.
+            desired: dict[str, CronTrigger] = {}
+            unbuildable: dict[int, str] = {}
+            for row in rows:
+                job_id = f"list_{row.id}"
+                try:
+                    desired[job_id] = CronTrigger.from_crontab(
+                        _posix_cron_to_apscheduler(row.schedule_cron), timezone=target
+                    )
+                except (ValueError, KeyError):
+                    unbuildable[row.id] = row.schedule_cron
+
+            live_ids = {job.id for job in scheduler.get_jobs() if job.id.startswith("list_")}
+            applied = 0
+            removed = 0
+            for job_id, trigger in desired.items():
+                scheduler.add_job(
+                    _run_scheduled_import,
+                    trigger=trigger,
+                    id=job_id,
+                    args=[int(job_id[5:])],
+                    name=f"List {job_id[5:]} import",
+                    replace_existing=True,
+                )
+                applied += 1
+            for job_id in live_ids - desired.keys():
+                try:
+                    scheduler.remove_job(job_id)
+                    removed += 1
+                except JobLookupError:
+                    pass
+
+            # Single assignment, after the apply loop: kept so get_next_run_time's
+            # non-worker fallback and future schedule_list() calls default correctly. No
+            # convergence logic reads it any more.
+            scheduler.timezone = target
+            _last_reconciled_tz = tz_name
+            if unbuildable and set(unbuildable) != set(_unbuildable_crons):
+                logger.warning(
+                    "%d scheduled list(s) have a cron that builds no trigger and are not scheduled: %s",
+                    len(unbuildable),
+                    ", ".join(f"list {lid} ({cron!r})" for lid, cron in sorted(unbuildable.items())),
+                )
+            _unbuildable_crons = unbuildable
+
+        logger.info(
+            "Reconciled scheduler jobs into %s: %d applied, %d removed, %d unbuildable",
+            tz_name,
+            applied,
+            removed,
+            len(unbuildable),
+        )
+        return ReconcileResult(applied=applied, removed=removed, unbuildable=unbuildable, deferred=False, pending=0)
+    finally:
+        _reschedule_lock.release()
+
+
+def _tz_poll_tick():
+    """Converge the live scheduler onto the effective resolved app timezone."""
+    global _tz_poll_last_bad_value
+
+    scheduler = _scheduler
+    if scheduler is None or _app is None:
+        return
+
+    with _app.app_context():
+        try:
+            stored = resolve_db_timezone_string(use_cache=False)
+            if stored:
+                try:
+                    astimezone(stored)
+                    desired = stored
+                    _tz_poll_last_bad_value = None
+                except (ValueError, TypeError, zoneinfo.ZoneInfoNotFoundError):
+                    desired = get_app_timezone_fallback_name()
+                    if _tz_poll_last_bad_value != stored:
+                        logger.warning("Configured timezone %r could not be loaded; using %s", stored, desired)
+                        _tz_poll_last_bad_value = stored
+            else:
+                desired = get_app_timezone_fallback_name()
+                _tz_poll_last_bad_value = None
+
+            if desired == (_last_reconciled_tz or ""):
+                # The last non-deferred reconcile already targeted this zone. A deferred
+                # (transient DB/lock) pass leaves _last_reconciled_tz unchanged, so this
+                # tick retries.
+                return
+
+            reconcile_scheduler_jobs(desired, blocking=False)
+        except (OperationalError, SQLAlchemyError) as e:
+            logger.error(f"Timezone poll failed: {e}", exc_info=True)
+
+
 def schedule_list(list_id, cron_expression):
     """
     Schedule a list for automatic import execution.
@@ -162,7 +380,10 @@ def schedule_list(list_id, cron_expression):
     Raises:
         ValueError: If cron expression is invalid
     """
-    if _scheduler is None:
+    # WR-05: bind once so a concurrent shutdown_scheduler() cannot null the global
+    # between the guard below and any dereference that follows it.
+    scheduler = _scheduler
+    if scheduler is None:
         logger.debug("Scheduler not running in this worker — schedule saved to DB, skipping in-process update")
         return
 
@@ -174,19 +395,26 @@ def schedule_list(list_id, cron_expression):
     # Create job ID
     job_id = f"list_{list_id}"
 
-    # Remove existing job if present (for updates)
-    if _scheduler.get_job(job_id):
-        _scheduler.remove_job(job_id)
-
-    # Add job with cron trigger
+    # CR-02: build the trigger before touching the existing job. If construction
+    # fails (cronsim and APScheduler do not accept the same grammar), the list
+    # keeps its current schedule instead of being silently unscheduled forever.
     try:
-        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=_scheduler.timezone)
-        _scheduler.add_job(
+        trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expression), timezone=scheduler.timezone)
+    except (ValueError, KeyError) as e:
+        logger.error(f"Failed to build trigger for list {list_id}: {e}")
+        raise
+
+    # WR-07: replace_existing makes the swap a single jobstore operation. The previous
+    # remove-then-add left the list with no job at all if add_job raised, discarding the
+    # old schedule the CR-02 comment above promises to keep.
+    try:
+        scheduler.add_job(
             _run_scheduled_import,
             trigger=trigger,
             id=job_id,
             args=[list_id],
             name=f"List {list_id} import",
+            replace_existing=True,
         )
         logger.info(f"Scheduled list {list_id} with cron: {cron_expression}")
     except (ValueError, KeyError) as e:
@@ -201,13 +429,15 @@ def unschedule_list(list_id):
     Args:
         list_id: ID of the list to unschedule
     """
-    if _scheduler is None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is None:
         logger.warning("Scheduler not initialized, cannot unschedule")
         return
 
     job_id = f"list_{list_id}"
-    if _scheduler.get_job(job_id):
-        _scheduler.remove_job(job_id)
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
         logger.info(f"Unscheduled list {list_id}")
 
 
@@ -278,7 +508,9 @@ def _run_scheduled_import(list_id):
 
 def pause_scheduler():
     """Pause all scheduled job execution (global pause toggle)."""
-    if _scheduler is None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is None:
         logger.warning("Scheduler not initialized, cannot pause")
         return
 
@@ -295,7 +527,7 @@ def pause_scheduler():
                 db.session.commit()
 
             # Pause scheduler
-            _scheduler.pause()
+            scheduler.pause()
             logger.info("Scheduler paused")
         except (OperationalError, RuntimeError) as e:
             logger.error(f"Failed to pause scheduler: {e}")
@@ -304,7 +536,9 @@ def pause_scheduler():
 
 def resume_scheduler():
     """Resume all scheduled job execution."""
-    if _scheduler is None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is None:
         logger.warning("Scheduler not initialized, cannot resume")
         return
 
@@ -321,7 +555,7 @@ def resume_scheduler():
                 db.session.commit()
 
             # Resume scheduler
-            _scheduler.resume()
+            scheduler.resume()
             logger.info("Scheduler resumed")
         except (OperationalError, RuntimeError) as e:
             logger.error(f"Failed to resume scheduler: {e}")
@@ -360,10 +594,12 @@ def get_next_run_time(list_id):
     Returns:
         datetime: Next run time (timezone-aware) or None if not scheduled
     """
-    if _scheduler is not None:
+    # WR-05: bind once (see schedule_list).
+    scheduler = _scheduler
+    if scheduler is not None:
         # Scheduler worker: get next run time from APScheduler (preferred path)
         job_id = f"list_{list_id}"
-        job = _scheduler.get_job(job_id)
+        job = scheduler.get_job(job_id)
         if job:
             return job.next_run_time
         return None
@@ -429,11 +665,24 @@ def validate_cron_expression(cron_expr):
             # Move forward 1 second to get the next occurrence
             cron.tick()
 
+        # cronsim and APScheduler do not accept the same grammar. An expression cronsim
+        # parses but CronTrigger cannot build (e.g. "0 2 L * *") must be rejected here so
+        # it can never be stored on a list and reach the reconcile as an unbuildable row.
+        try:
+            CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expr))
+        except (ValueError, KeyError):
+            result["error"] = "Cron expression is valid syntax but builds no scheduler trigger"
+            result["description"] = "Invalid cron expression"
+            return result
+
         result["next_runs"] = next_runs
         result["valid"] = True
 
-    except (ValueError, KeyError, CronSimError) as e:
-        result["error"] = str(e)
+    except (ValueError, KeyError, CronSimError, StopIteration) as e:
+        # CronSim.advance() raises StopIteration for an expression that parses but matches
+        # nothing within 50 years. get_next_run_time() has always caught it; catch it here
+        # too so the validation endpoint returns "invalid cron" instead of a 500.
+        result["error"] = str(e) or "Cron expression has no run times within the next 50 years"
         result["description"] = "Invalid cron expression"
 
     return result

@@ -63,6 +63,14 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/**
+ * Escape a value for interpolation into a double-quoted HTML attribute.
+ * escapeHtml() alone leaves quotes intact, which is not safe in attribute position.
+ */
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function getCsrfToken() {
   const metaTag = document.querySelector('meta[name="csrf-token"]');
   return metaTag ? metaTag.content : "";
@@ -72,8 +80,11 @@ function getCsrfToken() {
 
 /**
  * Format timestamp with multiple display modes.
+ *
+ * Absolute output is rendered in the application timezone (window.APP_TZ).
+ *
  * @param {string} isoString - ISO 8601 timestamp
- * @param {string} mode - 'relative' | 'absolute' | 'utc' (default: 'relative')
+ * @param {string} mode - 'relative' | 'absolute' (default: 'relative')
  * @returns {string} Formatted date string
  */
 function formatTimestamp(isoString, mode = "relative") {
@@ -83,21 +94,20 @@ function formatTimestamp(isoString, mode = "relative") {
     const date = new Date(isoString);
     const now = new Date();
     const diffMs = now - date;
+    const tz = window.APP_TZ || undefined;
 
     switch (mode) {
-      case "utc":
-        // "2024-01-15 12:30 UTC" - used by generateStatusHTML
-        return date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
-
       case "absolute":
-        // "Jan 15, 2024, 12:30 PM" - used by jobs table
-        return date.toLocaleString(undefined, {
+        // "Jan 15, 2024, 12:30 PM EST" - app timezone
+        return new Intl.DateTimeFormat(undefined, {
           year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
-        });
+          timeZone: tz,
+          timeZoneName: "short",
+        }).format(date);
 
       case "relative":
       default:
@@ -120,16 +130,60 @@ function formatRelativeTimeInternal(diffMs, date) {
     if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
     if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: window.APP_TZ || undefined });
   } else {
     if (diffSeconds < 60) return "In less than a minute";
     if (diffMinutes < 60) return `In ${diffMinutes} minute${diffMinutes > 1 ? "s" : ""}`;
     if (diffHours < 24) return `In ${diffHours} hour${diffHours > 1 ? "s" : ""}`;
     if (diffDays === 1) {
-      return `Tomorrow at ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+      return `Tomorrow at ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZone: window.APP_TZ || undefined })}`;
     }
-    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: window.APP_TZ || undefined });
   }
+}
+
+function appTzTooltip(isoString) {
+  if (!isoString) return "";
+
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: window.APP_TZ || undefined,
+      timeZoneName: "longOffset",
+    }).format(date);
+  } catch (e) {
+    return "";
+  }
+}
+
+/**
+ * Attach app-timezone tooltips to every [data-timestamp] element under `root`.
+ *
+ * `root` scopes the sweep to markup injected after DOMContentLoaded — jobs.js calls it
+ * with the jobs tbody after replacing its rows (IN-03). Nodes built via createElement
+ * rather than innerHTML should set `title = appTzTooltip(iso)` directly instead.
+ *
+ * @param {ParentNode} [root=document] - Subtree to sweep.
+ */
+function applyAppTzTooltips(root) {
+  if (!root) root = document;
+
+  root.querySelectorAll("[data-timestamp]").forEach(function (el) {
+    if (!el.dataset.timestamp) return;
+
+    const tooltip = appTzTooltip(el.dataset.timestamp);
+    if (tooltip) {
+      el.title = tooltip;
+    }
+  });
 }
 
 function generateStatusHTML(success, timestamp) {
@@ -137,12 +191,18 @@ function generateStatusHTML(success, timestamp) {
   const statusClass = success
     ? "text-success"
     : "text-error";
-  const formattedTime = formatTimestamp(timestamp, "utc");
+  const formattedTime = formatTimestamp(timestamp, "absolute");
+
+  // WR-04: applyAppTzTooltips() only runs on DOMContentLoaded, so markup injected
+  // later must carry its own app-timezone tooltip rather than wait to be swept.
+  const tooltip = appTzTooltip(timestamp);
+  const titleAttr = tooltip ? ` title="${escapeAttr(tooltip)}"` : "";
+  const tsAttr = escapeAttr(timestamp || "");
 
   return `
     <span class="inline-flex items-center gap-1">
       <span class="${statusClass}">${statusIcon}</span>
-      Last tested: <span data-timestamp="${timestamp}">${formattedTime}</span>
+      Last tested: <span data-timestamp="${tsAttr}"${titleAttr}>${formattedTime}</span>
     </span>
   `;
 }
@@ -321,3 +381,7 @@ function applyMonitorGating(cfg) {
     setHelpText(cfg.searchHelpEl, searchHelp);
   }
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  applyAppTzTooltips();
+});

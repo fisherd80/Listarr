@@ -726,16 +726,322 @@ function initImportSettingsButtons() {
 // Initialise on DOM ready
 // ---------------------------------------------------------------------------
 
+
+// ---------------------------------------------------------------------------
+// General tab: timezone filter, live preview, save (Phase 14)
+// ---------------------------------------------------------------------------
+
+function initTimezoneFilter() {
+  var filter = document.getElementById('tz-filter');
+  var select = document.getElementById('app-timezone');
+  var emptyEl = document.getElementById('tz-filter-empty');
+  if (!filter || !select) return;
+
+  // IN-05: several native <select> implementations ignore the `hidden` attribute on
+  // <option>/<optgroup>. Toggling a display:none class is the portable form; the
+  // property is set too for the engines that do honour it.
+  function setHidden(el, hidden) {
+    el.classList.toggle('hidden', hidden);
+    el.hidden = hidden;
+  }
+
+  // WR-06: "matches the query" and "is visible" are no longer the same set, because the
+  // System default entry and the current selection stay visible regardless. The Enter
+  // shortcut must key off matches, or a lone hit would stop being a lone hit.
+  var matches = null;
+
+  function resetAll() {
+    var i;
+    var options = select.options;
+    matches = null;
+    for (i = 0; i < options.length; i++) setHidden(options[i], false);
+    var groups = select.getElementsByTagName('optgroup');
+    for (i = 0; i < groups.length; i++) setHidden(groups[i], false);
+    if (emptyEl) {
+      emptyEl.textContent = '';
+      emptyEl.classList.add('hidden');
+    }
+  }
+
+  function applyFilter() {
+    var typed = filter.value.trim();
+    if (!typed) {
+      resetAll();
+      return;
+    }
+
+    var query = typed.toLowerCase();
+    var options = select.options;
+    var groups = select.getElementsByTagName('optgroup');
+    var i;
+    var j;
+
+    matches = [];
+
+    for (i = 0; i < options.length; i++) {
+      var hit = options[i].textContent.toLowerCase().indexOf(query) !== -1;
+      if (hit && options[i].value !== '') matches.push(options[i]);
+      // The "System default" entry has no value and always stays selectable.
+      // WR-06: so does the current selection. Chrome and Safari render a <select>
+      // whose selected <option> is hidden as an empty control, so filtering while a
+      // zone is saved blanked the field and implied the setting had been lost.
+      if (options[i].value === '' || options[i].selected) {
+        setHidden(options[i], false);
+        continue;
+      }
+      setHidden(options[i], !hit);
+    }
+
+    for (i = 0; i < groups.length; i++) {
+      var kids = groups[i].getElementsByTagName('option');
+      var anyMatch = false;
+      for (j = 0; j < kids.length; j++) {
+        // IN-05: ask whether the child *matched*, not whether it is visible. The WR-06
+        // fix forces the selected option visible whether it matches or not, so reading
+        // the hidden class kept the saved zone's region header on screen for a query
+        // that matched nothing in it - one unrelated entry under a heading that implied
+        // it was a result.
+        if (matches.indexOf(kids[j]) !== -1) {
+          anyMatch = true;
+          break;
+        }
+      }
+      setHidden(groups[i], !anyMatch);
+    }
+
+    if (emptyEl) {
+      if (matches.length === 0) {
+        // textContent, never innerHTML - the query is user input (T-14-02).
+        emptyEl.textContent = 'No zones match "' + typed + '".';
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.textContent = '';
+        emptyEl.classList.add('hidden');
+      }
+    }
+  }
+
+  filter.addEventListener('input', applyFilter);
+
+  filter.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      // Never submit anything from the filter.
+      e.preventDefault();
+      if (matches && matches.length === 1) {
+        select.value = matches[0].value;
+        select.dispatchEvent(new Event('change'));
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      filter.value = '';
+      resetAll();
+      filter.focus();
+    }
+  });
+}
+
+function initTimezonePreview() {
+  var previewEl = document.getElementById('tz-preview');
+  var select = document.getElementById('app-timezone');
+  if (!previewEl) return;
+
+  var valueSpan = previewEl.querySelector('span');
+  var spanClass = valueSpan ? valueSpan.className : 'text-text-base font-medium tabular-nums';
+
+  // WR-03: "System default" (value === '') must preview the fallback zone the label
+  // promises, not window.APP_TZ (which is the currently *saved* zone).
+  var fallbackZone = previewEl.dataset.fallbackZone || window.APP_TZ;
+
+  function renderPreview() {
+    var zone = select && select.value ? select.value : fallbackZone;
+    try {
+      // IN-05: hour12:false matches the server-rendered "%H:%M:%S %Z" preview, so the
+      // time does not visibly flip format one second after load. IN-07: the server now
+      // renders a zone token too, so the line has its final width before the first tick
+      // (the abbreviation text may still change: tzdb "BST" vs Intl short "GMT+1").
+      var fmt = new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: zone,
+        timeZoneName: 'short',
+      });
+      var text = fmt.format(new Date());
+      // The error branch replaces the whole node, so rebuild the styled span on recovery.
+      if (!previewEl.contains(valueSpan)) {
+        previewEl.textContent = 'Current time: ';
+        valueSpan = document.createElement('span');
+        valueSpan.className = spanClass;
+        previewEl.appendChild(valueSpan);
+      }
+      valueSpan.textContent = text;
+    } catch (err) {
+      previewEl.textContent = 'Current time: unavailable for this zone';
+    }
+  }
+
+  renderPreview();
+  if (select) select.addEventListener('change', renderPreview);
+
+  // IN-05: the timer used to run unconditionally and forever, rebuilding an
+  // Intl.DateTimeFormat every second even while the General panel sat hidden behind
+  // another settings tab. Skip the work when it cannot be seen, and keep the handle so
+  // it can actually be cancelled. It still ticks after a failure, so recovery is
+  // automatic once a valid zone is picked.
+  var panel = document.getElementById('tab-general');
+  var previewTimer = setInterval(function () {
+    if (!panel || !panel.classList.contains('hidden')) renderPreview();
+  }, 1000);
+
+  window.addEventListener('pagehide', function () {
+    clearInterval(previewTimer);
+  });
+}
+
+/**
+ * WR-04: bring the already-rendered page into line with the zone that was just saved.
+ *
+ * Everything below was emitted server-side against the previous zone, so without this a
+ * green "Timezone saved" toast sat next to timestamps still formatted in the old zone
+ * and, in the unresolvable case, next to a warning banner that had become false.
+ *
+ * Deliberately not refreshed: the "System default (currently X)" label and
+ * data-fallback-zone. Both derive from get_app_timezone_fallback_name(), which reads only
+ * the TZ environment variable — saving an application timezone cannot change it.
+ */
+function applySavedTimezoneToPage(data) {
+  if (data.effective_tz) {
+    window.APP_TZ = data.effective_tz;
+    // Re-render every tooltip that was built from the old zone.
+    if (typeof applyAppTzTooltips === 'function') applyAppTzTooltips();
+  }
+
+  // A save can only store a zone that resolves, so this banner is stale by definition
+  // once the request succeeds. Guarded on the server's own answer rather than assumed.
+  if (!data.unresolvable) {
+    var notice = document.getElementById('tz-fallback-notice');
+    if (notice) notice.remove();
+  }
+
+  // The "Current" optgroup exists only to carry a saved zone that is not in the curated
+  // list. Once something else is selected it is no longer current, and leaving the label
+  // as-is presents a stale zone as the active one.
+  //
+  // IN-04: relabel rather than remove. That group is the only place a non-curated zone
+  // appears in the picker, so removing it made the zone the user had just moved away from
+  // unreachable - it is in no region group, and nothing else would ever re-add it. They
+  // could not change their mind without reloading the page.
+  var select = document.getElementById('app-timezone');
+  if (select) {
+    var groups = select.getElementsByTagName('optgroup');
+    for (var i = groups.length - 1; i >= 0; i--) {
+      if (groups[i].label !== 'Current') continue;
+      var opt = groups[i].getElementsByTagName('option')[0];
+      if (!opt || opt.value !== select.value) groups[i].label = 'Other';
+    }
+  }
+}
+
+/**
+ * Pick a count-appropriate message. `templates.many` may contain "%d" for the count.
+ */
+function scheduledListPhrase(count, templates) {
+  if (count === 1) return templates.one;
+  if (count > 1) return templates.many.replace('%d', count);
+  return templates.zero;
+}
+
+function saveGeneralTimezone() {
+  var select = document.getElementById('app-timezone');
+  var saveBtn = document.getElementById('general-save-btn');
+  var statusEl = document.getElementById('general-status');
+  if (!select || !saveBtn) return;
+
+  setDisabledState(saveBtn, true);
+  saveBtn.textContent = 'Saving\u2026';
+
+  apiFetch('/api/settings/general', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timezone: select.value }),
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      setDisabledState(saveBtn, false);
+      saveBtn.textContent = 'Save';
+
+      if (data.success) {
+        // WR-04: the zone is saved, so the page's rendered state now describes the
+        // *previous* one. Refresh it before anything returns early below - this holds
+        // whether or not the reschedule succeeded.
+        applySavedTimezoneToPage(data);
+
+        setStatus(statusEl, true, 'Timezone saved.');
+
+        var applied = data.applied || 0;
+        var unbuildable = data.unbuildable || 0;
+        var pending = data.pending || 0;
+
+        var msg = scheduledListPhrase(applied, {
+          zero: 'Timezone saved. No scheduled lists needed rescheduling.',
+          one: 'Timezone saved. 1 scheduled list rescheduled.',
+          many: 'Timezone saved. %d scheduled lists rescheduled.',
+        });
+
+        if (unbuildable > 0) {
+          msg += scheduledListPhrase(unbuildable, {
+            zero: '',
+            one: ' (1 list could not be rescheduled — see logs)',
+            many: ' (%d lists could not be rescheduled — see logs)',
+          });
+        }
+
+        // deferred: saved, but a scheduler worker still has to apply it (this is not a
+        // scheduler worker, or the reconcile declined transiently). The convergence poll
+        // retries on its own within ~60s.
+        if (data.deferred) {
+          msg = scheduledListPhrase(pending, {
+            zero: 'Timezone saved. No scheduled lists to re-apply.',
+            one: 'Timezone saved. 1 scheduled list will re-apply within ~60s.',
+            many: 'Timezone saved. %d scheduled lists will re-apply within ~60s.',
+          });
+        }
+
+        var warn = unbuildable > 0 || data.deferred;
+        showToast(msg, warn ? 'warning' : 'success', warn ? 6000 : 3000);
+      } else {
+        var errMsg = data.message || 'Unknown or invalid timezone. Nothing was saved.';
+        setStatus(statusEl, false, errMsg);
+        showToast(errMsg, 'error', 5000);
+      }
+    })
+    .catch(function (err) {
+      setDisabledState(saveBtn, false);
+      saveBtn.textContent = 'Save';
+      setStatus(statusEl, false, 'Request failed.');
+      console.error('saveGeneralTimezone error:', err);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   initSettingsTabs();
+  initTimezoneFilter();
+  initTimezonePreview();
   initServiceTabs();
   initImportSettingsButtons();
 
   // If the URL contains a hash that matches a settings tab, activate it.
   // e.g. /settings#account activates the Account tab.
+  // WR-09: never splice location.hash into a selector - a hash containing a quote
+  // makes querySelector throw SyntaxError out of this listener, which would stop
+  // maybeLoadImportDefaults() below from ever running.
   var hash = window.location.hash ? window.location.hash.slice(1) : '';
   if (hash) {
-    var targetTab = document.querySelector('.settings-tab[data-tab="' + hash + '"]');
+    var targetTab = Array.prototype.find.call(
+      document.querySelectorAll('.settings-tab'),
+      function (tab) { return tab.dataset.tab === hash; }
+    );
     if (targetTab) {
       targetTab.click();
     }

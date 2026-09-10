@@ -17,6 +17,8 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from listarr import db
 from listarr.forms.auth_forms import ChangePasswordForm
 from listarr.forms.settings_forms import REGION_CHOICES
+from listarr.models.app_config_model import get_app_config
+from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.routes import bp
 from listarr.services.arr_service import (
@@ -29,6 +31,15 @@ from listarr.services.arr_service import (
 from listarr.services.crypto_utils import decrypt_data, encrypt_data
 from listarr.services.sonarr_service import MONITOR_MODE_TOKENS, normalize_monitor_mode
 from listarr.services.tmdb_service import validate_tmdb_api_key
+from listarr.utils.time_utils import (
+    coerce_zone,
+    get_app_timezone,
+    get_app_timezone_state,
+    invalidate_app_timezone_memo,
+)
+from listarr.utils.timezones import CURATED_TIMEZONES, curated_zone_keys
+
+TIMEZONE_INVALID_MESSAGE = "Unknown or invalid timezone. Nothing was saved."
 
 # ---------------------------------------------------------------------------
 # Helpers (TMDB)
@@ -162,6 +173,20 @@ def settings_page():
         }
 
     tmdb_cfg = ServiceConfig.query.filter_by(service="TMDB").first()
+    # IN-04: one timezone object in the context. The template reads tz.configured /
+    # tz.fallback so the two halves can no longer drift apart.
+    tz_state = get_app_timezone_state()
+    configured_tz = tz_state["configured"]
+    # IN-05: 24-hour and locale-independent. %p renders empty under some locales, and
+    # the JS preview that replaces this a second later is hour12:false.
+    # IN-07: include the zone token so the element has its final width before the first
+    # JS tick (14-UI-SPEC §3 "no layout shift"). strftime("%Z") is the tzdb abbreviation
+    # (EDT / BST / JST); Intl timeZoneName:"short" may show an offset instead (GMT+1) for
+    # some zones/locales, so the abbreviation text can still change on the first tick —
+    # the width does not.
+    server_rendered_preview = datetime.now(get_app_timezone()).strftime("%H:%M:%S %Z")
+    timezone_is_curated = not configured_tz or configured_tz in curated_zone_keys()
+
     return render_template(
         "settings.html",
         radarr=_service_state("RADARR"),
@@ -169,6 +194,10 @@ def settings_page():
         tmdb=_service_state("TMDB"),
         tmdb_region=tmdb_cfg.tmdb_region if tmdb_cfg else None,
         region_choices=REGION_CHOICES,
+        tz=tz_state,
+        curated_timezones=CURATED_TIMEZONES,
+        server_rendered_preview=server_rendered_preview,
+        timezone_is_curated=timezone_is_curated,
         change_password_form=ChangePasswordForm(),
     )
 
@@ -296,6 +325,110 @@ def save_tmdb_settings():
     except (IntegrityError, OperationalError) as e:
         db.session.rollback()
         current_app.logger.error(f"Error saving TMDB configuration: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Failed to save configuration. Please try again."}), 500
+
+
+def _validate_timezone(value):
+    """Return (stored_value, error). An empty string means "System default" (NULL).
+
+    IN-01: validation is delegated to time_utils.coerce_zone so there is exactly one
+    copy of the ZoneInfo-based check. coerce_zone also type-checks, so a non-string
+    can no longer raise TypeError out of here.
+    """
+    if value == "":
+        return None, None
+
+    if coerce_zone(value) is None:
+        return None, TIMEZONE_INVALID_MESSAGE
+
+    return value, None
+
+
+@bp.route("/api/settings/general", methods=["POST"])
+@login_required
+def save_general_settings():
+    """Save application-wide settings."""
+    data = request.json or {}
+
+    # WR-02: an absent key means "no setting supplied", not "reset to System default".
+    # Clearing the timezone requires an explicit empty string (or null).
+    if "timezone" not in data:
+        return jsonify({"success": False, "message": "No settings supplied."}), 400
+
+    raw = "" if data["timezone"] is None else data["timezone"]
+    if not isinstance(raw, str):
+        return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
+
+    submitted = raw.strip()
+    # IN-06: clearing the setting takes an explicit "" (or null); a payload that is only
+    # whitespace strips to "" but must not be read as "reset to System default".
+    if raw != "" and not submitted:
+        current_app.logger.info("Rejected whitespace-only application timezone")
+        return jsonify({"success": False, "message": TIMEZONE_INVALID_MESSAGE}), 400
+
+    stored, error = _validate_timezone(submitted)
+    if error:
+        current_app.logger.info("Rejected invalid application timezone")
+        return jsonify({"success": False, "message": error}), 400
+
+    try:
+        cfg = get_app_config()
+        cfg.timezone = stored
+        db.session.commit()
+        invalidate_app_timezone_memo()
+
+        # WR-04: read the authoritative post-save state once. The page was rendered
+        # against the *previous* zone, so the client needs the new effective zone (for
+        # window.APP_TZ and every timestamp it drives) and the unresolvable flag (for the
+        # fallback banner) handed back to it.
+        tz_state = get_app_timezone_state()
+        effective_tz = tz_state["resolved"]
+
+        from listarr.services import scheduler as sched
+
+        # WR-06: use the module's intentional predicate rather than reaching into
+        # its private singleton.
+        scheduler_worker = sched.is_scheduler_worker()
+        applied = 0
+        unbuildable = 0
+        pending = 0
+        deferred = False
+        try:
+            if scheduler_worker:
+                result = sched.reconcile_scheduler_jobs(effective_tz)
+                applied = result.applied
+                unbuildable = len(result.unbuildable)
+                deferred = result.deferred
+                pending = result.pending if result.deferred else 0
+            else:
+                # A non-scheduler worker has nothing to apply in-process; a scheduler
+                # worker will pick this up on its next convergence poll.
+                pending = List.active_scheduled_query().count()
+                deferred = True
+        except Exception as e:
+            # The timezone is saved; the reconcile did not complete. "deferred" covers
+            # both the transient-decline path and any unexpected exception - a scheduler
+            # worker finishes it on the next poll.
+            current_app.logger.error(f"Error reconciling scheduler jobs after timezone save: {e}", exc_info=True)
+            deferred = True
+            applied = unbuildable = pending = 0
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Timezone saved.",
+                "scheduler_worker": scheduler_worker,
+                "applied": applied,
+                "unbuildable": unbuildable,
+                "pending": pending,
+                "deferred": deferred,
+                "effective_tz": effective_tz,
+                "unresolvable": tz_state["unresolvable"],
+            }
+        )
+    except (IntegrityError, OperationalError) as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving general settings: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Failed to save configuration. Please try again."}), 500
 
 

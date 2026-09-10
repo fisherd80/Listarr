@@ -10,12 +10,16 @@ Tests cover:
 """
 
 import zoneinfo
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from sqlalchemy.exc import OperationalError
 
+from listarr import db
+from listarr.models.app_config_model import AppConfig, get_app_config
+from listarr.services import scheduler as sched
 from listarr.services.scheduler import (
     _get_scheduler_timezone,
     _run_scheduled_import,
@@ -23,6 +27,15 @@ from listarr.services.scheduler import (
     schedule_list,
     validate_cron_expression,
 )
+from listarr.utils import time_utils
+from listarr.utils.time_utils import tz_key
+
+
+def _set_app_timezone(value):
+    cfg = get_app_config()
+    cfg.timezone = value
+    db.session.commit()
+    time_utils.invalidate_app_timezone_memo()
 
 
 class TestRunScheduledImportHealthCheck:
@@ -501,3 +514,405 @@ class TestSchedulerTimezone:
         for next_run in result["next_runs"]:
             assert "Z" not in next_run
             assert next_run[-6] in {"+", "-"}
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_rejects_cronsim_valid_but_unbuildable(self):
+        """A cron cronsim accepts but CronTrigger.from_crontab rejects is invalid here, so
+        it can never be stored on a list and reach the reconcile as an unbuildable row."""
+        result = validate_cron_expression("0 2 L * *")
+
+        assert result["valid"] is False
+        assert result["error"]
+        assert result["next_runs"] == []
+
+
+@pytest.mark.unit
+class TestTimezoneResolution:
+    """Tests for DB-first application timezone resolution."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        time_utils.invalidate_app_timezone_memo()
+        yield
+        time_utils.invalidate_app_timezone_memo()
+
+    def test_db_value_wins_over_live_scheduler(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone("Asia/Tokyo")
+            monkeypatch.setattr(sched, "_scheduler", MagicMock())
+            sched._scheduler.timezone = zoneinfo.ZoneInfo("America/New_York")
+
+            assert tz_key(sched._get_scheduler_timezone()) == "Asia/Tokyo"
+
+    def test_live_scheduler_used_when_db_null(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(None)
+            monkeypatch.setattr(sched, "_scheduler", MagicMock())
+            sched._scheduler.timezone = zoneinfo.ZoneInfo("America/New_York")
+
+            assert tz_key(sched._get_scheduler_timezone()) == "America/New_York"
+
+    def test_tz_env_used_when_db_null_and_no_scheduler(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(None)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            assert tz_key(_get_scheduler_timezone()) == "Europe/London"
+
+    def test_utc_when_nothing_configured(self, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(None)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.delenv("TZ", raising=False)
+
+            assert tz_key(_get_scheduler_timezone()) == "UTC"
+
+    def test_operational_error_falls_through_without_raising(self, monkeypatch):
+        boom = OperationalError("stmt", {}, Exception("database is locked"))
+        monkeypatch.setattr("listarr.models.app_config_model.get_app_config", MagicMock(side_effect=boom))
+        monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+
+        result = _get_scheduler_timezone()
+
+        assert isinstance(result, tzinfo)
+
+    def test_missing_app_config_row_tolerated(self, app, monkeypatch):
+        with app.app_context():
+            db.session.query(AppConfig).delete()
+            db.session.commit()
+            time_utils.invalidate_app_timezone_memo()
+            monkeypatch.setattr("listarr.models.app_config_model.get_app_config", lambda: None)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            assert tz_key(_get_scheduler_timezone()) == "Europe/London"
+
+    def test_unresolvable_stored_value_falls_back_and_warns(self, app, monkeypatch, caplog):
+        with app.app_context():
+            _set_app_timezone("Bogus/Zone")
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            with caplog.at_level("WARNING"):
+                result = _get_scheduler_timezone()
+
+            assert tz_key(result) == "Europe/London"
+            assert "Bogus/Zone" in caplog.text
+
+    @pytest.mark.parametrize("value", ["foo\x00bar", "../../etc/passwd", "/etc/localtime"])
+    def test_null_byte_and_traversal_values_rejected_by_resolver(self, value, app, monkeypatch):
+        with app.app_context():
+            _set_app_timezone(value)
+            monkeypatch.setattr("listarr.services.scheduler._scheduler", None)
+            monkeypatch.setenv("TZ", "Europe/London")
+
+            assert tz_key(_get_scheduler_timezone()) == "Europe/London"
+
+
+@pytest.mark.unit
+class TestTimezoneMemo:
+    """Tests for the short-TTL application timezone memo."""
+
+    @pytest.fixture(autouse=True)
+    def reset_timezone_memo(self):
+        time_utils.invalidate_app_timezone_memo()
+        yield
+        time_utils.invalidate_app_timezone_memo()
+
+    def test_memo_collapses_repeated_reads_to_one_db_hit(self, monkeypatch):
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return "Asia/Tokyo"
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        values = [time_utils.resolve_db_timezone_string() for _ in range(20)]
+
+        assert values == ["Asia/Tokyo"] * 20
+        assert calls == 1
+
+    def test_memo_bypassed_when_use_cache_false(self, monkeypatch):
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return "Asia/Tokyo"
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        values = [time_utils.resolve_db_timezone_string(use_cache=False) for _ in range(3)]
+
+        assert values == ["Asia/Tokyo"] * 3
+        assert calls == 3
+
+    def test_invalidate_memo_forces_reread(self, monkeypatch):
+        values = iter(["Asia/Tokyo", "Europe/London"])
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return next(values)
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        assert time_utils.resolve_db_timezone_string() == "Asia/Tokyo"
+        time_utils.invalidate_app_timezone_memo()
+        assert time_utils.resolve_db_timezone_string() == "Europe/London"
+        assert calls == 2
+
+    def test_invalidation_during_an_in_flight_read_is_not_undone(self, monkeypatch):
+        """WR-08: a reader that was already querying the DB when a save invalidated the
+        memo must not write its pre-save record back with a fresh TTL."""
+        reads = []
+
+        def fake_read():
+            reads.append(len(reads))
+            if len(reads) == 1:
+                # A save lands while this read is in flight.
+                time_utils.invalidate_app_timezone_memo()
+                return "Europe/London"
+            return "Asia/Tokyo"
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        assert time_utils.resolve_db_timezone_string() == "Europe/London"
+        # The stale value must not have been memoized over the invalidation.
+        assert time_utils.resolve_db_timezone_string() == "Asia/Tokyo"
+        assert len(reads) == 2
+
+    def test_state_is_built_from_a_single_record(self, monkeypatch):
+        """WR-08: get_app_timezone_state must not re-read the record for 'resolved'."""
+        monkeypatch.setattr(time_utils, "_TZ_MEMO_TTL", 0.0)
+        values = iter(["Asia/Tokyo", "Europe/London"])
+        reads = []
+
+        def fake_read():
+            reads.append(1)
+            return next(values)
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        state = time_utils.get_app_timezone_state()
+
+        assert len(reads) == 1, "state re-read the DB and can report an inconsistent pair"
+        assert state["configured"] == "Asia/Tokyo"
+        assert state["resolved"] == "Asia/Tokyo"
+        assert state["unresolvable"] is False
+
+    def test_state_stays_consistent_for_an_unresolvable_value(self, monkeypatch):
+        monkeypatch.setattr(time_utils, "_TZ_MEMO_TTL", 0.0)
+        monkeypatch.setenv("TZ", "America/New_York")
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", lambda: "Bogus/Zone")
+
+        state = time_utils.get_app_timezone_state()
+
+        assert state["configured"] == "Bogus/Zone"
+        assert state["unresolvable"] is True
+        assert state["resolved"] == "America/New_York"
+        assert state["fallback"] == "America/New_York"
+
+    def test_memo_caches_none_value(self, monkeypatch):
+        calls = 0
+
+        def fake_read():
+            nonlocal calls
+            calls += 1
+            return None
+
+        monkeypatch.setattr(time_utils, "_read_db_timezone_string", fake_read)
+
+        assert time_utils.resolve_db_timezone_string() is None
+        assert time_utils.resolve_db_timezone_string() is None
+        assert calls == 1
+
+    def test_unresolvable_stored_value_warn_once_per_ttl(self, app, monkeypatch, caplog):
+        with app.app_context():
+            _set_app_timezone("Bogus/Zone")
+            monkeypatch.delenv("TZ", raising=False)
+            time_utils.invalidate_app_timezone_memo()
+
+            with caplog.at_level("WARNING", logger="listarr.utils.time_utils"):
+                values = [time_utils.get_app_timezone() for _ in range(20)]
+
+                warnings = [record for record in caplog.records if "Bogus/Zone" in record.getMessage()]
+                assert len(warnings) == 1
+                assert all(value is timezone.utc for value in values)
+
+                time_utils.invalidate_app_timezone_memo()
+                time_utils.get_app_timezone()
+
+                warnings = [record for record in caplog.records if "Bogus/Zone" in record.getMessage()]
+                assert len(warnings) == 2
+
+
+class TestSchedulerShutdownLocking:
+    """WR-07: shutdown must not null the singleton out from under a live reschedule."""
+
+    def test_shutdown_scheduler_holds_the_reschedule_lock(self, monkeypatch):
+        observed = {}
+
+        mock_scheduler = MagicMock()
+
+        def _shutdown(wait=False):
+            observed["locked_during_shutdown"] = sched._reschedule_lock.locked()
+
+        mock_scheduler.shutdown.side_effect = _shutdown
+        monkeypatch.setattr(sched, "_scheduler", mock_scheduler)
+
+        sched.shutdown_scheduler()
+
+        assert observed["locked_during_shutdown"] is True
+        assert sched._scheduler is None
+        assert sched.is_scheduler_worker() is False
+        assert sched._reschedule_lock.locked() is False
+
+    def test_shutdown_scheduler_is_a_noop_when_not_initialized(self, monkeypatch):
+        monkeypatch.setattr(sched, "_scheduler", None)
+
+        sched.shutdown_scheduler()
+
+        assert sched._scheduler is None
+        assert sched._reschedule_lock.locked() is False
+
+    def test_reconcile_binds_scheduler_locally(self, monkeypatch):
+        """A concurrent shutdown that nulls the global must not raise AttributeError
+        inside an in-flight reconcile."""
+        mock_scheduler = MagicMock()
+        mock_scheduler.timezone = zoneinfo.ZoneInfo("UTC")
+        monkeypatch.setattr(sched, "_scheduler", mock_scheduler)
+        monkeypatch.setattr(sched, "_app", None)
+
+        # _app is None -> returns early, but the guard already read the local binding.
+        result = sched.reconcile_scheduler_jobs("Europe/London")
+        assert result.deferred is False
+        assert result.applied == 0
+
+
+class _BoomQuery:
+    def filter(self, *args, **kwargs):
+        return self
+
+    def count(self):
+        raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+    def all(self):
+        raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+
+class _BoomList:
+    query = _BoomQuery()
+
+    @classmethod
+    def active_scheduled_query(cls):
+        return cls.query.filter()
+
+
+@pytest.mark.unit
+class TestReconcileSchedulerJobs:
+    """reconcile_scheduler_jobs(): one idempotent desired-vs-live diff."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_reconcile_state(self, monkeypatch):
+        monkeypatch.setattr(sched, "_last_reconciled_tz", None)
+        monkeypatch.setattr(sched, "_unbuildable_crons", {})
+        yield
+
+    def _make_list(self, cron):
+        from listarr.models.lists_model import List
+
+        row = List(
+            name="reconcile-unit",
+            target_service="RADARR",
+            tmdb_list_type="popular_movies",
+            filters_json={},
+            schedule_cron=cron,
+            is_active=True,
+        )
+        db.session.add(row)
+        db.session.commit()
+        return row.id
+
+    def test_applies_every_buildable_row(self, app, monkeypatch):
+        with app.app_context():
+            ids = [self._make_list("0 2 * * 1") for _ in range(3)]
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.deferred is False
+            assert result.applied == 3
+            assert result.unbuildable == {}
+            assert scheduler.add_job.call_count == 3
+            assert sched._last_reconciled_tz == "Europe/London"
+            assert {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list} == set(ids)
+
+    def test_unbuildable_row_recorded_and_others_still_applied(self, app, monkeypatch):
+        with app.app_context():
+            good = [self._make_list("0 2 * * 1") for _ in range(2)]
+            bad = self._make_list("0 2 L * *")
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.applied == 2
+            assert result.unbuildable == {bad: "0 2 L * *"}
+            assert {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list} == set(good)
+
+    def test_no_scheduler_reports_backlog_without_raising(self, app, monkeypatch):
+        with app.app_context():
+            for _ in range(2):
+                self._make_list("0 2 * * 1")
+            monkeypatch.setattr(sched, "_scheduler", None)
+            monkeypatch.setattr(sched, "_app", app)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.deferred is False
+            assert result.pending == 2
+            assert result.applied == 0
+
+    def test_lock_already_held_defers_without_advancing_state(self, app, monkeypatch):
+        with app.app_context():
+            self._make_list("0 2 * * 1")
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+            monkeypatch.setattr(sched, "_last_reconciled_tz", "Asia/Tokyo")
+
+            assert sched._reschedule_lock.acquire(blocking=False) is True
+            try:
+                result = sched.reconcile_scheduler_jobs("Europe/London", blocking=False)
+            finally:
+                sched._reschedule_lock.release()
+
+            assert result.deferred is True
+            assert sched._last_reconciled_tz == "Asia/Tokyo"
+            scheduler.add_job.assert_not_called()
+
+    def test_operational_error_defers_without_advancing_state(self, app, monkeypatch):
+        with app.app_context():
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+            monkeypatch.setattr(sched, "_last_reconciled_tz", "Asia/Tokyo")
+            monkeypatch.setattr(sched, "List", _BoomList)
+
+            result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.deferred is True
+            assert sched._last_reconciled_tz == "Asia/Tokyo"
+            scheduler.add_job.assert_not_called()
