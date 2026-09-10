@@ -5,6 +5,29 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.2.DEV-3] - 2026-09-10
+
+_Development checkpoint on `develop` — not a release. Third phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
+
+### Added
+
+- User-configurable **application timezone** — a new **General** tab in Settings (leftmost, open on load) with a region-grouped IANA picker (133 curated zones plus UTC), a type-ahead filter, and a live "current time" preview that ticks every second
+- The timezone is persisted in a new single-row `app_config` table (NULL = "System default", resolved from the `TZ` env var then UTC), created by idempotent `PRAGMA`-guarded startup DDL — no migration, pre-upgrade installs keep behaving exactly as before
+- Saving a timezone live-reschedules every scheduled list into the new zone with no restart and without rewinding existing run times; the Save toast reports how many lists were rescheduled, could not be, or are pending on a non-scheduler worker
+- GEN-07 fallback notice on the General tab when the configured zone cannot be loaded (e.g. missing `tzdata`), naming the fallback zone actually in use
+- Browser-rendered absolute timestamps (Activity, Run detail, Lists last-run) now render in the configured application timezone with a zone abbreviation; relative cells carry a full-offset hover tooltip
+
+### Changed
+
+- The scheduler resolves its timezone from the application setting (DB → live scheduler → `TZ` → UTC) instead of `TZ`/UTC only, and constructs `BackgroundScheduler` from it on boot
+- Timezone reschedule is now one idempotent `reconcile_scheduler_jobs()` desired-vs-live diff — every `CronTrigger` is built before the jobstore is touched, then jobs are added/replaced/removed to match; this replaced the previous mutate-and-track reschedule plus its quarantine / incomplete-flag / orphan-sweep apparatus (~290 lines removed from `scheduler.py`)
+- `validate_cron_expression()` now also rejects cronsim-valid but trigger-unbuildable expressions (e.g. `0 2 L * *`) everywhere list save, the list routes, and the validation endpoint run
+- `APScheduler` stays pinned at exactly `3.11.3` — `scheduler.py` assigns `BaseScheduler.timezone` directly (an undocumented-as-mutable path) because `configure()` refuses to run on a started scheduler
+
+### Security
+
+- Timezone save input is validated by resolvability (`zoneinfo.ZoneInfo`), not curated-list membership; the `ValueError` arm rejects embedded null bytes, absolute paths, and `.`/`..` path components (threat T-14-01), and the zone filter's empty-result copy is written with `textContent`, never `innerHTML` (T-14-02)
+
 ## [2.2.DEV-2] - 2026-09-07
 
 _Development checkpoint on `develop` — not a release. Second phase of the v2.2 milestone (Settings, Import Control & Maintenance)._

@@ -69,6 +69,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 **Automation**
 
 - Cron-based scheduling with preset intervals (hourly, daily, weekly) or custom cron expressions
+- Configurable application timezone (Settings → General) — drives both the scheduler and every timestamp shown in the UI, with a live current-time preview
 - Global scheduler pause and resume for maintenance windows
 - Pre-flight health checks before each scheduled job execution
 
@@ -243,7 +244,7 @@ v2.0.0 delivered a full UI overhaul with a semantic dark/light theme system, red
 
 Possible future enhancements:
 
-- User-configurable timezone and application name via a General settings tab
+- User-configurable application name via the General settings tab
 - Tag management UI (view, create, and delete Radarr/Sonarr tags from within Listarr)
 - Additional list sources beyond TMDB (Trakt, IMDb)
 - Multi-service instance support (multiple Radarr or Sonarr instances)
