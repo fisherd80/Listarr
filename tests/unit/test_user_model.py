@@ -4,6 +4,7 @@ Unit tests for User model password hashing and authentication methods.
 
 import pytest
 from sqlalchemy.exc import IntegrityError
+from werkzeug.security import check_password_hash
 
 from listarr import db
 from listarr.models.user_model import User
@@ -87,3 +88,32 @@ class TestUserModel:
                 db.session.commit()
 
             db.session.rollback()
+
+
+class TestPasswordHashBackCompat:
+    """Guard stored Werkzeug password hashes across dependency pins."""
+
+    PASSWORD = "phase15-password"
+    PBKDF2_HASH = (
+        "pbkdf2:sha256:1000000$A7dL9dFMSdsoD4PD$efe82f2be1ed7b52ac660ea330753b02324efb3d6fc5fb7af1cf4038004b95f4"
+    )
+    SCRYPT_HASH = (
+        "scrypt:32768:8:1$jDuzVddkx7yOFNsg$"
+        "3d8d5c152ebb2d12583e0d23264c4f390d67df0cbff879a9408a2e8d706a59d4f55eac3f1ab1d399bf9e346bf63971982b88248dc55041091048d6f424f91e61"
+    )
+
+    def test_pbkdf2_hash_still_verifies(self):
+        """Existing pbkdf2 Werkzeug hashes remain valid."""
+        assert check_password_hash(self.PBKDF2_HASH, self.PASSWORD) is True
+
+    def test_scrypt_hash_still_verifies(self):
+        """Existing scrypt Werkzeug hashes remain valid."""
+        assert check_password_hash(self.SCRYPT_HASH, self.PASSWORD) is True
+
+    def test_user_password_round_trip_still_verifies(self, app):
+        """Fresh User password writes and reads still round-trip."""
+        with app.app_context():
+            user = User(username="roundtrip")
+            user.set_password(self.PASSWORD)
+
+            assert user.check_password(self.PASSWORD) is True

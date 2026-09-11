@@ -44,12 +44,14 @@ class TestRunScheduledImportHealthCheck:
     @patch("listarr.services.scheduler.is_scheduler_paused")
     @patch("listarr.services.scheduler.submit_job")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_service_not_configured(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_submit_job,
         mock_is_paused,
@@ -68,7 +70,7 @@ class TestRunScheduledImportHealthCheck:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig.query.filter_by to return None (no config)
         mock_query = MagicMock()
@@ -86,54 +88,58 @@ class TestGetNextRunTimeFallback:
     """Tests for get_next_run_time() fallback in non-scheduler workers."""
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_when_list_not_found(self, mock_list_class):
+    def test_returns_none_when_list_not_found(self, mock_list_class, mock_session_get):
         """Returns None when list doesn't exist in database."""
-        # Setup List.query.get to return None
-        mock_list_class.query.get.return_value = None
+        # Setup db.session.get to return None
+        mock_session_get.return_value = None
 
         result = get_next_run_time(999)
 
         assert result is None
-        mock_list_class.query.get.assert_called_once_with(999)
+        mock_session_get.assert_called_once_with(mock_list_class, 999)
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_when_no_schedule(self, mock_list_class):
+    def test_returns_none_when_no_schedule(self, mock_list_class, mock_session_get):
         """Returns None when list has no cron schedule."""
         # Setup list without schedule
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = None
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
         assert result is None
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_when_list_inactive(self, mock_list_class):
+    def test_returns_none_when_list_inactive(self, mock_list_class, mock_session_get):
         """Returns None when list is inactive."""
         # Setup inactive list with schedule
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "0 0 * * *"
         mock_list_obj.is_active = False
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
         assert result is None
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_calculates_next_run_from_cron(self, mock_list_class):
+    def test_calculates_next_run_from_cron(self, mock_list_class, mock_session_get):
         """Calculates next run time from cron expression when scheduler is None."""
         # Setup list with valid cron expression
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "0 0 * * *"  # Daily at midnight
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
@@ -146,14 +152,15 @@ class TestGetNextRunTimeFallback:
         assert result > datetime.now(timezone.utc)
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_on_invalid_cron(self, mock_list_class):
+    def test_returns_none_on_invalid_cron(self, mock_list_class, mock_session_get):
         """Returns None when cron expression is invalid."""
         # Setup list with invalid cron
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "invalid cron"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
@@ -177,12 +184,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.is_scheduler_paused")
     @patch("listarr.services.scheduler.submit_job")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_service_api_key_missing(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_submit_job,
         mock_is_paused,
@@ -201,7 +210,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "SONARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig with no API key
         mock_service_config = MagicMock()
@@ -222,12 +231,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.validate_api_key")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_service_unreachable(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_validate,
@@ -249,7 +260,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig with valid encrypted key
         mock_service_config = MagicMock()
@@ -283,12 +294,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.validate_api_key")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_proceeds_when_service_reachable(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_validate,
@@ -310,7 +323,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig with valid encrypted key
         mock_service_config = MagicMock()
@@ -345,12 +358,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.submit_job")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_decrypt_fails(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_submit_job,
@@ -370,7 +385,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig
         mock_service_config = MagicMock()
@@ -394,12 +409,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.validate_api_key")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_validate_raises_exception(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_validate,
@@ -420,7 +437,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "SONARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig
         mock_service_config = MagicMock()
@@ -488,14 +505,15 @@ class TestSchedulerTimezone:
 
     @patch.dict("os.environ", {"TZ": "America/New_York"})
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_get_next_run_time_fallback_uses_scheduler_timezone(self, mock_list_class):
+    def test_get_next_run_time_fallback_uses_scheduler_timezone(self, mock_list_class, mock_session_get):
         """get_next_run_time() fallback returns a datetime in scheduler timezone."""
         # Setup list with valid cron expression
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "0 9 * * 1"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 

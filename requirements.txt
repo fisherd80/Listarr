@@ -1,30 +1,31 @@
 # Core Flask Framework
 Flask==3.1.3
+Werkzeug==3.1.8  # pinned MNT-03 (D-01/D-03): required-by Flask/Flask-Login/Flask-WTF/pytest-flask, previously unpinned
 
 # Database ORM
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.52
 
 # Forms and CSRF Protection
-Flask-WTF==1.2.2
+Flask-WTF==1.3.0
 WTForms==3.2.1
 
 # Authentication
 Flask-Login==0.6.3
 
 # Caching
-cachetools>=5.3.0
+cachetools==7.1.8
 
 # Encryption
 cryptography==50.0.1  # forced by pip-audit (D-12/D-16): clears PYSEC-2026-3552/-3553/-3554 + GHSA-537c-gmf6-5ccf; see .planning/phases/12-maintenance-pre-flight/12-NOTES.md §4
 
 # HTTP Requests (for external APIs)
-requests==2.33.0
-urllib3>=2.7.0
-idna>=3.15
+requests==2.34.2
+urllib3==2.7.0
+idna==3.19
 
 # Production WSGI Server (required for Docker deployment)
-gunicorn==25.1.0
+gunicorn==26.2.0
 
 # Scheduler
 APScheduler==3.11.3  # IN-08: exact pin is load-bearing. scheduler.py assigns BaseScheduler.timezone directly (undocumented as mutable) because configure() refuses to run on a started scheduler; validated against 3.11.3.
@@ -32,3 +33,18 @@ cronsim==2.7
 cron-descriptor==2.1.0
 # IANA tz database for zoneinfo on Windows / Alpine (no system /usr/share/zoneinfo)
 tzdata==2026.3
+
+# --- transitive deps, pinned for reproducibility (see .planning/phases/15-maintenance-finish/15-NOTES.md section 2) ---
+blinker==1.9.0
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.1
+click==8.5.0
+greenlet==3.5.5
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+packaging==26.3
+pycparser==3.0
+typing_extensions==4.16.0
+tzlocal==5.4.4

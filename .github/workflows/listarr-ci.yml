@@ -147,9 +147,13 @@ jobs:
           context: .
           push: false
           load: true
+          pull: true # D-07a — cache-freshness guard; near-noop while FROM is digest-pinned
           tags: listarr:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke test built image
+        run: bash ./scripts/docker-smoke.sh listarr:ci
 
   docker-dev:
     name: Push Dev Docker Image

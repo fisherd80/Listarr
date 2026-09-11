@@ -62,7 +62,7 @@ def get_activity():
     result = []
     for job in pagination.items:
         job_dict = job.to_dict()
-        list_obj = List.query.get(job.list_id) if job.list_id else None
+        list_obj = db.session.get(List, job.list_id) if job.list_id else None
         job_dict["target_service"] = list_obj.target_service if list_obj else None
         job_dict["list_deleted"] = job.list_id is not None and list_obj is None
         result.append(job_dict)
@@ -86,7 +86,7 @@ def get_activity_detail(job_id):
     Returns:
         JSON with job info and items array
     """
-    job = Job.query.get_or_404(job_id)
+    job = db.get_or_404(Job, job_id)
 
     job_dict = job.to_dict()
 
@@ -110,14 +110,14 @@ def rerun_activity(job_id):
         400 if job is not failed or list is missing/inactive
         404 if job not found
     """
-    job = Job.query.get_or_404(job_id)
+    job = db.get_or_404(Job, job_id)
 
     # Only allow rerun of failed jobs
     if job.status != "failed":
         return jsonify({"success": False, "message": "Can only rerun failed jobs"}), 400
 
     # Check if list still exists (guard against NULL list_id)
-    list_obj = List.query.get(job.list_id) if job.list_id else None
+    list_obj = db.session.get(List, job.list_id) if job.list_id else None
     if not list_obj:
         return jsonify({"success": False, "message": "List no longer exists"}), 400
 

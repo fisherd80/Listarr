@@ -462,7 +462,7 @@ def _run_scheduled_import(list_id):
                 return
 
             # Get list details
-            list_obj = List.query.get(list_id)
+            list_obj = db.session.get(List, list_id)
             if not list_obj:
                 logger.error(f"List {list_id} not found, removing from schedule")
                 unschedule_list(list_id)
@@ -608,7 +608,7 @@ def get_next_run_time(list_id):
     # This ensures next-run calculation works on non-scheduler Gunicorn workers
     try:
         # Query list from database to get cron expression
-        list_obj = List.query.get(list_id)
+        list_obj = db.session.get(List, list_id)
         if not list_obj or not list_obj.schedule_cron or not list_obj.is_active:
             return None
 
