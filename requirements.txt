@@ -25,7 +25,7 @@ urllib3==2.7.0
 idna==3.19
 
 # Production WSGI Server (required for Docker deployment)
-gunicorn==25.1.0
+gunicorn==26.2.0
 
 # Scheduler
 APScheduler==3.11.3  # IN-08: exact pin is load-bearing. scheduler.py assigns BaseScheduler.timezone directly (undocumented as mutable) because configure() refuses to run on a started scheduler; validated against 3.11.3.
