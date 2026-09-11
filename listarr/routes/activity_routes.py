@@ -86,7 +86,7 @@ def get_activity_detail(job_id):
     Returns:
         JSON with job info and items array
     """
-    job = Job.query.get_or_404(job_id)
+    job = db.get_or_404(Job, job_id)
 
     job_dict = job.to_dict()
 
@@ -110,7 +110,7 @@ def rerun_activity(job_id):
         400 if job is not failed or list is missing/inactive
         404 if job not found
     """
-    job = Job.query.get_or_404(job_id)
+    job = db.get_or_404(Job, job_id)
 
     # Only allow rerun of failed jobs
     if job.status != "failed":

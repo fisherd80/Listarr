@@ -389,7 +389,7 @@ class TestRerunActivity:
         job = _make_job(test_list, status="failed")
         db.session.commit()
         job_id = job.id
-        list_obj = List.query.get(test_list.id)
+        list_obj = db.session.get(List, test_list.id)
         db.session.delete(list_obj)
         db.session.commit()
 

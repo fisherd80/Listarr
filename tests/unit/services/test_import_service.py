@@ -277,3 +277,16 @@ class TestResolveImportSettings:
         assert result["season_folder"] is True
         assert result["tags"] == []
         assert result["monitor_mode"] == "all"
+
+
+class TestImportList:
+    """Coverage for top-level import_list guard paths."""
+
+    def test_missing_list_id_returns_failed_result(self, app):
+        with app.app_context():
+            result = import_service.import_list(999999)
+
+        assert result.total == 1
+        assert result.added == []
+        assert result.skipped == []
+        assert result.failed == [{"reason": "list_not_found", "list_id": 999999}]

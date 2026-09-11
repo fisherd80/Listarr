@@ -257,7 +257,7 @@ def get_lists_api():
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
 @login_required
 def edit_list(list_id):
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
     service_type = list_obj.target_service  # RADARR or SONARR
 
     # Get service config for fetching options
@@ -449,7 +449,7 @@ def delete_list(list_id):
         success: bool
         message: string
     """
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
 
     try:
         list_name = list_obj.name
@@ -490,7 +490,7 @@ def list_wizard():
 
     # Edit mode - load existing list
     if list_id:
-        list_obj = List.query.get_or_404(list_id)
+        list_obj = db.get_or_404(List, list_id)
 
         # Determine if it's a preset or custom list
         is_preset = list_obj.tmdb_list_type not in ["discovery", "custom"]
@@ -584,7 +584,7 @@ def list_wizard():
 @bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
 @login_required
 def toggle_list(list_id):
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
 
     try:
         # Toggle the is_active field
@@ -844,7 +844,7 @@ def wizard_submit():
     try:
         if list_id:
             # Edit mode
-            list_obj = List.query.get_or_404(list_id)
+            list_obj = db.get_or_404(List, list_id)
             list_obj.name = name
             list_obj.target_service = service.upper()
             list_obj.tmdb_list_type = tmdb_list_type

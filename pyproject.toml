@@ -23,7 +23,14 @@ addopts = [
     "--showlocals",
     "-ra",
     "--strict-markers",
-    "-W", "ignore::DeprecationWarning",
+]
+filterwarnings = [
+    # SQLAlchemy 2.0 legacy-API regressions must fail the build (MNT-07 / D-08).
+    "error::sqlalchemy.exc.LegacyAPIWarning",
+    "error::sqlalchemy.exc.MovedIn20Warning",
+    "error::sqlalchemy.exc.SADeprecationWarning",
+    # Flask-Login 0.6.3 "remember me" cookie uses datetime.utcnow(); the fix is unreleased.
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:flask_login.login_manager",
 ]
 markers = [
     "unit: Unit tests for individual functions",

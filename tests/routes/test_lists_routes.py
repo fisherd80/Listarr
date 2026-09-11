@@ -418,7 +418,7 @@ class TestEditListPOST:
         response = client.post(f"/lists/edit/{lst.id}", data=form_data, follow_redirects=True)
         assert response.status_code == 200
 
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.name == "New Name"
 
     @patch("listarr.routes.lists_routes.unschedule_list")
@@ -464,7 +464,7 @@ class TestEditListPOST:
         response = client.post(f"/lists/edit/{lst.id}", data=form_data)
         assert response.status_code == 200
         # Name should not have changed
-        unchanged = List.query.get(lst.id)
+        unchanged = db.session.get(List, lst.id)
         assert unchanged.name == "Valid Name"
 
 
@@ -491,7 +491,7 @@ class TestDeleteList:
         assert "Delete Me" in data["message"]
 
         # Verify deleted
-        assert List.query.get(list_id) is None
+        assert db.session.get(List, list_id) is None
 
     def test_returns_404_for_missing_list(self, client):
         """Returns 404 for non-existent list."""
@@ -630,7 +630,7 @@ class TestToggleList:
         assert data["success"] is True
         assert data["is_active"] is False
 
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.is_active is False
 
     @patch("listarr.routes.lists_routes.unschedule_list")
@@ -895,7 +895,7 @@ class TestWizardSubmit:
         data = response.get_json()
         assert data["success"] is True
 
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.name == "Updated Wizard Name"
         assert updated.tmdb_list_type == "popular_movies"
 
@@ -1695,7 +1695,7 @@ class TestUpdateSchedule:
         assert "status" in data
 
         # Verify DB updated
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.schedule_cron == "0 0 * * *"
 
     @patch("listarr.services.scheduler.validate_cron_expression")
@@ -1716,7 +1716,7 @@ class TestUpdateSchedule:
         assert data["schedule_cron"] == ""
 
         # Verify DB cleared
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.schedule_cron is None
 
     @patch("listarr.services.scheduler.validate_cron_expression")
@@ -2155,7 +2155,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode == token
+        assert db.session.get(List, lst.id).sonarr_monitor_mode == token
 
     def test_wtforms_edit_blank_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Edit Blank List", target_service="SONARR", tmdb_list_type="discovery")
@@ -2169,7 +2169,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     @pytest.mark.parametrize("bad", ["latestSeason", "'; DROP TABLE lists; --"])
     def test_wtforms_edit_rejected_monitor_mode_persists_null_no_500(self, _sched, _unsched, bad, client, db_session):
@@ -2183,7 +2183,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     # NOTE (WR-02): the CR-01 defect lives entirely in edit_list.html JavaScript - a
     # disabled <select> is dropped from the POST body. The project has no JS test
@@ -2210,7 +2210,7 @@ class TestMonitorModeListRoundTrip:
         body.pop("sonarr_monitor_mode")  # disabled control -> not submitted by the browser
         resp = client.post(f"/lists/edit/{lst.id}", data=body, follow_redirects=True)
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     def test_wtforms_edit_unmonitored_route_persists_mode_when_field_present_in_body(
         self, _sched, _unsched, client, db_session
@@ -2233,7 +2233,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode == "firstSeason"
+        assert db.session.get(List, lst.id).sonarr_monitor_mode == "firstSeason"
 
     def test_wtforms_edit_get_hydrates_stored_monitor_mode(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Hydrate List", target_service="SONARR", tmdb_list_type="discovery")
@@ -2274,7 +2274,7 @@ class TestMonitorModeListRoundTrip:
         }
         resp = client.post("/lists/wizard/submit", json=payload)
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode == "lastSeason"
+        assert db.session.get(List, lst.id).sonarr_monitor_mode == "lastSeason"
 
     def test_wizard_edit_branch_absent_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Wizard Edit Null List", target_service="SONARR", tmdb_list_type="discovery")
@@ -2293,7 +2293,7 @@ class TestMonitorModeListRoundTrip:
         }
         resp = client.post("/lists/wizard/submit", json=payload)
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     def test_wizard_create_branch_custom_builder_persists_monitor_mode(self, _sched, _unsched, client, db_session):
         payload = {

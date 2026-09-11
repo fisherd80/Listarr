@@ -198,7 +198,7 @@ class TestSubmitJob:
             job_id = submit_job(5, "Test List", app, triggered_by="manual")
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job is not None
                 assert job.list_id == 5
                 assert job.list_name == "Test List"
@@ -216,7 +216,7 @@ class TestSubmitJob:
             job_id = submit_job(6, "Scheduled List", app, triggered_by="scheduled")
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job is not None
                 assert job.triggered_by == "scheduled"
 
@@ -284,7 +284,7 @@ class TestJobLifecycle:
             job_id = submit_job(8, "Test", app)
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job.items_found == 0
                 assert job.items_added == 0
                 assert job.items_skipped == 0
@@ -301,7 +301,7 @@ class TestJobLifecycle:
             job_id = submit_job(9, "Test", app)
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job.retry_count == 0
 
     def test_job_has_started_at_timestamp(self, app):
@@ -315,7 +315,7 @@ class TestJobLifecycle:
             job_id = submit_job(10, "Test", app)
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job.started_at is not None
                 assert isinstance(job.started_at, datetime)
 
