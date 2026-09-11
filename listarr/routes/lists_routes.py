@@ -1016,7 +1016,7 @@ def run_list_import(list_id):
     Returns 202 immediately while job runs in background.
     """
     # Fetch list by ID
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return (
             jsonify({"success": False, "message": f"List with ID {list_id} not found"}),
@@ -1062,7 +1062,7 @@ def get_list_status(list_id):
     Get the status of a list import job for polling.
     Returns the most recent job status from database.
     """
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return jsonify({"error": f"List with ID {list_id} not found"}), 404
 
@@ -1291,7 +1291,7 @@ def update_schedule(list_id):
     """
     from listarr.services.scheduler import schedule_list, unschedule_list, validate_cron_expression
 
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return jsonify({"success": False, "message": "List not found"}), 404
 

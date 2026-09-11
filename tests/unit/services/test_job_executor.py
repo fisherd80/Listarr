@@ -430,8 +430,9 @@ class TestIdleTimeout:
         with _stop_events_lock:
             _stop_events[job_id] = stop_event
 
-        # Call _monitor_idle (should trigger immediately)
-        _monitor_idle(job_id, tracker, monitor_stop)
+        # Call _monitor_idle without waiting the production 30s check interval.
+        with patch("listarr.services.job_executor.IDLE_CHECK_INTERVAL", 0):
+            _monitor_idle(job_id, tracker, monitor_stop)
 
         # stop_event should be set
         assert stop_event.is_set()
@@ -463,15 +464,16 @@ class TestImportStopEvent:
 
         tmdb_items = [{"id": 1, "title": "Test Movie"}]
 
-        result = _import_movies(
-            tmdb_items,
-            "http://localhost:7878",
-            "fake_key",
-            settings,
-            "tmdb_key",
-            stop_event=stop_event,
-            activity_tracker=None,
-        )
+        with patch("listarr.services.radarr_service.get_exclusions", return_value=set()):
+            result = _import_movies(
+                tmdb_items,
+                "http://localhost:7878",
+                "fake_key",
+                settings,
+                "tmdb_key",
+                stop_event=stop_event,
+                activity_tracker=None,
+            )
 
         # Should have stopped immediately (no processing)
         assert result.total == 0
@@ -498,7 +500,10 @@ class TestImportStopEvent:
             {"id": 200, "title": "Movie 2"},
         ]
 
-        with patch("listarr.services.radarr_service.get_existing_movie_tmdb_ids") as mock_existing:
+        with (
+            patch("listarr.services.radarr_service.get_exclusions", return_value=set()),
+            patch("listarr.services.radarr_service.get_existing_movie_tmdb_ids") as mock_existing,
+        ):
             # Return all IDs to skip (triggers activity update)
             mock_existing.return_value = {100, 200}
 
@@ -542,15 +547,16 @@ class TestImportStopEvent:
 
         tmdb_items = [{"id": 1, "name": "Test Series"}]
 
-        result = _import_series(
-            tmdb_items,
-            "http://localhost:8989",
-            "fake_key",
-            settings,
-            "tmdb_key",
-            stop_event=stop_event,
-            activity_tracker=None,
-        )
+        with patch("listarr.services.sonarr_service.get_exclusions", return_value=set()):
+            result = _import_series(
+                tmdb_items,
+                "http://localhost:8989",
+                "fake_key",
+                settings,
+                "tmdb_key",
+                stop_event=stop_event,
+                activity_tracker=None,
+            )
 
         # Should have stopped immediately (no processing)
         assert result.total == 0

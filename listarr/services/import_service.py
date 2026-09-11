@@ -10,6 +10,7 @@ from typing import Any
 
 from cryptography.fernet import InvalidToken
 
+from listarr import db
 from listarr.models.lists_model import List
 from listarr.models.service_config_model import MediaImportSettings, ServiceConfig
 from listarr.services import radarr_service, sonarr_service, tmdb_service
@@ -677,7 +678,7 @@ def import_list(list_id: int, stop_event=None, activity_tracker=None) -> ImportR
         ImportResult with added/skipped/failed items
     """
     # Fetch list from database
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         logger.error(f"List {list_id} not found")
         result = ImportResult()
