@@ -153,7 +153,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Smoke test built image
-        run: ./scripts/docker-smoke.sh listarr:ci
+        run: bash ./scripts/docker-smoke.sh listarr:ci
 
   docker-dev:
     name: Push Dev Docker Image
