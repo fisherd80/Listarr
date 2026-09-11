@@ -15,6 +15,11 @@
 # touch tzdata, so it is order-agnostic relative to step 4.
 #
 # Usage: ./scripts/docker-smoke.sh [image[:tag]]
+#
+# Windows note: this is a POSIX sh script — run it via Git Bash, e.g.
+#   bash ./scripts/docker-smoke.sh listarr:ci
+# Native PowerShell can't exec it directly and doesn't chain `&&` the same
+# way as sh/bash; run the build and this script as two separate commands.
 set -eu
 
 IMAGE="${1:-listarr:ci}"
