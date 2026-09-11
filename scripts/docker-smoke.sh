@@ -51,15 +51,28 @@ if [ "$health_ok" -ne 1 ]; then
 fi
 echo "health: OK"
 
-# 2. Privilege drop: main gunicorn process runs as listarr (uid 1000), not root.
-#    `docker exec` without --user always attaches as root (the image has no
-#    USER directive by design — see Dockerfile comment), so `docker exec ...
-#    id` only reports the exec session's default user, never the actual
-#    running process owner. Use `docker top`, which reads the host-visible
-#    process table and reflects the real post-su-exec UID.
-if ! docker top "$NAME" | awk 'NR>1 {print $1}' | grep -qx 1000; then
-  echo "user: FAIL"
-  docker top "$NAME" || true
+# 2. Privilege drop: main gunicorn process (PID 1 inside the container) runs
+#    as listarr (uid 1000), not root. `docker exec` without --user always
+#    attaches as root (the image has no USER directive by design — see
+#    Dockerfile comment), so `docker exec ... id` only reports the exec
+#    session's default user, never the actual running process owner.
+#    `docker top` was tried first, but it resolves UIDs against the HOST's
+#    /etc/passwd, not the container's — on GitHub Actions' Ubuntu runners,
+#    host UID 1000 happens to belong to the runner-image build user
+#    ("packer"), so `docker top` prints "packer" instead of "1000" and the
+#    check false-fails there even though the container genuinely runs as
+#    listarr (this passed locally only because this machine's Docker
+#    Desktop / Windows host has no username mapped to UID 1000, so the raw
+#    number came through — a coincidence of the one environment it was
+#    tested in, not a reliable check). Read /proc/1/status from INSIDE the
+#    container's own pid/mount namespace instead — entirely unaffected by
+#    any host username table, in CI or anywhere else. The `Uid:` line has 4
+#    whitespace-separated numeric fields (real/effective/saved/filesystem);
+#    $1 is the "Uid:" label itself, so the real UID is $2.
+container_uid=$(docker exec "$NAME" cat /proc/1/status | awk '/^Uid:/{print $2}')
+if [ "$container_uid" != "1000" ]; then
+  echo "user: FAIL (got uid=$container_uid)"
+  docker exec "$NAME" cat /proc/1/status || true
   docker logs "$NAME" || true
   exit 1
 fi
