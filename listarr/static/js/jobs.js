@@ -45,7 +45,7 @@ async function loadLists() {
       }
     }
 
-    updateClearListButton();
+    updateClearActivityButton();
   } catch (error) {
     console.error("Error loading lists:", error);
   }
@@ -353,7 +353,7 @@ function applyFilters() {
   state.filters.status = statusSelect ? statusSelect.value : "";
   state.currentPage = 1;
 
-  updateClearListButton();
+  updateClearActivityButton();
   loadJobs();
 }
 
@@ -553,17 +553,16 @@ function showEmpty() {
 }
 
 /**
- * Sync the Clear List button's enabled state and label with the List filter selection.
+ * Sync the merged Clear Activity button's label with the List filter selection.
  */
-function updateClearListButton() {
-  var button = document.getElementById("clear-list-btn");
+function updateClearActivityButton() {
+  var button = document.getElementById("clear-activity-btn");
   var listSelect = document.getElementById("filter-list");
   if (!button || !listSelect) return;
 
   if (!listSelect.value) {
-    button.disabled = true;
-    button.textContent = "Clear List";
-    button.title = "Clear history for the list selected in the List filter";
+    button.textContent = "Clear All";
+    button.title = "Clear all activity history";
     return;
   }
 
@@ -571,90 +570,54 @@ function updateClearListButton() {
   var optionText = selectedOption ? selectedOption.textContent : "";
   var listName = optionText.replace(/\s*\([^)]*\)\s*$/, "");
 
-  button.disabled = false;
   button.textContent = "Clear " + listName;
   button.title = "Clear history for " + listName;
 }
 
 /**
- * Clear historical activity for the list currently selected in the List filter.
+ * Clear historical activity, scoped to the List filter's current selection (or all lists
+ * when no list is selected).
  */
-async function clearListActivity() {
+async function clearActivity() {
   var listSelect = document.getElementById("filter-list");
   var listId = listSelect ? listSelect.value : "";
-  if (!listId) return;
+  var scoped = !!listId;
 
-  var selectedOption = listSelect.options[listSelect.selectedIndex];
-  var optionText = selectedOption ? selectedOption.textContent : "";
-  var listName = optionText.replace(/\s*\([^)]*\)\s*$/, "");
+  var listName = "";
+  if (scoped) {
+    var selectedOption = listSelect.options[listSelect.selectedIndex];
+    var optionText = selectedOption ? selectedOption.textContent : "";
+    listName = optionText.replace(/\s*\([^)]*\)\s*$/, "");
+  }
 
-  var confirmed = window.confirm(
-    "Clear activity history for " + listName + "? Running jobs will not be removed. This cannot be undone."
-  );
+  var confirmMessage = scoped
+    ? "Clear activity history for " + listName + "? Running jobs will not be removed. This cannot be undone."
+    : "Clear all activity history? Running jobs will not be removed. This cannot be undone.";
+  var confirmed = window.confirm(confirmMessage);
   if (!confirmed) return;
 
-  var button = document.getElementById("clear-list-btn");
+  var button = document.getElementById("clear-activity-btn");
   if (button) {
     button.disabled = true;
     button.textContent = "Clearing...";
   }
 
   try {
-    var response = await fetch("/api/activity/clear/" + encodeURIComponent(listId), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-      },
-    });
-
-    if (!response.ok) {
-      var errorData = await response.json().catch(function () { return {}; });
-      throw new Error(errorData.message || "HTTP " + response.status);
-    }
-    var data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.message || "Failed to clear activity");
-    }
-
-    if (data.deleted_count > 0) {
-      showToast("Cleared " + data.deleted_count + " record" + (data.deleted_count !== 1 ? "s" : ""), "success");
-    } else if (data.deleted_count === 0) {
-      showToast("No historical records to clear", "info");
-    }
-    state.currentPage = 1;
-    loadJobs();
-  } catch (error) {
-    console.error("Error clearing activity:", error);
-    showToast(error.message || "Failed to clear activity", "error");
-  } finally {
-    updateClearListButton();
-  }
-}
-
-/**
- * Clear all historical activity after user confirmation.
- */
-async function clearAllActivity() {
-  var confirmed = window.confirm("Clear all activity history? Running jobs will not be removed. This cannot be undone.");
-  if (!confirmed) return;
-
-  var button = document.getElementById("clear-all-btn");
-  var originalText = button ? button.textContent : "Clear All";
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Clearing...";
-  }
-
-  try {
-    var response = await fetch("/api/activity/clear", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-      },
-    });
+    var response = scoped
+      ? await fetch("/api/activity/clear/" + encodeURIComponent(listId), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+        })
+      : await fetch("/api/activity/clear", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+        });
 
     if (!response.ok) {
       var errorData = await response.json().catch(function () { return {}; });
@@ -679,8 +642,8 @@ async function clearAllActivity() {
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = originalText;
     }
+    updateClearActivityButton();
   }
 }
 
@@ -699,10 +662,8 @@ function initJobsPage() {
   var filterStatus = document.getElementById("filter-status");
   if (filterList) filterList.addEventListener("change", applyFilters);
   if (filterStatus) filterStatus.addEventListener("change", applyFilters);
-  var clearBtn = document.getElementById("clear-all-btn");
-  if (clearBtn) clearBtn.addEventListener("click", clearAllActivity);
-  var clearListBtn = document.getElementById("clear-list-btn");
-  if (clearListBtn) clearListBtn.addEventListener("click", clearListActivity);
+  var clearBtn = document.getElementById("clear-activity-btn");
+  if (clearBtn) clearBtn.addEventListener("click", clearActivity);
 }
 
 // Initialize when DOM is ready
