@@ -290,3 +290,65 @@ class TestImportList:
         assert result.added == []
         assert result.skipped == []
         assert result.failed == [{"reason": "list_not_found", "list_id": 999999}]
+
+
+class TestImportSeriesDuplicateAcrossPages:
+    """WR-08: regression coverage for WR-04's seen_ids ordering fix in _import_series.
+
+    TMDB can return the same item across paginated results. WR-04 fixed a bug where
+    marking seen_ids *before* a successful Sonarr lookup meant a duplicate whose first
+    occurrence failed lookup would be wrongly short-circuited as 'duplicate_in_batch'
+    on its second occurrence -- instead of being retried. This mirrors the equivalent
+    coverage added for the same fix in tests/integration/test_import_integration.py's
+    TestBatchImportSeries, at unit-test scope in this file.
+    """
+
+    @patch("listarr.services.import_service.time")
+    @patch("listarr.services.import_service.tmdb_service")
+    @patch("listarr.services.import_service.sonarr_service")
+    def test_duplicate_tmdb_id_retried_after_failed_lookup_not_skipped(self, mock_sonarr, mock_tmdb, mock_time, app):
+        """When the same TMDB id appears twice and the first occurrence fails Sonarr
+        lookup, the second occurrence must be retried (lookup attempted again), not
+        short-circuited as 'duplicate_in_batch' for an item that was never queued."""
+        mock_sonarr.get_existing_series_tvdb_ids.return_value = set()
+        mock_sonarr.get_exclusions.return_value = set()
+        mock_tmdb.get_tvdb_id_from_tmdb.return_value = 1001
+
+        # First lookup for tvdb_id 1001 fails; second occurrence's lookup succeeds.
+        mock_sonarr.lookup_series.side_effect = [
+            None,
+            {
+                "tvdbId": 1001,
+                "title": "Series 1001",
+                "titleSlug": "series-1001",
+                "year": 2020,
+                "images": [],
+                "seasons": [],
+            },
+        ]
+        mock_sonarr.bulk_add_series.return_value = [{"tvdbId": 1001, "title": "Series 1001"}]
+
+        items = [
+            {"id": 1, "name": "Series 1"},
+            {"id": 1, "name": "Series 1"},
+        ]
+        settings = {
+            "root_folder": "/tv",
+            "quality_profile_id": 1,
+            "monitored": True,
+            "search_on_add": True,
+            "season_folder": True,
+            "monitor_mode": "all",
+            "tags": [],
+        }
+
+        with app.app_context():
+            result = import_service._import_series(items, "http://sonarr", "key", settings, "tmdb_key")
+
+        # The second occurrence must trigger a real retry (lookup called twice), not
+        # be skipped as duplicate_in_batch -- which is exactly what the pre-WR-04 bug did.
+        assert mock_sonarr.lookup_series.call_count == 2
+        assert not any(item["reason"] == "duplicate_in_batch" for item in result.skipped)
+        assert len(result.failed) == 1
+        assert result.failed[0]["reason"] == "not_found_in_sonarr"
+        assert len(result.added) == 1
