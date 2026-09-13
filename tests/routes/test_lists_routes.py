@@ -1714,6 +1714,31 @@ class TestListsJsAssetContract:
         assert b"data-last-run-result" in response.data
         assert b"last_run_formatted" in response.data
 
+    def test_toggle_switch_uses_semantic_color_classes(self, client):
+        """UI-REVIEW 15 fix 2: toggle must not set raw hex/rgb colors via inline style."""
+        response = client.get("/static/js/lists.js")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "applyToggleStyle" in body
+        assert "#ffffff" not in body
+        assert "rgb(var(--color-primary-rgb))" not in body
+        assert "classList.add('bg-primary', 'border-primary')" in body
+        assert "classList.add('bg-text-muted', 'border-border-subtle')" in body
+
+    def test_lists_page_icon_only_controls_have_aria_label(self, client):
+        """UI-REVIEW 15 fix 3: role=switch toggle and overflow menu need accessible names."""
+        lst = make_list(name="Aria Toggle Guard")
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get("/lists")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert 'aria-label="Disable Aria Toggle Guard"' in body
+        assert 'aria-label="Actions for Aria Toggle Guard"' in body
+
 
 # ---------------------------------------------------------------------------
 # Schedule API tests (migrated from test_schedule_routes.py)

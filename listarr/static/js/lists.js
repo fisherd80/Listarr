@@ -202,19 +202,17 @@ function updateRowLastRun(row, data) {
  * @param {boolean} isActive - whether the list is active
  */
 function applyToggleStyle(btn, isActive) {
+  // Knob is always white via the template's static `bg-white` class — no JS override needed.
   var knob = btn.querySelector('span');
-  if (knob) {
-    knob.style.backgroundColor = '#ffffff'; // always white — visible on both active (teal) and inactive (gray) tracks
-  }
   if (isActive) {
-    btn.style.backgroundColor = 'rgb(var(--color-primary-rgb))'; // teal fill when enabled
-    btn.style.borderColor = 'rgb(var(--color-primary-rgb))';
+    btn.classList.remove('bg-text-muted', 'border-border-subtle');
+    btn.classList.add('bg-primary', 'border-primary');
     if (knob) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
   } else {
-    btn.style.backgroundColor = 'var(--color-text-muted)'; // mid-gray when disabled
-    btn.style.borderColor = 'var(--color-border)'; // visible outline in both modes
+    btn.classList.remove('bg-primary', 'border-primary');
+    btn.classList.add('bg-text-muted', 'border-border-subtle');
     if (knob) {
       knob.style.transform = 'translateX(0)';
     }

@@ -590,10 +590,11 @@ async function clearActivity() {
     listName = optionText.replace(/\s*\([^)]*\)\s*$/, "");
   }
 
-  var confirmMessage = scoped
-    ? "Clear activity history for " + listName + "? Running jobs will not be removed. This cannot be undone."
-    : "Clear all activity history? Running jobs will not be removed. This cannot be undone.";
-  var confirmed = window.confirm(confirmMessage);
+  var confirmed = await showConfirmModal({
+    title: scoped ? "Clear " + listName + "?" : "Clear All Activity?",
+    body: "Running jobs will not be removed. This cannot be undone.",
+    confirmLabel: "Clear",
+  });
   if (!confirmed) return;
 
   var button = document.getElementById("clear-activity-btn");

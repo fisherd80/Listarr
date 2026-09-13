@@ -119,7 +119,8 @@ class TestActivityPageJavaScript:
         init_start = source.index("function initJobsPage()")
         clear_activity_source = source[function_start:init_start]
 
-        assert "window.confirm(" in clear_activity_source
+        assert "showConfirmModal(" in clear_activity_source
+        assert "window.confirm(" not in clear_activity_source
         assert 'fetch("/api/activity/clear"' in clear_activity_source
         assert 'fetch("/api/activity/clear/"' in clear_activity_source
         assert '"X-CSRFToken": getCsrfToken()' in clear_activity_source
@@ -154,6 +155,22 @@ class TestActivityPageJavaScript:
         go_to_page_start = source.index("function goToPage(")
         apply_filters_source = source[apply_filters_start:go_to_page_start]
         assert "updateClearActivityButton()" in apply_filters_source
+
+    def test_activity_page_loads_confirm_modal_script(self, client):
+        """UI-REVIEW 15 fix 1: shared confirm modal must load before clearActivity() uses it."""
+        response = client.get("/activity")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "js/confirm-modal.js" in body
+        assert body.index("js/confirm-modal.js") < body.index("js/jobs.js")
+
+    def test_confirm_modal_js_defines_show_confirm_modal(self, client):
+        """UI-REVIEW 15 fix 1: confirm-modal.js must expose the shared helper globally."""
+        response = client.get("/static/js/confirm-modal.js")
+
+        assert response.status_code == 200
+        assert b"window.showConfirmModal" in response.data
 
     def test_render_job_row_uses_deleted_badge_for_deleted_lists(self):
         """renderJobRow renders Deleted only for explicit list_deleted true."""
