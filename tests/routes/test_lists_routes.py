@@ -1583,6 +1583,107 @@ class TestGetListStatus:
         data = response.get_json()
         assert data["last_run_at"] is None
 
+    @patch("listarr.routes.lists_routes.get_job_status")
+    def test_completed_status_includes_last_run_formatted_and_result(self, mock_status, client, db_session):
+        """15-11: /status returns last_run_formatted and last_run_result on completion."""
+        mock_status.return_value = {
+            "status": "completed",
+            "items_found": 20,
+            "items_added": 17,
+            "items_skipped": 3,
+            "items_failed": 0,
+        }
+        run_time = datetime.now(timezone.utc)
+        lst = make_list(name="Formatted Completed List", last_run_at=run_time)
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/status")
+        data = response.get_json()
+        assert data["last_run_formatted"] == "Today"
+        assert data["last_run_result"] == "17 add / 3 skip"
+        # Pre-existing keys unchanged
+        assert data["status"] == "completed"
+        assert data["last_run_at"] is not None
+        assert data["result"]["summary"]["total"] == 20
+
+    @patch("listarr.routes.lists_routes.get_job_status")
+    def test_failed_status_clears_last_run_result(self, mock_status, client, db_session):
+        """A failed run must not carry a stale/previous result summary."""
+        mock_status.return_value = {
+            "status": "failed",
+            "error_message": "TMDB API unavailable",
+        }
+        lst = make_list(name="Formatted Failed List", last_run_at=datetime.now(timezone.utc))
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/status")
+        data = response.get_json()
+        assert data["last_run_result"] is None
+        assert data["error"] == "TMDB API unavailable"
+
+    @patch("listarr.routes.lists_routes.get_job_status")
+    def test_never_run_list_has_none_last_run_formatted_and_result(self, mock_status, client, db_session):
+        """The early no-job-info return path also carries the new keys, both None."""
+        mock_status.return_value = None
+        lst = make_list(name="Never Run Formatted")
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/status")
+        data = response.get_json()
+        assert data["last_run_formatted"] is None
+        assert data["last_run_result"] is None
+
+    def test_last_run_result_format_matches_lists_page_render(self, client, db_session):
+        """Format-parity guard (T-15-11-03): the status endpoint's last_run_result must be
+        byte-identical to what lists_page renders for the same list's most recent job."""
+        from flask import template_rendered
+
+        recorded = []
+
+        def record(sender, template, context, **extra):
+            recorded.append((template, context))
+
+        lst = make_list(name="Parity List")
+        db.session.add(lst)
+        db.session.commit()
+
+        job = Job(
+            list_id=lst.id,
+            status="completed",
+            started_at=datetime.now(timezone.utc),
+            items_added=17,
+            items_skipped=3,
+        )
+        db.session.add(job)
+        db.session.commit()
+        # last_run_at is set separately from the job in real usage (job_executor updates it);
+        # set it here so the page render shows "Today" like the status endpoint will.
+        lst.last_run_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        from flask import current_app
+
+        template_rendered.connect(record, current_app._get_current_object())
+        try:
+            page_response = client.get("/lists")
+        finally:
+            template_rendered.disconnect(record, current_app._get_current_object())
+
+        assert page_response.status_code == 200
+        assert len(recorded) == 1
+        _, context = recorded[0]
+        page_lists = {item.id: item for item in context["lists"]}
+        page_result = page_lists[lst.id].last_run_result
+
+        status_response = client.get(f"/lists/{lst.id}/status")
+        status_data = status_response.get_json()
+
+        assert page_result == "17 add / 3 skip"
+        assert status_data["last_run_result"] == page_result
+
 
 # ---------------------------------------------------------------------------
 # Schedule API tests (migrated from test_schedule_routes.py)

@@ -212,6 +212,17 @@ def _monitor_mode_to_form(value):
     return normalize_monitor_mode(value, default="")
 
 
+def _format_last_run_result(items_added, items_skipped):
+    """Canonical last-run result summary formatter ("N added / M skipped" shorthand).
+
+    This is the ONLY place this string format may be produced. Both `lists_page`
+    (server-rendered page load) and `get_list_status` (polled endpoint consumed by
+    `updateRowLastRun()` in lists.js) call this helper so the two can never drift
+    apart (15-11 / T-15-11-03).
+    """
+    return f"{items_added or 0} add / {items_skipped or 0} skip"
+
+
 @bp.route("/lists")
 @login_required
 def lists_page():
@@ -232,7 +243,7 @@ def lists_page():
         list_obj.last_run_at_iso = list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
         recent_job = Job.query.filter_by(list_id=list_obj.id).order_by(Job.started_at.desc()).first()
         if recent_job and recent_job.status == "completed":
-            list_obj.last_run_result = f"{recent_job.items_added or 0} add / {recent_job.items_skipped or 0} skip"
+            list_obj.last_run_result = _format_last_run_result(recent_job.items_added, recent_job.items_skipped)
         else:
             list_obj.last_run_result = None
 
@@ -1129,6 +1140,8 @@ def get_list_status(list_id):
                 "list_id": list_id,
                 "status": "idle",
                 "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+                "last_run_formatted": format_past_time(list_obj.last_run_at),
+                "last_run_result": None,
             }
         )
 
@@ -1138,6 +1151,8 @@ def get_list_status(list_id):
         "list_id": list_id,
         "status": status if status in ["running", "completed", "failed"] else "idle",
         "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+        "last_run_formatted": format_past_time(list_obj.last_run_at),
+        "last_run_result": None,
     }
 
     # Include result/error info based on status
@@ -1150,6 +1165,9 @@ def get_list_status(list_id):
                 "failed_count": job_info.get("items_failed", 0),
             }
         }
+        response["last_run_result"] = _format_last_run_result(
+            job_info.get("items_added"), job_info.get("items_skipped")
+        )
     elif status == "failed":
         response["error"] = job_info.get("error_message", "Unknown error")
 
