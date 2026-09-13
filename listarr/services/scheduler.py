@@ -84,6 +84,11 @@ def _posix_cron_to_apscheduler(cron_expr):
     unambiguous in both systems.
 
     Wildcards and step-only expressions (*/N) are left unchanged.
+
+    WR-01: a range/list combined with a step suffix (e.g. '1-5/2') must only have its
+    range/list portion translated to day names -- the step count itself is not a day
+    number and must be left as a plain digit, or APScheduler fails to parse the result
+    (or, worse, silently mis-schedules).
     """
     parts = cron_expr.split()
     if len(parts) != 5:
@@ -91,7 +96,9 @@ def _posix_cron_to_apscheduler(cron_expr):
     dow = parts[4]
     if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
         return cron_expr
-    parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), dow)
+    field, _, step = dow.partition("/")
+    field = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
+    parts[4] = f"{field}/{step}" if step else field
     return " ".join(parts)
 
 
