@@ -245,11 +245,14 @@ jobs:
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.REGISTRY_IMAGE }}
+          # WR-05: :latest is owned exclusively by docker-main (pushes on every push to
+          # main). Tagging it here too let docker-main and docker-release race for the
+          # tag whenever a release tag and a main push land close together, with no
+          # ordering guarantee between the two independent jobs.
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest
 
       - name: Build and push release image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
