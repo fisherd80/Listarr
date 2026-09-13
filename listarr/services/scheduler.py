@@ -6,7 +6,6 @@ Manages APScheduler for automated list imports with cron schedules.
 import atexit
 import logging
 import os
-import re
 import threading
 import zoneinfo
 from dataclasses import dataclass, field
@@ -17,6 +16,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.util import astimezone
 from cron_descriptor import get_description
+from cron_descriptor.Exception import FormatException, MissingFieldException, WrongArgumentException
 from cronsim import CronSim
 from cronsim.cronsim import CronSimError
 from cryptography.fernet import InvalidToken
@@ -70,78 +70,132 @@ class ReconcileResult:
     pending: int = 0
 
 
-# POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
-# Converting to name strings avoids the ambiguity entirely.
-_POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
+# POSIX cron uses 0=Sunday (and 7 as an alias for Sunday); APScheduler's CronTrigger
+# uses 0=Monday internally and has no numeric alias for a second Sunday value.
+# Name strings ('sun', 'mon', ...) are unambiguous in both systems, so translation
+# always renders its output as day names -- see `_posix_dow_field_to_apscheduler_names`.
+_POSIX_DOW_NAMES = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
+
+# POSIX day-of-week numeric range is 0-7 inclusive (0 and 7 both mean Sunday). This
+# mirrors cronsim's own `RANGES` table for the day-of-week field so that a value or
+# step here is always in the same domain cronsim itself would validate.
+_POSIX_DOW_RANGE = range(0, 8)
 
 
-def _shift_posix_dow_digits(field: str) -> str:
-    """Shift POSIX day-of-week digits (0=Sun, ..., 6=Sat, 7=Sun) to APScheduler's
-    numbering (0=Mon, ..., 6=Sun), leaving separators (',', '-') untouched.
+def _parse_posix_dow_term(term: str) -> set[int]:
+    """Parse a single comma-free POSIX day-of-week term into the set of POSIX day
+    numbers it matches, folded to 0-6 (7 folded into 0, since both mean Sunday).
 
-    CR-03: a step-suffixed numeric field was previously left completely untranslated,
-    which kept the step honored but reintroduced the exact 0=Sunday(POSIX) vs
-    0=Monday(APScheduler) indexing ambiguity this module exists to eliminate --
-    e.g. POSIX '1-5/2' (Mon/Wed/Fri) built an APScheduler trigger that actually
-    fired Tue/Thu/Sat. Shifting each digit by (d + 6) % 7 maps POSIX Sunday=0 to
-    APScheduler Sunday=6, POSIX Monday=1 to APScheduler Monday=0, etc., so the
-    numeric field keeps its step suffix *and* fires on the correct days.
+    This intentionally re-implements the same enumeration rules cronsim's
+    `Field.DOW.parse()` uses for '*', ranges ('a-b'), steps ('term/n'), and bare
+    values -- by computing the *exact same set of matching days* cronsim would
+    compute (rather than trying to preserve or re-derive an equivalent APScheduler
+    step/range expression), the translated output can never diverge from cronsim's
+    fire-date computation. This is the root-cause fix for CR-02/CR-03/CR-04, which
+    each regressed by trying to keep some form of APScheduler step/range syntax in
+    sync with POSIX semantics instead of just enumerating the matched days directly.
+
+    Raises ValueError for a term this function does not understand (e.g. a day
+    name, or malformed syntax); callers should treat that as "translation does not
+    apply" and let APScheduler's own parser accept or reject the original field.
     """
-    return re.sub(r"\b([0-7])\b", lambda m: str((int(m.group(1)) + 6) % 7), field)
+    base, _, step_str = term.partition("/")
+    step: int | None = None
+    if step_str:
+        if not step_str.isdigit() or int(step_str) == 0:
+            raise ValueError(f"Bad day-of-week step: {term!r}")
+        step = int(step_str)
+
+    if base == "*":
+        items = set(_POSIX_DOW_RANGE)
+    elif "-" in base:
+        start_str, end_str = base.split("-", 1)
+        if not (start_str.isdigit() and end_str.isdigit()):
+            raise ValueError(f"Bad day-of-week range: {term!r}")
+        start, end = int(start_str), int(end_str)
+        if start not in _POSIX_DOW_RANGE or end not in _POSIX_DOW_RANGE or end < start:
+            raise ValueError(f"Bad day-of-week range: {term!r}")
+        items = set(range(start, end + 1))
+    else:
+        if not base.isdigit():
+            raise ValueError(f"Bad day-of-week value: {term!r}")
+        value = int(base)
+        if value not in _POSIX_DOW_RANGE:
+            raise ValueError(f"Bad day-of-week value: {term!r}")
+        items = {value}
+
+    if step is not None:
+        # Mirrors cronsim exactly: a single starting value steps from itself to the
+        # end of the whole POSIX range (0-7); a multi-value base (from a range or
+        # '*') is sorted and every step-th member is kept.
+        if len(items) == 1:
+            (start,) = items
+            items = set(range(start, max(_POSIX_DOW_RANGE) + 1)[::step])
+        else:
+            items = set(sorted(items)[::step])
+
+    return {d % 7 for d in items}
+
+
+def _posix_dow_field_to_apscheduler_names(dow: str) -> str:
+    """Expand a full POSIX day-of-week field (comma list of terms, each possibly a
+    wildcard, range, and/or step) into the exact set of matching days and render it
+    as an unambiguous, deduplicated comma list of APScheduler day names.
+
+    Always emitting the fully enumerated set as names -- never a range or step
+    expression -- means this can never hit either of the two APScheduler pitfalls
+    that caused CR-02/CR-03/CR-04: APScheduler's day-of-week step semantics operate
+    on its own 0=Monday numbering (easy to get subtly wrong when translating from
+    POSIX's 0=Sunday), and APScheduler silently drops a step suffix once a field has
+    been rendered as day *names*. Neither applies here because the enumeration
+    happens in POSIX-space (matching cronsim term-for-term) before any APScheduler
+    syntax is produced, and the output is always a plain name list with no step.
+
+    Raises ValueError if any comma-separated term is not understood (see
+    `_parse_posix_dow_term`); callers should fall back to leaving the field
+    untranslated in that case.
+    """
+    days: set[int] = set()
+    for term in dow.split(","):
+        days |= _parse_posix_dow_term(term.strip())
+    # Cosmetic only: order Monday..Sunday so the rendered field reads naturally.
+    ordered = sorted(days, key=lambda d: (d + 6) % 7)
+    return ",".join(_POSIX_DOW_NAMES[d] for d in ordered)
 
 
 def _posix_cron_to_apscheduler(cron_expr):
-    """Translate POSIX day-of-week numbers to APScheduler's numbering before handing
-    off to APScheduler.
+    """Translate a POSIX day-of-week field to APScheduler's day-name syntax before
+    handing the expression off to APScheduler.
 
-    APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python weekday),
-    while POSIX cron uses 0=Sunday. '0 2 * * 1' would fire Tuesday in APScheduler
-    but Monday in every standard cron tool. Name strings ('mon', 'tue', …) are
-    unambiguous in both systems.
+    APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python
+    weekday), while POSIX cron uses 0=Sunday (with 7 as an alias for Sunday too).
+    '0 2 * * 1' would fire Tuesday in APScheduler but Monday in every standard cron
+    tool. The day-of-week field is fully enumerated in POSIX-space (mirroring
+    cronsim's own semantics for '*', ranges, steps, and comma lists in any
+    combination -- see `_posix_dow_field_to_apscheduler_names`) and always rendered
+    as a plain comma list of day names, which is unambiguous in both systems and
+    carries no step/range syntax that could silently diverge between them.
 
-    Wildcards and step-only expressions (*/N) are left unchanged.
-
-    CR-02: APScheduler's CronTrigger silently drops a step suffix once a day-of-week
-    range/list has been translated to day *names* -- 'mon-fri/2' builds without error
-    but behaves identically to 'mon-fri' (verified against the installed apscheduler
-    version), which fires the job on every day in the range instead of every Nth day.
-    So when a step suffix is present, the field is kept numeric (not translated to
-    names) to keep the step honored.
-
-    CR-03: keeping a step-suffixed field numeric is not enough on its own -- the
-    digits still need to be shifted from POSIX's 0=Sunday numbering to APScheduler's
-    0=Monday numbering (see `_shift_posix_dow_digits`), otherwise every fire date is
-    off by a day versus the POSIX-semantics validation preview. Only the bare,
-    step-less case is translated to day *names* to resolve the same ambiguity.
-
-    CR-04: a single `dow.partition("/")` over the *whole* field only ever finds the
-    first '/' in the string, so a comma-separated list where more than one member
-    carries its own step (or a stepped member is followed by a bare day), e.g.
-    '1-5/2,6' or '1/2,3/2', had everything after the first '/' passed through
-    completely unshifted/untranslated. That silently reintroduced the POSIX-vs-
-    APScheduler day-of-week ambiguity for the un-shifted tail with no error raised.
-    The field is now split on commas first, and each comma-separated segment is
-    translated independently (each segment may itself be a bare day, a range, and/or
-    carry its own step suffix), then rejoined with commas.
+    A day-of-week field is left completely unchanged if it is a bare '*' (already
+    unambiguous), or if `_posix_dow_field_to_apscheduler_names` cannot parse it (for
+    example a field using day *names* instead of digits, like 'mon-fri', which is
+    already unambiguous and needs no translation -- though note that combining a
+    name range with a step, e.g. 'mon-fri/2', is a pre-existing, separate
+    limitation: APScheduler silently drops the step in that case, and no digits are
+    present here to translate). In the untranslatable case, the field is passed
+    through as-is and APScheduler's own parser will accept or reject it.
     """
     parts = cron_expr.split()
     if len(parts) != 5:
         return cron_expr
     dow = parts[4]
-    if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
+    if dow == "*" or not any(c.isdigit() for c in dow):
         return cron_expr
 
-    def _translate_segment(segment: str) -> str:
-        field, _, step = segment.partition("/")
-        if step:
-            # Keep the field numeric (not day names) so APScheduler doesn't silently
-            # drop the step (CR-02), but shift the digits to APScheduler's 0=Monday
-            # numbering so the field still fires on the correct POSIX-equivalent
-            # days (CR-03).
-            return f"{_shift_posix_dow_digits(field)}/{step}"
-        return re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
-
-    parts[4] = ",".join(_translate_segment(segment) for segment in dow.split(","))
+    try:
+        parts[4] = _posix_dow_field_to_apscheduler_names(dow)
+    except ValueError:
+        return cron_expr
     return " ".join(parts)
 
 
@@ -711,10 +765,21 @@ def validate_cron_expression(cron_expr):
         cron = CronSim(cron_expr, now)
 
         # Get human-readable description
+        # CR-01: get_description() is called with the raw, untranslated cron_expr (it
+        # has its own POSIX-semantics parser and does not need or want the
+        # APScheduler-translated form). For syntax it does not understand -- e.g. a
+        # comma-separated day-of-week list where a member carries a step, such as
+        # '1-5/2,6' -- cron_descriptor raises FormatException (or, on other inputs,
+        # MissingFieldException / WrongArgumentException), none of which are
+        # ValueError/KeyError subclasses. A human-readable description is a nice-to-
+        # have, not load-bearing for validity, so any of these fall back to showing
+        # the raw expression instead of propagating and crashing the whole
+        # validation call (and, transitively, the /api/cron/validate and
+        # /api/schedule/<id>/update routes that call this function directly).
         try:
             description = get_description(cron_expr)
             result["description"] = description
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, FormatException, MissingFieldException, WrongArgumentException):
             result["description"] = cron_expr
 
         # Get next 3 run times using advance()

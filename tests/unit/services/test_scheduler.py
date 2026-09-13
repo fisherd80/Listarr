@@ -616,67 +616,55 @@ class TestSchedulerTimezone:
         assert "mismatch" in result["error"].lower()
         assert result["next_runs"] == []
 
-    def test_posix_cron_to_apscheduler_keeps_step_numeric(self):
-        """CR-02: a day-of-week range/list combined with a step must NOT be translated
-        to day names -- APScheduler silently drops the step once the field is a name
-        range/list, so the numeric form must be preserved to keep the step honored.
-
-        CR-03: the numeric digits are also shifted from POSIX's 0=Sunday numbering to
-        APScheduler's 0=Monday numbering (d -> (d + 6) % 7), so '1-5/2' (POSIX Mon-Fri)
-        becomes '0-4/2' (APScheduler Mon-Fri), not a bare untranslated round-trip.
-
-        CR-04: '1,3,5/2' is a comma-separated list of *three* independent segments
-        under POSIX cron grammar ('1', '3', '5/2'), not a single 3-element list with
-        one step applied across the whole list. Each segment is translated on its own
-        merits -- the two bare, step-less segments ('1', '3') become unambiguous day
-        names, and only the segment that actually carries a step ('5/2') is kept
-        numeric and digit-shifted. This still fires on the same POSIX-equivalent days
-        as the old whole-field '0,2,4/2' translation (see
-        test_range_step_cron_fire_dates_match_cronsim below) -- it is just expressed
-        per-segment instead of as one coincidentally fire-date-equivalent numeric blob."""
-        assert _posix_cron_to_apscheduler("0 2 * * 1-5/2") == "0 2 * * 0-4/2"
-        assert _posix_cron_to_apscheduler("0 2 * * 1,3,5/2") == "0 2 * * mon,wed,4/2"
-
     def test_posix_cron_to_apscheduler_translates_stepless_range(self):
-        """Stepless day-of-week ranges/lists still get translated to unambiguous names."""
-        assert _posix_cron_to_apscheduler("0 2 * * 1-5") == "0 2 * * mon-fri"
+        """Stepless day-of-week ranges/lists are enumerated and rendered as an
+        unambiguous, deduplicated comma list of day names (Iteration 2 rewrite: the
+        translator now always emits a fully enumerated name list rather than trying
+        to preserve range/step syntax -- see the module docstring history of
+        CR-02/CR-03/CR-04 for why the previous approaches kept regressing)."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1-5") == "0 2 * * mon,tue,wed,thu,fri"
         assert _posix_cron_to_apscheduler("0 2 * * 1") == "0 2 * * mon"
 
-    def test_range_step_cron_fires_on_correct_days(self):
-        """CR-02 regression: the built CronTrigger's actual day_of_week field must not
-        silently drop the step suffix. Previously 'mon-fri/2' built successfully but
-        behaved like 'mon-fri' (fired every day), which this test would have caught."""
-        translated = _posix_cron_to_apscheduler("0 2 * * 1-5/2")
-        trigger = CronTrigger.from_crontab(translated)
+    def test_posix_cron_to_apscheduler_name_range_left_unchanged(self):
+        """A day-of-week field already expressed with day *names* (no digits) is
+        passed through unchanged -- it is already unambiguous, and this function's
+        digit-based term parser does not understand name syntax. Note this does not
+        cover 'mon-fri/2' (a name range combined with a step): APScheduler silently
+        drops the step in that case, which is a separate, pre-existing, documented
+        limitation this rewrite does not attempt to fix, since there are no digits
+        here for the translator to even engage with."""
+        assert _posix_cron_to_apscheduler("0 2 * * mon-fri") == "0 2 * * mon-fri"
 
-        dow_field = str(trigger.fields[trigger.FIELD_NAMES.index("day_of_week")])
-        assert dow_field == "0-4/2"
-        assert "mon-fri" not in dow_field
+    def test_posix_cron_to_apscheduler_unparseable_field_falls_through(self):
+        """A field with digits in a shape `_parse_posix_dow_term` cannot parse (e.g.
+        a malformed step) is passed through unchanged rather than raising -- letting
+        APScheduler's own parser decide whether to accept or reject it."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1/0") == "0 2 * * 1/0"
 
     @pytest.mark.parametrize(
         "posix_expr",
         [
-            "0 2 * * 1-5/2",  # range+step: POSIX Mon-Fri every 2nd day -> Mon/Wed/Fri
-            "0 2 * * 1,3,5/2",  # list+step: same days expressed as a list
-            "0 2 * * 0,2,4/3",  # list+step including POSIX Sunday (digit 0)
+            "0 2 * * 1-5/2",  # numeric range+step: POSIX Mon-Fri every 2nd day -> Mon/Wed/Fri
+            "0 2 * * 1,3,5/2",  # numeric list+step: same days expressed as a list
+            "0 2 * * 0,2,4/3",  # numeric list+step including POSIX Sunday (digit 0)
             "0 2 * * 1-5/2,6",  # CR-04: stepped segment + trailing bare day in one field
             "0 2 * * 1/2,3/2",  # CR-04: two independently-stepped segments in one field
+            "0 2 * * */2",  # CR-02 (this round): bare wildcard-step, N=2
+            "0 2 * * */3",  # bare wildcard-step, N=3 (7 % 3 != 0)
+            "0 2 * * */2,1",  # CR-02 (this round): wildcard-step leading a comma list
+            "0 2 * * 0",  # day 0 (Sunday)
+            "0 2 * * 7",  # day 7 (also Sunday -- POSIX alias)
+            "0 2 * * 0,7",  # both Sunday aliases in one field, must dedupe
+            "0 2 * * 2-5",  # plain numeric range, no step
+            "0 2 * * 1,4",  # plain numeric list, no step
         ],
     )
-    def test_range_step_cron_fire_dates_match_cronsim(self, posix_expr):
-        """CR-03 regression: a numeric day-of-week field combined with a step must fire
-        on the same days cronsim (POSIX semantics, what /api/cron/validate previews to
-        the user) computes -- not shifted by the 0=Sunday(POSIX) vs 0=Monday(APScheduler)
-        indexing mismatch. This asserts actual computed fire *dates*, not just the built
-        trigger's field string, which is what let the CR-03 regression slip through the
-        earlier (string-only) version of this test.
-
-        CR-04 regression: '1-5/2,6' and '1/2,3/2' are comma lists where more than one
-        segment carries its own step (or a stepped segment is followed by a bare day).
-        A single `dow.partition("/")` over the whole field only found the first '/' and
-        passed the un-shifted tail through verbatim, producing a trigger that built
-        successfully but fired on the wrong days -- the same failure class as CR-02/CR-03,
-        just reachable via a field shape the earlier three parametrizations didn't cover."""
+    def test_translated_cron_fire_dates_match_cronsim(self, posix_expr):
+        """The translated field must fire on exactly the same dates cronsim (POSIX
+        semantics, what /api/cron/validate previews to the user) computes. This
+        asserts actual computed fire *dates* from a real built CronTrigger, not just
+        string equality or trigger buildability -- the class of check that let
+        CR-02/CR-03/CR-04 (and this round's CR-01/CR-02) slip through repeatedly."""
         translated = _posix_cron_to_apscheduler(posix_expr)
         trigger = CronTrigger.from_crontab(translated)
 
@@ -684,17 +672,65 @@ class TestSchedulerTimezone:
 
         cronsim_dates = []
         c = CronSim(posix_expr, start)
-        for _ in range(8):
+        for _ in range(12):
             cronsim_dates.append(next(c).date())
 
         aps_dates = []
         dt = start
-        for _ in range(8):
+        for _ in range(12):
             dt = trigger.get_next_fire_time(None, dt)
             aps_dates.append(dt.date())
             dt += timedelta(seconds=1)
 
         assert aps_dates == cronsim_dates
+
+    @pytest.mark.parametrize(
+        "posix_expr",
+        [
+            "0 2 * * 1-5/2",
+            "0 2 * * 1,3,5/2",
+            "0 2 * * 0,2,4/3",
+            "0 2 * * 1-5/2,6",  # CR-01 flagship regression: comma list with a stepped member
+            "0 2 * * 1/2,3/2",
+            "0 2 * * */2",  # CR-02 (this round): bare wildcard-step
+            "0 2 * * */3",
+            "0 2 * * */2,1",  # CR-02 (this round): wildcard-step leading a comma list
+            "0 2 * * 0",
+            "0 2 * * 7",
+            "0 2 * * 0,7",
+            "0 2 * * 1-5",
+            "0 2 * * 1",
+            "0 2 * * *",
+        ],
+    )
+    def test_validate_cron_expression_end_to_end_accepts_regression_cases(self, posix_expr):
+        """CR-01/CR-02 (this round): validate_cron_expression() itself -- not just
+        `_posix_cron_to_apscheduler` or `CronTrigger.from_crontab` called directly --
+        must accept every one of these previously-regressing expressions without
+        raising and without a fire-date mismatch. The earlier fixer's own tests only
+        ever called the lower-level translation helper directly, which is exactly
+        why the CR-01 crash (in cron_descriptor.get_description, a code path only
+        validate_cron_expression's own try/except reaches) was invisible to them."""
+        with patch("listarr.services.scheduler._scheduler", None):
+            result = validate_cron_expression(posix_expr)
+
+        assert result["valid"] is True, result["error"]
+        assert result["error"] is None
+        assert len(result["next_runs"]) == 3
+
+    def test_validate_cron_expression_does_not_crash_on_comma_step_dow(self):
+        """CR-01 regression: `get_description()` (from cron_descriptor) raises
+        `cron_descriptor.Exception.FormatError` -- not a ValueError/KeyError -- for a
+        comma-separated day-of-week field where a member carries a step, e.g.
+        '1-5/2,6'. That exception must be caught so validate_cron_expression()
+        degrades to showing the raw expression as its description instead of
+        propagating an unhandled 500 out to /api/cron/validate,
+        /api/schedule/<id>/update, and schedule_list()."""
+        with patch("listarr.services.scheduler._scheduler", None):
+            result = validate_cron_expression("0 2 * * 1-5/2,6")
+
+        assert result["valid"] is True
+        assert result["description"]  # falls back to the raw expression, but must not crash
 
 
 @pytest.mark.unit
