@@ -5,32 +5,7 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
-## [2.2.DEV-4] - 2026-09-13
-
-_Development checkpoint on `develop` — not a release. Fourth and final phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
-
-### Added
-
-- `scripts/docker-smoke.sh` — 5 credential-free image checks (boot, healthcheck, non-root user, writable instance dir, ZoneInfo availability), wired into CI as a `docker-validate` job
-- `.github/dependabot.yml` — weekly, grouped-minor/patch Dependabot config for pip, Docker, and GitHub Actions ecosystems
-- A single "Clear List" / "Clear All" control on the Activity page that adapts its label and POST target to the current List filter selection, replacing the previous separate buttons
-
-### Changed
-
-- Full runtime and dev dependency freeze — every transitive package pinned by exact version in `requirements.txt` and `requirements-dev.txt`, audited clean with `pip-audit`
-- Docker base image pinned by digest via a single `PYTHON_BASE` build arg
-- SQLAlchemy legacy `Query.get()` usage migrated to `db.session.get()`; SQLAlchemy legacy-API warnings promoted to test failures
-- The Lists page now updates its last-run timestamp, result text, and add/skip/fail counts in place when a job completes, instead of requiring a manual refresh
-- `ruff` and `bandit` version pins now carry an explicit lockstep cross-reference between `requirements-dev.txt` and `.pre-commit-config.yaml`
-
-### Fixed
-
-- `GET /api/cron/validate` no longer 500s on any valid custom cron expression — the internal-only `CronTrigger` object is no longer serialized into the JSON response
-- The list create/edit form's Save button no longer gets stuck disabled after a cron-validation transport error; the failure is now surfaced to the user instead of silently blocking Save
-
-## [2.2.DEV-3] - 2026-09-10
-
-_Development checkpoint on `develop` — not a release. Third phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
+## [2.2.0] - 2026-09-13
 
 ### Added
 
@@ -39,55 +14,42 @@ _Development checkpoint on `develop` — not a release. Third phase of the v2.2 
 - Saving a timezone live-reschedules every scheduled list into the new zone with no restart and without rewinding existing run times; the Save toast reports how many lists were rescheduled, could not be, or are pending on a non-scheduler worker
 - GEN-07 fallback notice on the General tab when the configured zone cannot be loaded (e.g. missing `tzdata`), naming the fallback zone actually in use
 - Browser-rendered absolute timestamps (Activity, Run detail, Lists last-run) now render in the configured application timezone with a zone abbreviation; relative cells carry a full-offset hover tooltip
+- Sonarr monitor-mode selector — choose per TV list how much of a series Listarr monitors when it adds it: **All episodes / First season / Latest season / Pilot / None** (resolves #34)
+- Monitor Mode is a Sonarr **Import Default** (default: All) under Settings → Sonarr Import Defaults, with a per-list tri-state override ("Use Default") mirroring the existing Season Folder override
+- The selector is rendered on the custom builder, the preset wizard, and the list edit form — Sonarr lists only; Radarr lists are unaffected and show no such control
+- Imports now emit `addOptions.monitor` on both the bulk (`/api/v3/series/import`) and single-add Sonarr paths, from a constant token map pinned against the Sonarr v3 `MonitorTypes` schema by a build-time test (so "Latest season" correctly sends `lastSeason`, never the obsolete `latestSeason`)
+- Client-side gating: Monitor Mode greys out when Monitored is off, and Search on Add is forced off for Monitored-off or Monitor Mode = None
+- `scripts/docker-smoke.sh` — 5 credential-free image checks (boot, healthcheck, non-root user, writable instance dir, ZoneInfo availability), wired into CI as a `docker-validate` job
+- `.github/dependabot.yml` — weekly, grouped-minor/patch Dependabot config for pip, Docker, and GitHub Actions ecosystems
+- A single "Clear List" / "Clear All" control on the Activity page that adapts its label and POST target to the current List filter selection, replacing the previous separate buttons
+- Permanent `tests/integration/test_scheduler_bump_smoke.py` — exercises a real (unmocked) APScheduler `BackgroundScheduler` and a real SQLite `TZDateTime` round-trip, so a future dependency bump that breaks job registration, timezone-aware `next_run_time`, or UTC-at-rest storage fails loudly
 
 ### Changed
 
 - The scheduler resolves its timezone from the application setting (DB → live scheduler → `TZ` → UTC) instead of `TZ`/UTC only, and constructs `BackgroundScheduler` from it on boot
 - Timezone reschedule is now one idempotent `reconcile_scheduler_jobs()` desired-vs-live diff — every `CronTrigger` is built before the jobstore is touched, then jobs are added/replaced/removed to match; this replaced the previous mutate-and-track reschedule plus its quarantine / incomplete-flag / orphan-sweep apparatus (~290 lines removed from `scheduler.py`)
 - `validate_cron_expression()` now also rejects cronsim-valid but trigger-unbuildable expressions (e.g. `0 2 L * *`) everywhere list save, the list routes, and the validation endpoint run
-- `APScheduler` stays pinned at exactly `3.11.3` — `scheduler.py` assigns `BaseScheduler.timezone` directly (an undocumented-as-mutable path) because `configure()` refuses to run on a started scheduler
-
-### Security
-
-- Timezone save input is validated by resolvability (`zoneinfo.ZoneInfo`), not curated-list membership; the `ValueError` arm rejects embedded null bytes, absolute paths, and `.`/`..` path components (threat T-14-01), and the zone filter's empty-result copy is written with `textContent`, never `innerHTML` (T-14-02)
-
-## [2.2.DEV-2] - 2026-09-07
-
-_Development checkpoint on `develop` — not a release. Second phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
-
-### Added
-
-- Sonarr monitor-mode selector — choose per TV list how much of a series Listarr monitors when it adds it: **All episodes / First season / Latest season / Pilot / None** (resolves #34)
-- Monitor Mode is a Sonarr **Import Default** (default: All) under Settings → Sonarr Import Defaults, with a per-list tri-state override ("Use Default") mirroring the existing Season Folder override
-- The selector is rendered on the custom builder, the preset wizard, and the list edit form — Sonarr lists only; Radarr lists are unaffected and show no such control
-- Imports now emit `addOptions.monitor` on both the bulk (`/api/v3/series/import`) and single-add Sonarr paths, from a constant token map pinned against the Sonarr v3 `MonitorTypes` schema by a build-time test (so "Latest season" correctly sends `lastSeason`, never the obsolete `latestSeason`)
-- Client-side gating: Monitor Mode greys out when Monitored is off, and Search on Add is forced off for Monitored-off or Monitor Mode = None
-
-### Changed
-
 - `resolve_import_settings()` now returns a `monitor_mode` key resolved through list override → import default → `all`, and is the single place where the monitored / monitor-mode / search-on-add conflicts are reconciled; any stored value outside the five known tokens is coerced to `all` and logged
 - `lists.sonarr_monitor_mode` and `media_import_settings.sonarr_monitor_mode` are added by idempotent, `PRAGMA table_info`-guarded startup DDL (no Alembic), so pre-upgrade lists keep behaving exactly as "All" with no manual action
 - Monitor mode applies on **new adds only** — re-running a list never modifies monitoring on a series Sonarr already has
+- Full runtime and dev dependency freeze — every transitive package pinned by exact version in `requirements.txt` and `requirements-dev.txt`, audited clean with `pip-audit`
+- Docker base image pinned by digest via a single `PYTHON_BASE` build arg
+- SQLAlchemy legacy `Query.get()` usage migrated to `db.session.get()`; SQLAlchemy legacy-API warnings promoted to test failures
+- The Lists page now updates its last-run timestamp, result text, and add/skip/fail counts in place when a job completes, instead of requiring a manual refresh
+- `ruff` and `bandit` version pins now carry an explicit lockstep cross-reference between `requirements-dev.txt` and `.pre-commit-config.yaml`
+- Scheduler/ORM dependency baseline settled ahead of the timezone work: `SQLAlchemy` 2.0.46 → 2.0.52, `APScheduler` 3.11.2 → 3.11.3, `cron-descriptor` 2.0.6 → 2.1.0 (all exact pins, still within their current major); `APScheduler` stays pinned at exactly `3.11.3` — `scheduler.py` assigns `BaseScheduler.timezone` directly (an undocumented-as-mutable path) because `configure()` refuses to run on a started scheduler
+- `tzdata` added as an explicit runtime dependency so `zoneinfo` resolves inside the Alpine container (no system zone database on musl)
+- Docker base image tag corrected from the floating `python:3-alpine` to `python:3.11-alpine`, aligning the image with the CI Python version
 
----
+### Fixed
 
-## [2.2.DEV-1] - 2026-09-03
-
-_Development checkpoint on `develop` — not a release. First phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
+- `GET /api/cron/validate` no longer 500s on any valid custom cron expression — the internal-only `CronTrigger` object is no longer serialized into the JSON response
+- The list create/edit form's Save button no longer gets stuck disabled after a cron-validation transport error; the failure is now surfaced to the user instead of silently blocking Save
 
 ### Security
 
 - `cryptography` upgraded 46.0.7 → 50.0.1, clearing PYSEC-2026-3552, PYSEC-2026-3553, PYSEC-2026-3554 and GHSA-537c-gmf6-5ccf; the Fernet key-encryption round-trip is unaffected (`pytest -m encryption` green)
-
-### Changed
-
-- Scheduler/ORM dependency baseline settled ahead of the v2.2 timezone work: `SQLAlchemy` 2.0.46 → 2.0.52, `APScheduler` 3.11.2 → 3.11.3, `cron-descriptor` 2.0.6 → 2.1.0 (all exact pins, still within their current major)
-- `tzdata` added as an explicit runtime dependency so `zoneinfo` resolves inside the Alpine container (no system zone database on musl)
-- Docker base image tag corrected from the floating `python:3-alpine` to `python:3.11-alpine`, aligning the image with the CI Python version
-
-### Added
-
-- Permanent `tests/integration/test_scheduler_bump_smoke.py` — exercises a real (unmocked) APScheduler `BackgroundScheduler` and a real SQLite `TZDateTime` round-trip, so a future dependency bump that breaks job registration, timezone-aware `next_run_time`, or UTC-at-rest storage fails loudly
+- Timezone save input is validated by resolvability (`zoneinfo.ZoneInfo`), not curated-list membership; the `ValueError` arm rejects embedded null bytes, absolute paths, and `.`/`..` path components (threat T-14-01), and the zone filter's empty-result copy is written with `textContent`, never `innerHTML` (T-14-02)
 
 ---
 

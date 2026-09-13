@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import timedelta
 
-__version__ = "2.1.1"
+__version__ = "2.2.0"
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager

@@ -8,7 +8,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 [![CI](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml/badge.svg?branch=main)](https://github.com/fisherd80/listarr/actions/workflows/listarr-ci.yml)
 [![Docker Hub](https://img.shields.io/docker/v/fisherd91/listarr?label=Docker%20Hub)](https://hub.docker.com/r/fisherd91/listarr)
-[![Release](https://img.shields.io/badge/release-v2.1.1-green.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v2.2.0-green.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > Listarr is not affiliated with Radarr, Sonarr, the Servarr project, or TMDB. You will need your own API keys for each service.
@@ -236,6 +236,8 @@ See [.env.example](.env.example) for a ready-to-use template.
 
 ## Roadmap
 
+v2.2.0 added a user-configurable application timezone (General settings tab, DB-persisted, live cron reschedule with no restart), a per-list Sonarr monitor-mode selector (All / First Season / Latest Season / Pilot / None, resolving #34), and a full dependency/Docker/CI maintenance pass — every dependency pinned and audited clean, the Docker base image pinned by digest, and legacy SQLAlchemy API usage migrated.
+
 v2.1.1 is a micro release patching CVE-2026-45409 (idna upgraded to 3.15), fixing stale "Go to Dashboard" link text on error pages, and removing dead code.
 
 v2.1.0 fixed the APScheduler cron timezone bug, polished the cron expression UX (live description, crontab.guru link, removed redundant toggle), added activity page improvements (Clear All, Deleted badge for orphaned rows), and fixed the preset wizard preview, settings layout, and footer version link.
@@ -245,6 +247,8 @@ v2.0.0 delivered a full UI overhaul with a semantic dark/light theme system, red
 Possible future enhancements:
 
 - User-configurable application name via the General settings tab
+- Retroactive Sonarr monitor re-apply to already-imported series
+- Per-list timezone override; browser timezone auto-detect
 - Tag management UI (view, create, and delete Radarr/Sonarr tags from within Listarr)
 - Additional list sources beyond TMDB (Trakt, IMDb)
 - Multi-service instance support (multiple Radarr or Sonarr instances)
