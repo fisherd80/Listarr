@@ -146,6 +146,44 @@ class TestActivityPageJavaScript:
         assert 'document.getElementById("clear-all-btn")' in init_source
         assert 'addEventListener("click", clearAllActivity)' in init_source
 
+    def test_clear_list_activity_function_contract(self):
+        """clearListActivity confirms, posts with CSRF to the per-list endpoint, and refreshes."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+
+        function_start = source.index("async function clearListActivity()")
+        clear_all_start = source.index("async function clearAllActivity()")
+        clear_list_source = source[function_start:clear_all_start]
+
+        assert "window.confirm(" in clear_list_source
+        assert 'fetch("/api/activity/clear/"' in clear_list_source
+        assert '"X-CSRFToken": getCsrfToken()' in clear_list_source
+        assert clear_list_source.index("if (!response.ok)") < clear_list_source.index(
+            "var data = await response.json()"
+        )
+        assert "loadJobs()" in clear_list_source
+
+    def test_init_jobs_page_wires_clear_list_button(self):
+        """initJobsPage wires the Clear List click listener."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+        init_source = source[source.index("function initJobsPage()") :]
+
+        assert 'document.getElementById("clear-list-btn")' in init_source
+        assert 'addEventListener("click", clearListActivity)' in init_source
+
+    def test_update_clear_list_button_referenced_by_load_lists_and_filters(self):
+        """updateClearListButton is invoked from loadLists and applyFilters so state cannot drift."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+
+        load_lists_start = source.index("async function loadLists()")
+        load_jobs_start = source.index("async function loadJobs()")
+        load_lists_source = source[load_lists_start:load_jobs_start]
+        assert "updateClearListButton()" in load_lists_source
+
+        apply_filters_start = source.index("function applyFilters()")
+        go_to_page_start = source.index("function goToPage(")
+        apply_filters_source = source[apply_filters_start:go_to_page_start]
+        assert "updateClearListButton()" in apply_filters_source
+
     def test_render_job_row_uses_deleted_badge_for_deleted_lists(self):
         """renderJobRow renders Deleted only for explicit list_deleted true."""
         source = Path("listarr/static/js/jobs.js").read_text()
