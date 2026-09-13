@@ -839,7 +839,7 @@ def wizard_submit():
                 else:
                     from listarr.services.sonarr_service import create_or_get_tag_id
 
-                tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
+                tag_id = create_or_get_tag_id(base_url, api_key, tag_name)
             except RequestException as e:
                 current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
                 return (
