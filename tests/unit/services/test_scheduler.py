@@ -606,9 +606,19 @@ class TestSchedulerTimezone:
 
         CR-03: the numeric digits are also shifted from POSIX's 0=Sunday numbering to
         APScheduler's 0=Monday numbering (d -> (d + 6) % 7), so '1-5/2' (POSIX Mon-Fri)
-        becomes '0-4/2' (APScheduler Mon-Fri), not a bare untranslated round-trip."""
+        becomes '0-4/2' (APScheduler Mon-Fri), not a bare untranslated round-trip.
+
+        CR-04: '1,3,5/2' is a comma-separated list of *three* independent segments
+        under POSIX cron grammar ('1', '3', '5/2'), not a single 3-element list with
+        one step applied across the whole list. Each segment is translated on its own
+        merits -- the two bare, step-less segments ('1', '3') become unambiguous day
+        names, and only the segment that actually carries a step ('5/2') is kept
+        numeric and digit-shifted. This still fires on the same POSIX-equivalent days
+        as the old whole-field '0,2,4/2' translation (see
+        test_range_step_cron_fire_dates_match_cronsim below) -- it is just expressed
+        per-segment instead of as one coincidentally fire-date-equivalent numeric blob."""
         assert _posix_cron_to_apscheduler("0 2 * * 1-5/2") == "0 2 * * 0-4/2"
-        assert _posix_cron_to_apscheduler("0 2 * * 1,3,5/2") == "0 2 * * 0,2,4/2"
+        assert _posix_cron_to_apscheduler("0 2 * * 1,3,5/2") == "0 2 * * mon,wed,4/2"
 
     def test_posix_cron_to_apscheduler_translates_stepless_range(self):
         """Stepless day-of-week ranges/lists still get translated to unambiguous names."""
@@ -632,6 +642,8 @@ class TestSchedulerTimezone:
             "0 2 * * 1-5/2",  # range+step: POSIX Mon-Fri every 2nd day -> Mon/Wed/Fri
             "0 2 * * 1,3,5/2",  # list+step: same days expressed as a list
             "0 2 * * 0,2,4/3",  # list+step including POSIX Sunday (digit 0)
+            "0 2 * * 1-5/2,6",  # CR-04: stepped segment + trailing bare day in one field
+            "0 2 * * 1/2,3/2",  # CR-04: two independently-stepped segments in one field
         ],
     )
     def test_range_step_cron_fire_dates_match_cronsim(self, posix_expr):
@@ -640,7 +652,14 @@ class TestSchedulerTimezone:
         the user) computes -- not shifted by the 0=Sunday(POSIX) vs 0=Monday(APScheduler)
         indexing mismatch. This asserts actual computed fire *dates*, not just the built
         trigger's field string, which is what let the CR-03 regression slip through the
-        earlier (string-only) version of this test."""
+        earlier (string-only) version of this test.
+
+        CR-04 regression: '1-5/2,6' and '1/2,3/2' are comma lists where more than one
+        segment carries its own step (or a stepped segment is followed by a bare day).
+        A single `dow.partition("/")` over the whole field only found the first '/' and
+        passed the un-shifted tail through verbatim, producing a trigger that built
+        successfully but fired on the wrong days -- the same failure class as CR-02/CR-03,
+        just reachable via a field shape the earlier three parametrizations didn't cover."""
         translated = _posix_cron_to_apscheduler(posix_expr)
         trigger = CronTrigger.from_crontab(translated)
 

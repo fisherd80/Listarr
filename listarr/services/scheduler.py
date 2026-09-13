@@ -113,6 +113,16 @@ def _posix_cron_to_apscheduler(cron_expr):
     0=Monday numbering (see `_shift_posix_dow_digits`), otherwise every fire date is
     off by a day versus the POSIX-semantics validation preview. Only the bare,
     step-less case is translated to day *names* to resolve the same ambiguity.
+
+    CR-04: a single `dow.partition("/")` over the *whole* field only ever finds the
+    first '/' in the string, so a comma-separated list where more than one member
+    carries its own step (or a stepped member is followed by a bare day), e.g.
+    '1-5/2,6' or '1/2,3/2', had everything after the first '/' passed through
+    completely unshifted/untranslated. That silently reintroduced the POSIX-vs-
+    APScheduler day-of-week ambiguity for the un-shifted tail with no error raised.
+    The field is now split on commas first, and each comma-separated segment is
+    translated independently (each segment may itself be a bare day, a range, and/or
+    carry its own step suffix), then rejoined with commas.
     """
     parts = cron_expr.split()
     if len(parts) != 5:
@@ -120,14 +130,18 @@ def _posix_cron_to_apscheduler(cron_expr):
     dow = parts[4]
     if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
         return cron_expr
-    field, _, step = dow.partition("/")
-    if step:
-        # Keep the field numeric (not day names) so APScheduler doesn't silently drop
-        # the step (CR-02), but shift the digits to APScheduler's 0=Monday numbering
-        # so the field still fires on the correct POSIX-equivalent days (CR-03).
-        parts[4] = f"{_shift_posix_dow_digits(field)}/{step}"
-        return " ".join(parts)
-    parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
+
+    def _translate_segment(segment: str) -> str:
+        field, _, step = segment.partition("/")
+        if step:
+            # Keep the field numeric (not day names) so APScheduler doesn't silently
+            # drop the step (CR-02), but shift the digits to APScheduler's 0=Monday
+            # numbering so the field still fires on the correct POSIX-equivalent
+            # days (CR-03).
+            return f"{_shift_posix_dow_digits(field)}/{step}"
+        return re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
+
+    parts[4] = ",".join(_translate_segment(segment) for segment in dow.split(","))
     return " ".join(parts)
 
 
