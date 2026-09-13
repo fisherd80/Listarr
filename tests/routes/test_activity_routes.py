@@ -99,6 +99,25 @@ class TestActivityPage:
         assert "hover:bg-error/90" in html
         assert "text-white" in html
 
+    def test_activity_page_has_clear_list_button(self, client):
+        """Activity page exposes a disabled, per-list Clear List control in the header."""
+        response = client.get("/activity")
+        html = response.get_data(as_text=True)
+
+        assert 'id="clear-list-btn"' in html
+        assert 'type="button"' in html
+        assert "Clear List" in html
+
+        clear_list_start = html.index('id="clear-list-btn"')
+        clear_all_start = html.index('id="clear-all-btn"')
+        clear_list_tag_start = html.rfind("<button", 0, clear_list_start)
+        clear_list_tag_end = html.index(">", clear_list_start)
+        clear_list_tag = html[clear_list_tag_start:clear_list_tag_end]
+
+        assert "disabled" in clear_list_tag
+        # Clear List must appear before Clear All so the destructive global action stays rightmost.
+        assert clear_list_start < clear_all_start
+
 
 class TestActivityPageJavaScript:
     """Static contract tests for Activity page JavaScript behavior."""
