@@ -599,6 +599,23 @@ class TestSchedulerTimezone:
         assert result["error"]
         assert result["next_runs"] == []
 
+    @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_rejects_fire_date_mismatch(self):
+        """WR-01: a trigger that *builds* successfully is not proof it fires on the
+        right days -- CR-02/CR-03/CR-04 each built successfully while firing on the
+        wrong days. This exercises the safety net directly by forcing
+        `_posix_cron_to_apscheduler` to return a deliberately wrong (but buildable)
+        translation, simulating a future translation regression: the cross-check
+        against cronsim's fire dates must reject it rather than reporting valid=True
+        with a next_runs preview that does not match what would actually fire."""
+        with patch.object(sched, "_posix_cron_to_apscheduler", return_value="0 2 * * 2"):
+            result = validate_cron_expression("0 2 * * 1")
+
+        assert result["valid"] is False
+        assert result["error"]
+        assert "mismatch" in result["error"].lower()
+        assert result["next_runs"] == []
+
     def test_posix_cron_to_apscheduler_keeps_step_numeric(self):
         """CR-02: a day-of-week range/list combined with a step must NOT be translated
         to day names -- APScheduler silently drops the step once the field is a name

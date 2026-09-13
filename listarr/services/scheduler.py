@@ -10,7 +10,7 @@ import re
 import threading
 import zoneinfo
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -707,7 +707,8 @@ def validate_cron_expression(cron_expr):
     try:
         # Validate with cronsim
         scheduler_tz = _get_scheduler_timezone()
-        cron = CronSim(cron_expr, datetime.now(scheduler_tz))
+        now = datetime.now(scheduler_tz)
+        cron = CronSim(cron_expr, now)
 
         # Get human-readable description
         try:
@@ -718,12 +719,14 @@ def validate_cron_expression(cron_expr):
 
         # Get next 3 run times using advance()
         next_runs = []
+        next_run_dts = []
         for _ in range(3):
             cron.advance()
             dt = cron.dt
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=scheduler_tz)
             next_runs.append(dt.isoformat())
+            next_run_dts.append(dt)
             # Move forward 1 second to get the next occurrence
             cron.tick()
 
@@ -731,11 +734,30 @@ def validate_cron_expression(cron_expr):
         # parses but CronTrigger cannot build (e.g. "0 2 L * *") must be rejected here so
         # it can never be stored on a list and reach the reconcile as an unbuildable row.
         try:
-            CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expr))
+            trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expr), timezone=scheduler_tz)
         except (ValueError, KeyError):
             result["error"] = "Cron expression is valid syntax but builds no scheduler trigger"
             result["description"] = "Invalid cron expression"
             return result
+
+        # WR-01: a trigger that *builds* successfully is not proof it fires on the
+        # right days -- CR-02/CR-03/CR-04 each built a trigger successfully while
+        # actually firing on different days than cronsim's POSIX-semantics preview.
+        # Cross-check the built trigger's actual next fire times against the
+        # cronsim-derived `next_runs` already shown to the user; a mismatch means
+        # the POSIX->APScheduler translation is wrong for this expression and it
+        # must be rejected here, before it can be stored and silently mis-fire.
+        aps_dt = now
+        for expected_dt in next_run_dts:
+            aps_dt = trigger.get_next_fire_time(None, aps_dt)
+            if aps_dt is None or aps_dt != expected_dt:
+                result["error"] = (
+                    "Cron expression translation mismatch: the scheduler would fire at different times than shown above"
+                )
+                result["description"] = "Invalid cron expression"
+                result["next_runs"] = []
+                return result
+            aps_dt = aps_dt + timedelta(seconds=1)
 
         result["next_runs"] = next_runs
         result["valid"] = True
