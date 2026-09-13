@@ -204,7 +204,9 @@ def create_app(test_config=None):
     def csrf_error(error):
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"success": False, "message": "CSRF token missing or invalid"}), 400
-        return render_template("errors/404.html"), 400
+        # WR-03: render a dedicated CSRF-specific template rather than borrowing the
+        # "page not found" template for what is actually a CSRF validation failure.
+        return render_template("errors/400.html"), 400
 
     @app.errorhandler(Exception)
     def unhandled_error(error):
