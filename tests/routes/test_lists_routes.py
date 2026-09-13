@@ -270,6 +270,23 @@ class TestCreateList:
         for token in (b"all", b"firstSeason", b"lastSeason", b"pilot", b"none"):
             assert b'<option value="' + token + b'"' not in body
 
+    def test_live_create_js_treats_non_ok_cron_validate_response_as_failure(self, client):
+        """15-09: a 500/404 from /api/cron/validate must not be mistaken for
+        "invalid expression with no message" -- the response.ok guard routes any
+        HTTP-level failure into the existing .catch() error-handling arm."""
+        response = client.get("/static/js/create.js")
+
+        assert response.status_code == 200
+        assert b"response.ok" in response.data
+
+    def test_live_create_js_shows_visible_error_on_cron_validate_failure(self, client):
+        """15-09: a failed cron validation request must surface a visible message,
+        not silently blank the description while leaving Save disabled."""
+        response = client.get("/static/js/create.js")
+
+        assert response.status_code == 200
+        assert b"Could not validate cron expression. Check your connection and try again." in response.data
+
     def test_base_template_publishes_monitor_mode_choices(self, client):
         """The JSON block create.js reads must carry all five tokens and their labels."""
         response = client.get("/lists/create")
