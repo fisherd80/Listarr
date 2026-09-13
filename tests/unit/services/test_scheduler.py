@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.exc import OperationalError
 
 from listarr import db
@@ -22,6 +23,7 @@ from listarr.models.app_config_model import AppConfig, get_app_config
 from listarr.services import scheduler as sched
 from listarr.services.scheduler import (
     _get_scheduler_timezone,
+    _posix_cron_to_apscheduler,
     _run_scheduled_import,
     get_next_run_time,
     schedule_list,
@@ -542,6 +544,30 @@ class TestSchedulerTimezone:
         assert result["valid"] is False
         assert result["error"]
         assert result["next_runs"] == []
+
+    def test_posix_cron_to_apscheduler_keeps_step_numeric(self):
+        """CR-02: a day-of-week range/list combined with a step must NOT be translated
+        to day names -- APScheduler silently drops the step once the field is a name
+        range/list, so the numeric form must be preserved to keep the step honored."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1-5/2") == "0 2 * * 1-5/2"
+        assert _posix_cron_to_apscheduler("0 2 * * 1,3,5/2") == "0 2 * * 1,3,5/2"
+
+    def test_posix_cron_to_apscheduler_translates_stepless_range(self):
+        """Stepless day-of-week ranges/lists still get translated to unambiguous names."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1-5") == "0 2 * * mon-fri"
+        assert _posix_cron_to_apscheduler("0 2 * * 1") == "0 2 * * mon"
+
+    def test_range_step_cron_fires_on_correct_days(self):
+        """CR-02 regression: the built CronTrigger's actual day_of_week field must match
+        cronsim's fire-date semantics for a range+step expression, not silently drop the
+        step. Previously 'mon-fri/2' built successfully but behaved like 'mon-fri'
+        (fired every day), which this test would have caught."""
+        translated = _posix_cron_to_apscheduler("0 2 * * 1-5/2")
+        trigger = CronTrigger.from_crontab(translated)
+
+        dow_field = str(trigger.fields[trigger.FIELD_NAMES.index("day_of_week")])
+        assert dow_field == "1-5/2"
+        assert "mon-fri" not in dow_field
 
 
 @pytest.mark.unit

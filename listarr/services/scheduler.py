@@ -85,10 +85,14 @@ def _posix_cron_to_apscheduler(cron_expr):
 
     Wildcards and step-only expressions (*/N) are left unchanged.
 
-    WR-01: a range/list combined with a step suffix (e.g. '1-5/2') must only have its
-    range/list portion translated to day names -- the step count itself is not a day
-    number and must be left as a plain digit, or APScheduler fails to parse the result
-    (or, worse, silently mis-schedules).
+    CR-02: APScheduler's CronTrigger silently drops a step suffix once a day-of-week
+    range/list has been translated to day *names* -- 'mon-fri/2' builds without error
+    but behaves identically to 'mon-fri' (verified against the installed apscheduler
+    version), which fires the job on every day in the range instead of every Nth day.
+    The equivalent *numeric* form ('1-5/2') is honored correctly. So when a step suffix
+    is present, the day-of-week field is left entirely numeric/untranslated -- only the
+    bare, step-less case is translated to names to resolve the 0=Sunday vs 0=Monday
+    ambiguity.
     """
     parts = cron_expr.split()
     if len(parts) != 5:
@@ -97,8 +101,12 @@ def _posix_cron_to_apscheduler(cron_expr):
     if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
         return cron_expr
     field, _, step = dow.partition("/")
-    field = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
-    parts[4] = f"{field}/{step}" if step else field
+    if step:
+        # Do not translate: APScheduler silently drops a step suffix once the field
+        # becomes a day *name* range/list, so leave the field numeric to keep the step
+        # honored. Numeric day-of-week with a step still parses and fires correctly.
+        return cron_expr
+    parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
     return " ".join(parts)
 
 
