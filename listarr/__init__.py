@@ -278,6 +278,22 @@ def _ensure_unique_running_job_index(app):
     tables. On an already-existing 'jobs' table the index must be applied via DDL.
     This function is idempotent: IF NOT EXISTS means it is safe to call on every
     startup whether the index already exists or not.
+
+    WR-01: this is one of three near-identical "run a DB-touching startup helper,
+    catch the DB error, warn and continue" functions in this file (the other two
+    are `_ensure_sonarr_monitor_mode_columns` and `_ensure_app_config_row`). This
+    one has no `db.session.rollback()` in its except clause, so wrapping the `with
+    app.app_context()` in the try (rather than the reverse) is harmless here — there
+    is no rollback call whose session binding could go stale. The other two *do*
+    roll back on failure, and for them the try/except must be nested *inside* the
+    `with app.app_context()` block, not wrapped around it: Flask-SQLAlchemy 3.1
+    scopes the session to the app context, so a rollback attempted after the
+    context has already exited operates on a different, already-discarded session
+    (see the IN-06 comment on `_ensure_app_config_row` for the concrete case this
+    was fixed for). Before copy-pasting the shape of any of these three into a new
+    helper, check whether it needs a rollback and, if so, keep the try/except
+    inside the context — do not assume this function's shape (try wrapping the
+    context) is the safe template to copy.
     """
     from sqlalchemy import text
     from sqlalchemy.exc import OperationalError
