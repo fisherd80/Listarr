@@ -2,6 +2,8 @@ from flask_wtf import FlaskForm
 from wtforms import BooleanField, SelectField, StringField
 from wtforms.validators import DataRequired, Length, Optional
 
+from listarr.services.sonarr_service import MONITOR_MODE_CHOICES
+
 # Cron schedule presets - must match wizard options in list_wizard.html
 SCHEDULE_CHOICES = [
     ("", "Manual only"),
@@ -42,6 +44,13 @@ class ListForm(FlaskForm):
     override_season_folder = SelectField(
         label="Season Folder",
         choices=TRI_STATE_CHOICES,
+        validators=[],
+        validate_choice=False,  # Don't validate choice - field only rendered for Sonarr
+    )
+
+    sonarr_monitor_mode = SelectField(
+        label="Monitor Mode",
+        choices=[("", "Use Default")] + MONITOR_MODE_CHOICES,
         validators=[],
         validate_choice=False,  # Don't validate choice - field only rendered for Sonarr
     )

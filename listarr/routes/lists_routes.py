@@ -31,6 +31,7 @@ from listarr.services.scheduler import (
     unschedule_list,
     validate_cron_expression,
 )
+from listarr.services.sonarr_service import normalize_monitor_mode
 from listarr.services.tmdb_cache import (
     discover_movies_cached,
     discover_tv_cached,
@@ -42,6 +43,12 @@ from listarr.services.tmdb_cache import (
     get_trending_tv_cached,
 )
 from listarr.utils.time_utils import format_past_time, format_relative_time
+
+# da25d1e regression guard: validate_cron_expression() also returns an internal-only,
+# non-JSON-serializable "trigger" (an apscheduler CronTrigger) for reconcile_scheduler_jobs()'s
+# use. /api/cron/validate must only ever serialize this whitelist of scalar keys -- never
+# jsonify() the raw result dict -- or any future internal key added to it can 500 the endpoint.
+_CRON_VALIDATE_JSON_KEYS = ("valid", "error", "description", "next_runs")
 
 # Preset display metadata - single source of truth for wizard UI text
 PRESET_METADATA = {
@@ -156,6 +163,66 @@ def _db_to_form_str(value):
     return ""
 
 
+def _wizard_defaults_payload(service, import_settings, season_folder_default=None):
+    """Build the `defaults` block of the wizard-defaults response.
+
+    Shared by the success and the options-fetch-failure return paths so the endpoint's
+    contract is written once. `season_folder_default` is omitted entirely on the failure
+    path, where no service options were resolved.
+    """
+    payload = {
+        "root_folder": import_settings.root_folder if import_settings else None,
+        "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
+        "monitored": import_settings.monitored if import_settings else True,
+        "search_on_add": import_settings.search_on_add if import_settings else True,
+        "tag_id": import_settings.default_tag_id if import_settings else None,
+    }
+    if season_folder_default is not None:
+        payload["season_folder"] = season_folder_default if service == "sonarr" else None
+    if service == "sonarr":
+        payload["monitor_mode"] = normalize_monitor_mode(
+            import_settings.sonarr_monitor_mode if import_settings else None
+        )
+    return payload
+
+
+def _clamp_list_limit(limit_val):
+    """Clamp a parsed list-size limit to the supported [1, 500] range."""
+    return max(1, min(500, limit_val))
+
+
+def _form_to_monitor_mode(value):
+    """Convert a submitted Sonarr monitor-mode string to its stored value or None.
+
+    This is the server-side allow-list for the sonarr_monitor_mode field. The WTForms
+    SelectField uses validate_choice=False, so this converter is the only gate on the
+    list write paths: an illegal value (covers "", None, the obsolete "latestSeason"
+    token, and injection strings) becomes None, meaning "inherit the Import Default".
+    Must not be routed through the _db_to_* tri-state helpers.
+    """
+    return normalize_monitor_mode(value, default=None)
+
+
+def _monitor_mode_to_form(value):
+    """Convert a stored Sonarr monitor-mode value to its form string.
+
+    An illegal value renders as "" ("Use Default") so a corrupted or hand-edited row
+    is not echoed back into the form unvalidated.
+    """
+    return normalize_monitor_mode(value, default="")
+
+
+def _format_last_run_result(items_added, items_skipped):
+    """Canonical last-run result summary formatter ("N added / M skipped" shorthand).
+
+    This is the ONLY place this string format may be produced. Both `lists_page`
+    (server-rendered page load) and `get_list_status` (polled endpoint consumed by
+    `updateRowLastRun()` in lists.js) call this helper so the two can never drift
+    apart (15-11 / T-15-11-03).
+    """
+    return f"{items_added or 0} add / {items_skipped or 0} skip"
+
+
 @bp.route("/lists")
 @login_required
 def lists_page():
@@ -173,9 +240,10 @@ def lists_page():
     # N+1 query pattern is acceptable at <50 list scale (per project requirements Out of Scope note).
     for list_obj in lists:
         list_obj.last_run_formatted = format_past_time(list_obj.last_run_at)
+        list_obj.last_run_at_iso = list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
         recent_job = Job.query.filter_by(list_id=list_obj.id).order_by(Job.started_at.desc()).first()
         if recent_job and recent_job.status == "completed":
-            list_obj.last_run_result = f"{recent_job.items_added or 0} add / {recent_job.items_skipped or 0} skip"
+            list_obj.last_run_result = _format_last_run_result(recent_job.items_added, recent_job.items_skipped)
         else:
             list_obj.last_run_result = None
 
@@ -211,7 +279,7 @@ def get_lists_api():
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
 @login_required
 def edit_list(list_id):
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
     service_type = list_obj.target_service  # RADARR or SONARR
 
     # Get service config for fetching options
@@ -265,9 +333,25 @@ def edit_list(list_id):
 
     if request.method == "POST" and form.validate_on_submit():
         try:
+            # CR-01: validate before touching the row at all. A cron that is
+            # syntactically buildable but semantically wrong (e.g. a mixed
+            # digit/name day-of-week list) must never reach the database --
+            # schedule_list() below validates internally too, but by then the
+            # commit has already happened and its failure was only logged, so
+            # a bad cron silently sat in the DB until reconcile_scheduler_jobs()
+            # picked it up on a timezone change and scheduled it anyway.
+            new_cron = form.schedule_cron.data or None
+            if new_cron:
+                cron_validation = validate_cron_expression(new_cron)
+                if not cron_validation["valid"]:
+                    flash(f"Invalid cron expression: {cron_validation['error']}", "error")
+                    return render_template(
+                        "edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags
+                    )
+
             list_obj.name = form.name.data
             list_obj.is_active = form.is_active.data
-            list_obj.schedule_cron = form.schedule_cron.data or None
+            list_obj.schedule_cron = new_cron
 
             # Handle quality profile (store as int or None)
             qp_value = form.override_quality_profile.data
@@ -306,12 +390,15 @@ def edit_list(list_id):
             season_value = form.override_season_folder.data
             list_obj.override_season_folder = int(season_value) if season_value else None
 
+            # Sonarr monitor mode: allow-list via the converter (form has validate_choice=False)
+            list_obj.sonarr_monitor_mode = _form_to_monitor_mode(form.sonarr_monitor_mode.data)
+
             # Handle limit (list size)
             limit_str = request.form.get("limit")
             if limit_str:
                 try:
                     limit_val = int(limit_str)
-                    list_obj.limit = max(1, min(500, limit_val))
+                    list_obj.limit = _clamp_list_limit(limit_val)
                 except ValueError:
                     pass  # Keep existing value on invalid input
 
@@ -385,6 +472,7 @@ def edit_list(list_id):
         form.override_monitored.data = _db_to_form_str(list_obj.override_monitored)
         form.override_search_on_add.data = _db_to_form_str(list_obj.override_search_on_add)
         form.override_season_folder.data = _db_to_form_str(list_obj.override_season_folder)
+        form.sonarr_monitor_mode.data = _monitor_mode_to_form(list_obj.sonarr_monitor_mode)
 
     return render_template("edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags)
 
@@ -399,7 +487,7 @@ def delete_list(list_id):
         success: bool
         message: string
     """
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
 
     try:
         list_name = list_obj.name
@@ -440,7 +528,7 @@ def list_wizard():
 
     # Edit mode - load existing list
     if list_id:
-        list_obj = List.query.get_or_404(list_id)
+        list_obj = db.get_or_404(List, list_id)
 
         # Determine if it's a preset or custom list
         is_preset = list_obj.tmdb_list_type not in ["discovery", "custom"]
@@ -484,6 +572,7 @@ def list_wizard():
                 "monitored": _db_to_bool(list_obj.override_monitored),
                 "search_on_add": _db_to_bool(list_obj.override_search_on_add),
                 "season_folder": _db_to_bool(list_obj.override_season_folder),
+                "monitor_mode": list_obj.sonarr_monitor_mode,
             },
             "schedule": {
                 "cron": list_obj.schedule_cron,
@@ -533,7 +622,7 @@ def list_wizard():
 @bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
 @login_required
 def toggle_list(list_id):
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
 
     try:
         # Toggle the is_active field
@@ -736,6 +825,32 @@ def wizard_submit():
     if not service or service not in ["radarr", "sonarr"]:
         return jsonify({"success": False, "message": "Invalid service"}), 400
 
+    # CR-01: validate schedule_cron before it ever touches the database. This endpoint
+    # (shared by the custom builder and preset wizard) previously committed the raw
+    # cron string first and only logged schedule_list()'s validation failure afterward,
+    # so a syntactically-buildable-but-wrong cron (e.g. a mixed digit/name day-of-week
+    # list) could persist silently and later reach reconcile_scheduler_jobs() on a
+    # timezone change, firing on the wrong day with no cross-check on that path.
+    new_cron = (schedule.get("cron") or "").strip() or None
+    if new_cron:
+        cron_validation = validate_cron_expression(new_cron)
+        if not cron_validation["valid"]:
+            return (
+                jsonify({"success": False, "message": f"Invalid cron expression: {cron_validation['error']}"}),
+                400,
+            )
+
+    # Validate and clamp limit (list size) at the API boundary, mirroring edit_list's
+    # bounds-checking (CR-01). filters comes directly from the request JSON body, so an
+    # unbounded/non-numeric limit must be rejected here rather than surfacing later as an
+    # unbounded TMDB fetch loop or a TypeError inside the background job.
+    raw_limit = filters.get("limit", 20)
+    try:
+        limit_val = int(raw_limit)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "limit must be an integer"}), 400
+    limit_val = _clamp_list_limit(limit_val)
+
     # Determine tmdb_list_type
     if preset and preset not in ["custom", ""]:
         tmdb_list_type = preset  # trending_movies, popular_tv, etc.
@@ -777,7 +892,7 @@ def wizard_submit():
                 else:
                     from listarr.services.sonarr_service import create_or_get_tag_id
 
-                tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
+                tag_id = create_or_get_tag_id(base_url, api_key, tag_name)
             except RequestException as e:
                 current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
                 return (
@@ -793,19 +908,22 @@ def wizard_submit():
     try:
         if list_id:
             # Edit mode
-            list_obj = List.query.get_or_404(list_id)
+            list_obj = db.get_or_404(List, list_id)
             list_obj.name = name
             list_obj.target_service = service.upper()
             list_obj.tmdb_list_type = tmdb_list_type
             list_obj.filters_json = filters_json
-            list_obj.limit = filters.get("limit", 20)
+            list_obj.limit = limit_val
             list_obj.override_quality_profile = import_settings.get("quality_profile_id")
             list_obj.override_root_folder = import_settings.get("root_folder")
             list_obj.override_tag_id = tag_id
             list_obj.override_monitored = _bool_to_db(import_settings.get("monitored"))
             list_obj.override_search_on_add = _bool_to_db(import_settings.get("search_on_add"))
             list_obj.override_season_folder = _bool_to_db(import_settings.get("season_folder"))
-            list_obj.schedule_cron = schedule.get("cron") or None
+            # This endpoint is shared by the custom builder and the preset wizard; the preset
+            # wizard sends no monitor_mode, so this resolves to None (D-11). Allow-listed here.
+            list_obj.sonarr_monitor_mode = _form_to_monitor_mode(import_settings.get("monitor_mode"))
+            list_obj.schedule_cron = new_cron
             list_obj.is_active = schedule.get("is_active", True)
         else:
             # Create mode
@@ -814,14 +932,17 @@ def wizard_submit():
                 target_service=service.upper(),
                 tmdb_list_type=tmdb_list_type,
                 filters_json=filters_json,
-                limit=filters.get("limit", 20),
+                limit=limit_val,
                 override_quality_profile=import_settings.get("quality_profile_id"),
                 override_root_folder=import_settings.get("root_folder"),
                 override_tag_id=tag_id,
                 override_monitored=_bool_to_db(import_settings.get("monitored")),
                 override_search_on_add=_bool_to_db(import_settings.get("search_on_add")),
                 override_season_folder=_bool_to_db(import_settings.get("season_folder")),
-                schedule_cron=schedule.get("cron") or None,
+                # Shared endpoint (custom builder + preset wizard); presets send no
+                # monitor_mode so this is deliberately None (D-11). Explicit kwarg for clarity.
+                sonarr_monitor_mode=_form_to_monitor_mode(import_settings.get("monitor_mode")),
+                schedule_cron=new_cron,
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
             )
@@ -916,18 +1037,14 @@ def wizard_defaults(service):
         tags = get_tags(base_url, api_key)
     except RequestException as e:
         current_app.logger.error(f"Error fetching {service} options: {e}", exc_info=True)
+        defaults_payload = _wizard_defaults_payload(service, import_settings)
+
         # Return partial data - service is configured but options fetch failed
         return jsonify(
             {
                 "configured": True,
                 "error": f"Failed to fetch options from {service.title()}",
-                "defaults": {
-                    "root_folder": import_settings.root_folder if import_settings else None,
-                    "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                    "monitored": import_settings.monitored if import_settings else True,
-                    "search_on_add": import_settings.search_on_add if import_settings else True,
-                    "tag_id": import_settings.default_tag_id if import_settings else None,
-                },
+                "defaults": defaults_payload,
                 "options": {
                     "quality_profiles": [],
                     "root_folders": [],
@@ -940,18 +1057,12 @@ def wizard_defaults(service):
     season_folder_default = True  # Sonarr default
     if import_settings and hasattr(import_settings, "season_folder") and import_settings.season_folder is not None:
         season_folder_default = import_settings.season_folder
+    defaults_payload = _wizard_defaults_payload(service, import_settings, season_folder_default)
 
     return jsonify(
         {
             "configured": True,
-            "defaults": {
-                "root_folder": import_settings.root_folder if import_settings else None,
-                "quality_profile_id": import_settings.quality_profile_id if import_settings else None,
-                "monitored": import_settings.monitored if import_settings else True,
-                "search_on_add": import_settings.search_on_add if import_settings else True,
-                "tag_id": import_settings.default_tag_id if import_settings else None,
-                "season_folder": season_folder_default if service == "sonarr" else None,
-            },
+            "defaults": defaults_payload,
             "options": {
                 "quality_profiles": [{"id": p["id"], "name": p["name"]} for p in quality_profiles],
                 "root_folders": [{"path": f["path"], "id": f.get("id")} for f in root_folders],
@@ -969,7 +1080,7 @@ def run_list_import(list_id):
     Returns 202 immediately while job runs in background.
     """
     # Fetch list by ID
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return (
             jsonify({"success": False, "message": f"List with ID {list_id} not found"}),
@@ -1005,7 +1116,8 @@ def validate_cron():
     if not expr:
         return jsonify({"valid": False, "error": "No expression provided", "description": "", "next_runs": []})
     result = validate_cron_expression(expr)
-    return jsonify(result)
+    payload = {key: result.get(key) for key in _CRON_VALIDATE_JSON_KEYS}
+    return jsonify(payload)
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])
@@ -1015,7 +1127,7 @@ def get_list_status(list_id):
     Get the status of a list import job for polling.
     Returns the most recent job status from database.
     """
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return jsonify({"error": f"List with ID {list_id} not found"}), 404
 
@@ -1028,6 +1140,8 @@ def get_list_status(list_id):
                 "list_id": list_id,
                 "status": "idle",
                 "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+                "last_run_formatted": format_past_time(list_obj.last_run_at),
+                "last_run_result": None,
             }
         )
 
@@ -1037,6 +1151,8 @@ def get_list_status(list_id):
         "list_id": list_id,
         "status": status if status in ["running", "completed", "failed"] else "idle",
         "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+        "last_run_formatted": format_past_time(list_obj.last_run_at),
+        "last_run_result": None,
     }
 
     # Include result/error info based on status
@@ -1049,6 +1165,9 @@ def get_list_status(list_id):
                 "failed_count": job_info.get("items_failed", 0),
             }
         }
+        response["last_run_result"] = _format_last_run_result(
+            job_info.get("items_added"), job_info.get("items_skipped")
+        )
     elif status == "failed":
         response["error"] = job_info.get("error_message", "Unknown error")
 
@@ -1244,7 +1363,7 @@ def update_schedule(list_id):
     """
     from listarr.services.scheduler import schedule_list, unschedule_list, validate_cron_expression
 
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return jsonify({"success": False, "message": "List not found"}), 404
 

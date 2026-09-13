@@ -31,6 +31,7 @@ Phase 7 baseline (captured 2026-04-21):
   * listarr/routes/activity_routes.py: 94%
 """
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -71,6 +72,13 @@ def _make_job(list_obj, status="completed", items_added=0, items_skipped=0):
     return job
 
 
+def _assert_utc_offset_iso(value):
+    assert value is not None
+    assert re.search(r"(?:\+00:00|Z)$", value)
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    assert parsed.tzinfo is not None
+
+
 class TestActivityPage:
     """Tests for GET /activity page."""
 
@@ -79,45 +87,90 @@ class TestActivityPage:
         response = client.get("/activity")
         assert response.status_code == 200
 
-    def test_activity_page_has_clear_all_button(self, client):
-        """Activity page exposes the Clear All control in the header."""
+    def test_activity_page_has_single_clear_button(self, client):
+        """Activity page exposes exactly one merged clear-history control in the header."""
         response = client.get("/activity")
         html = response.get_data(as_text=True)
 
-        assert 'id="clear-all-btn"' in html
-        assert 'type="button"' in html
-        assert "Clear All" in html
-        assert "bg-error" in html
-        assert "hover:bg-error/90" in html
-        assert "text-white" in html
+        assert html.count('id="clear-activity-btn"') == 1
+        assert 'id="clear-list-btn"' not in html
+        assert 'id="clear-all-btn"' not in html
+
+        button_start = html.index('id="clear-activity-btn"')
+        tag_start = html.rfind("<button", 0, button_start)
+        tag_end = html.index(">", button_start)
+        button_tag = html[tag_start:tag_end]
+
+        assert 'type="button"' in button_tag
+        assert "bg-error" in button_tag
+        assert "hover:bg-error/90" in button_tag
+        assert "text-white" in button_tag
+        assert "disabled" not in button_tag
 
 
 class TestActivityPageJavaScript:
     """Static contract tests for Activity page JavaScript behavior."""
 
-    def test_clear_all_activity_function_contract(self):
-        """clearAllActivity confirms, posts with CSRF, handles JSON, and refreshes."""
+    def test_clear_activity_function_contract(self):
+        """clearActivity confirms, dispatches by filter scope, posts with CSRF, and refreshes."""
         source = Path("listarr/static/js/jobs.js").read_text()
 
-        function_start = source.index("async function clearAllActivity()")
+        function_start = source.index("async function clearActivity()")
         init_start = source.index("function initJobsPage()")
-        clear_all_source = source[function_start:init_start]
+        clear_activity_source = source[function_start:init_start]
 
-        assert "window.confirm(" in clear_all_source
-        assert 'fetch("/api/activity/clear"' in clear_all_source
-        assert '"X-CSRFToken": getCsrfToken()' in clear_all_source
-        assert clear_all_source.index("if (!response.ok)") < clear_all_source.index("var data = await response.json()")
-        assert "if (data.deleted_count > 0)" in clear_all_source
-        assert '"No historical records to clear"' in clear_all_source
-        assert "loadJobs()" in clear_all_source
+        assert "showConfirmModal(" in clear_activity_source
+        assert "window.confirm(" not in clear_activity_source
+        assert 'fetch("/api/activity/clear"' in clear_activity_source
+        assert 'fetch("/api/activity/clear/"' in clear_activity_source
+        assert '"X-CSRFToken": getCsrfToken()' in clear_activity_source
+        assert clear_activity_source.index("if (!response.ok)") < clear_activity_source.index(
+            "var data = await response.json()"
+        )
+        assert "loadJobs()" in clear_activity_source
 
-    def test_init_jobs_page_wires_clear_all_button(self):
-        """initJobsPage wires the Clear All click listener."""
+        assert "clearListActivity" not in source
+        assert "clearAllActivity" not in source
+
+    def test_init_jobs_page_wires_clear_activity_button(self):
+        """initJobsPage wires the single merged clear-activity click listener."""
         source = Path("listarr/static/js/jobs.js").read_text()
         init_source = source[source.index("function initJobsPage()") :]
 
-        assert 'document.getElementById("clear-all-btn")' in init_source
-        assert 'addEventListener("click", clearAllActivity)' in init_source
+        assert 'document.getElementById("clear-activity-btn")' in init_source
+        assert 'addEventListener("click", clearActivity)' in init_source
+        assert "clear-list-btn" not in init_source
+        assert "clear-all-btn" not in init_source
+
+    def test_update_clear_activity_button_referenced_by_load_lists_and_filters(self):
+        """updateClearActivityButton is invoked from loadLists and applyFilters so state cannot drift."""
+        source = Path("listarr/static/js/jobs.js").read_text()
+
+        load_lists_start = source.index("async function loadLists()")
+        load_jobs_start = source.index("async function loadJobs()")
+        load_lists_source = source[load_lists_start:load_jobs_start]
+        assert "updateClearActivityButton()" in load_lists_source
+
+        apply_filters_start = source.index("function applyFilters()")
+        go_to_page_start = source.index("function goToPage(")
+        apply_filters_source = source[apply_filters_start:go_to_page_start]
+        assert "updateClearActivityButton()" in apply_filters_source
+
+    def test_activity_page_loads_confirm_modal_script(self, client):
+        """UI-REVIEW 15 fix 1: shared confirm modal must load before clearActivity() uses it."""
+        response = client.get("/activity")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "js/confirm-modal.js" in body
+        assert body.index("js/confirm-modal.js") < body.index("js/jobs.js")
+
+    def test_confirm_modal_js_defines_show_confirm_modal(self, client):
+        """UI-REVIEW 15 fix 1: confirm-modal.js must expose the shared helper globally."""
+        response = client.get("/static/js/confirm-modal.js")
+
+        assert response.status_code == 200
+        assert b"window.showConfirmModal" in response.data
 
     def test_render_job_row_uses_deleted_badge_for_deleted_lists(self):
         """renderJobRow renders Deleted only for explicit list_deleted true."""
@@ -209,6 +262,21 @@ class TestGetActivity:
         assert len(data["jobs"]) == 25
         assert data["current_page"] == 1
 
+    def test_activity_list_started_at_iso_utc_offset(self, client, app):
+        """Activity list timestamps keep explicit UTC offsets for browser re-zoning."""
+        test_list = _make_list()
+        _make_job(test_list, status="completed")
+        db.session.commit()
+
+        response = client.get("/api/activity")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["jobs"]) == 1
+        job = data["jobs"][0]
+        _assert_utc_offset_iso(job["started_at"])
+        _assert_utc_offset_iso(job["completed_at"])
+
 
 class TestGetActivityListDeleted:
     """Tests for list_deleted field in GET /api/activity response."""
@@ -289,6 +357,39 @@ class TestGetActivityDetail:
         response = client.get("/api/activity/99999")
         assert response.status_code == 404
 
+    def test_activity_detail_started_at_iso_utc_offset(self, client, app):
+        """Activity detail timestamps keep explicit UTC offsets for browser re-zoning."""
+        test_list = _make_list()
+        job = _make_job(test_list, status="completed")
+        db.session.commit()
+        job_id = job.id
+
+        response = client.get(f"/api/activity/{job_id}")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        _assert_utc_offset_iso(data["started_at"])
+        _assert_utc_offset_iso(data["completed_at"])
+
+    def test_started_at_iso_utc_survives_naive_db_value(self, app):
+        """TZDateTime read-back keeps naive writes ISO-serializable with UTC offset."""
+        test_list = _make_list()
+        job = Job(
+            list_id=test_list.id,
+            list_name=test_list.name,
+            status="completed",
+            started_at=datetime(2026, 1, 15, 10, 30, 0),
+            completed_at=datetime(2026, 1, 15, 10, 35, 0),
+        )
+        db.session.add(job)
+        db.session.commit()
+
+        reread = db.session.get(Job, job.id)
+
+        payload = reread.to_dict()
+        _assert_utc_offset_iso(payload["started_at"])
+        _assert_utc_offset_iso(payload["completed_at"])
+
 
 class TestRerunActivity:
     """Tests for POST /api/activity/<id>/rerun endpoint."""
@@ -333,7 +434,7 @@ class TestRerunActivity:
         job = _make_job(test_list, status="failed")
         db.session.commit()
         job_id = job.id
-        list_obj = List.query.get(test_list.id)
+        list_obj = db.session.get(List, test_list.id)
         db.session.delete(list_obj)
         db.session.commit()
 

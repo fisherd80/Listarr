@@ -273,6 +273,7 @@ _TEST_DATA_TABLES = [
     "job_items",
     "jobs",
     "lists",
+    "app_config",
     "media_import_settings",
     "service_config",
 ]
@@ -298,6 +299,13 @@ def _delete_test_rows(tables):
     for table in tables:
         db.session.execute(text(f"DELETE FROM {table}"))
     db.session.commit()
+
+
+def _reset_app_timezone_state():
+    """Clear process-local timezone cache after AppConfig test data changes."""
+    from listarr.utils.time_utils import invalidate_app_timezone_memo
+
+    invalidate_app_timezone_memo()
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -357,10 +365,12 @@ def db_session(request):
     if needs_explicit_context:
         with app_fixture.app_context():
             _delete_test_rows(tables_to_clear)
+            _reset_app_timezone_state()
             db.session.remove()
     else:
         # app fixture keeps the context open — db.session works directly
         _delete_test_rows(tables_to_clear)
+        _reset_app_timezone_state()
         db.session.remove()
 
     yield db.session
@@ -369,9 +379,11 @@ def db_session(request):
     if needs_explicit_context:
         with app_fixture.app_context():
             _delete_test_rows(tables_to_clear)
+            _reset_app_timezone_state()
             db.session.remove()
     else:
         _delete_test_rows(tables_to_clear)
+        _reset_app_timezone_state()
         db.session.remove()
 
 

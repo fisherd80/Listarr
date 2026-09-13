@@ -61,6 +61,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 
 - Import movies directly into Radarr with configurable quality profiles, root folders, tags, and monitoring settings
 - Import TV shows directly into Sonarr with quality profiles, root folders, season folders, tags, and monitoring settings
+- Sonarr monitor mode — choose per list how much of a series is monitored on add: All episodes, First season, Latest season, Pilot, or None (applies to new adds only)
 - Per-list import setting overrides (fall back to global defaults when not set)
 - Bulk import API for batch operations — 50 items per batch, significantly faster than one-at-a-time imports
 - Conflict handling: items already in your library are skipped automatically
@@ -68,6 +69,7 @@ Automated media discovery and import for Radarr/Sonarr via TMDB.
 **Automation**
 
 - Cron-based scheduling with preset intervals (hourly, daily, weekly) or custom cron expressions
+- Configurable application timezone (Settings → General) — drives both the scheduler and every timestamp shown in the UI, with a live current-time preview
 - Global scheduler pause and resume for maintenance windows
 - Pre-flight health checks before each scheduled job execution
 
@@ -203,7 +205,7 @@ All API keys are configured through the Settings page (`/settings`) and encrypte
 
 Global import defaults for Radarr and Sonarr are configured on the Settings page (`/settings`). These apply to all lists unless a list has its own overrides configured in Step 3 of the wizard.
 
-Settings include: quality profile, root folder, monitor mode, search on add, tags, and season folder (Sonarr only).
+Settings include: quality profile, root folder, monitored, search on add, and tags — plus season folder and monitor mode (All episodes / First season / Latest season / Pilot / None) for Sonarr only.
 
 ---
 
@@ -242,7 +244,7 @@ v2.0.0 delivered a full UI overhaul with a semantic dark/light theme system, red
 
 Possible future enhancements:
 
-- User-configurable timezone and application name via a General settings tab
+- User-configurable application name via the General settings tab
 - Tag management UI (view, create, and delete Radarr/Sonarr tags from within Listarr)
 - Additional list sources beyond TMDB (Trakt, IMDb)
 - Multi-service instance support (multiple Radarr or Sonarr instances)

@@ -19,6 +19,8 @@ class List(db.Model):
     override_search_on_add = db.Column(db.Integer)
     override_tag_id = db.Column(db.Integer)
     override_season_folder = db.Column(db.Integer)  # 1=yes, 0=no, None=use default (Sonarr only)
+    # "all"|"firstSeason"|"lastSeason"|"pilot"|"none"; None=use the Sonarr Import Default (Sonarr only)
+    sonarr_monitor_mode = db.Column(db.String(16))
 
     filters_json = db.Column(db.JSON, nullable=False)
     limit = db.Column(db.Integer)
@@ -29,3 +31,8 @@ class List(db.Model):
     last_run_at = db.Column(TZDateTime)
 
     created_at = db.Column(TZDateTime, default=lambda: datetime.now(timezone.utc))
+
+    @classmethod
+    def active_scheduled_query(cls):
+        """Query for active lists that carry a cron schedule."""
+        return cls.query.filter(cls.schedule_cron.isnot(None), cls.is_active == True)  # noqa: E712

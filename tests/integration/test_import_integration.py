@@ -15,7 +15,71 @@ import pytest
 from requests.exceptions import RequestException
 
 from listarr.models.lists_model import List
-from listarr.services.import_service import BATCH_SIZE, _fetch_tmdb_items, _import_movies
+from listarr.models.service_config_model import MediaImportSettings
+from listarr.services.import_service import BATCH_SIZE, _fetch_tmdb_items, _import_movies, resolve_import_settings
+
+MONITOR_MODE_CASES = (
+    ("all", True),
+    ("firstSeason", True),
+    ("lastSeason", True),
+    ("pilot", True),
+    ("none", False),
+)
+
+
+def _series_settings_for_monitor_mode(monitor_mode):
+    list_obj = List(
+        name="Monitor Test",
+        target_service="SONARR",
+        tmdb_list_type="popular",
+        override_root_folder="/tv",
+        override_quality_profile=1,
+        override_monitored=1,
+        override_search_on_add=1,
+        override_season_folder=1,
+        sonarr_monitor_mode=monitor_mode,
+    )
+    import_settings = MediaImportSettings(
+        service="SONARR",
+        root_folder="/fallback-tv",
+        quality_profile_id=99,
+        monitored=True,
+        search_on_add=True,
+        season_folder=True,
+        sonarr_monitor_mode="all",
+    )
+    return resolve_import_settings(list_obj, import_settings)
+
+
+def _series_fixture(monitored=True, monitored_seasons=(), monitored_episodes=()):
+    return {
+        "id": 5001,
+        "title": "Matrix Series",
+        "monitored": monitored,
+        "seasons": [
+            {"seasonNumber": season_number, "monitored": season_number in monitored_seasons}
+            for season_number in (0, 1, 2, 3)
+        ],
+        "episodes": [
+            {
+                "seasonNumber": season_number,
+                "episodeNumber": episode_number,
+                "monitored": (season_number, episode_number) in monitored_episodes,
+            }
+            for season_number in (1, 2, 3)
+            for episode_number in (1, 2)
+        ],
+    }
+
+
+def _mock_sonarr_series_get(http_session, base_url, api_key, series_id):
+    response = http_session.get(
+        f"{base_url}/api/v3/series/{series_id}",
+        headers={"X-Api-Key": api_key},
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 class TestFetchTMDBItemsTopRated:
@@ -428,6 +492,52 @@ class TestBatchImportMovies:
 
     @patch("listarr.services.import_service.time")
     @patch("listarr.services.import_service.radarr_service")
+    def test_retries_duplicate_tmdb_id_after_failed_lookup(self, mock_radarr, mock_time, app):
+        """WR-04 regression: seen_ids is only marked after a successful lookup, so a TMDB
+        duplicate whose first occurrence fails lookup is retried on its second occurrence
+        rather than being short-circuited as 'duplicate_in_batch' for an item that was
+        never actually queued."""
+        mock_radarr.get_existing_movie_tmdb_ids.return_value = set()
+        mock_radarr.get_exclusions.return_value = set()
+
+        # First lookup for tmdb_id 1 fails, second occurrence succeeds.
+        mock_radarr.lookup_movie.side_effect = [
+            None,
+            {
+                "tmdbId": 1,
+                "title": "Movie 1",
+                "titleSlug": "movie-1",
+                "year": 2020,
+                "images": [],
+            },
+        ]
+        mock_radarr.bulk_add_movies.return_value = [{"tmdbId": 1, "title": "Movie 1"}]
+
+        with app.app_context():
+            items = [
+                {"id": 1, "title": "Movie 1"},
+                {"id": 1, "title": "Movie 1"},
+            ]
+            settings = {
+                "root_folder": "/movies",
+                "quality_profile_id": 1,
+                "monitored": True,
+                "search_on_add": True,
+                "tags": [],
+            }
+
+            result = _import_movies(items, "http://radarr", "key", settings, "tmdb_key")
+
+            # Second occurrence must be retried (lookup called twice), not skipped as
+            # duplicate_in_batch.
+            assert mock_radarr.lookup_movie.call_count == 2
+            assert not any(item["reason"] == "duplicate_in_batch" for item in result.skipped)
+            assert len(result.failed) == 1
+            assert result.failed[0]["reason"] == "not_found_in_radarr"
+            assert len(result.added) == 1
+
+    @patch("listarr.services.import_service.time")
+    @patch("listarr.services.import_service.radarr_service")
     def test_batch_import_flushes_at_batch_size(self, mock_radarr, mock_time, app):
         """Test that batches are flushed at BATCH_SIZE intervals."""
         # Mock pre-flight checks
@@ -521,6 +631,20 @@ class TestBatchImportMovies:
 class TestBatchImportSeries:
     """Integration tests for batch-based series import flow."""
 
+    def _configure_single_series_import(self, mock_sonarr, mock_tmdb):
+        mock_sonarr.get_existing_series_tvdb_ids.return_value = set()
+        mock_sonarr.get_exclusions.return_value = set()
+        mock_tmdb.get_tvdb_id_from_tmdb.return_value = 1001
+        mock_sonarr.lookup_series.return_value = {
+            "tvdbId": 1001,
+            "title": "Series 1001",
+            "titleSlug": "series-1001",
+            "year": 2020,
+            "images": [],
+            "seasons": [],
+        }
+        mock_sonarr.bulk_add_series.return_value = [{"tvdbId": 1001, "title": "Series 1001"}]
+
     @patch("listarr.services.import_service.time")
     @patch("listarr.services.import_service.tmdb_service")
     @patch("listarr.services.import_service.sonarr_service")
@@ -566,6 +690,7 @@ class TestBatchImportSeries:
                 "monitored": True,
                 "search_on_add": True,
                 "season_folder": True,
+                "monitor_mode": "all",
                 "tags": [],
             }
 
@@ -624,6 +749,7 @@ class TestBatchImportSeries:
                 "monitored": True,
                 "search_on_add": True,
                 "season_folder": True,
+                "monitor_mode": "all",
                 "tags": [],
             }
 
@@ -637,3 +763,208 @@ class TestBatchImportSeries:
             assert mock_tmdb.get_tvdb_id_from_tmdb.call_count == 2
             # Verify both items added
             assert len(result.added) == 2
+
+    @pytest.mark.parametrize(("monitor_mode", "expected_search"), MONITOR_MODE_CASES)
+    @patch("listarr.services.import_service.time")
+    @patch("listarr.services.import_service.tmdb_service")
+    @patch("listarr.services.import_service.sonarr_service")
+    def test_monitor_mode_bulk_payload_uses_resolved_add_options(
+        self, mock_sonarr, mock_tmdb, mock_time, app, monitor_mode, expected_search
+    ):
+        """Each monitor_mode resolved by the import settings path is sent to Sonarr bulk add."""
+        self._configure_single_series_import(mock_sonarr, mock_tmdb)
+
+        with app.app_context():
+            settings = _series_settings_for_monitor_mode(monitor_mode)
+
+            from listarr.services.import_service import _import_series
+
+            result = _import_series([{"id": 1, "name": "Series 1"}], "http://sonarr", "key", settings, "tmdb_key")
+
+        assert len(result.added) == 1
+        mock_sonarr.bulk_add_series.assert_called_once()
+        payload = mock_sonarr.bulk_add_series.call_args.args[2][0]
+        assert payload["addOptions"] == {
+            "monitor": monitor_mode,
+            "searchForMissingEpisodes": expected_search,
+        }
+
+    @patch("listarr.services.import_service.time")
+    @patch("listarr.services.import_service.tmdb_service")
+    @patch("listarr.services.import_service.sonarr_service")
+    def test_already_exists_skips_monitor_mode_bulk_payload(self, mock_sonarr, mock_tmdb, mock_time, app):
+        """Existing Sonarr series are skipped before any addOptions.monitor payload is emitted."""
+        mock_sonarr.get_existing_series_tvdb_ids.return_value = {1001}
+        mock_sonarr.get_exclusions.return_value = set()
+        mock_tmdb.get_tvdb_id_from_tmdb.return_value = 1001
+
+        with app.app_context():
+            settings = _series_settings_for_monitor_mode("firstSeason")
+
+            from listarr.services.import_service import _import_series
+
+            result = _import_series(
+                [{"id": 1, "name": "Existing Series"}], "http://sonarr", "key", settings, "tmdb_key"
+            )
+
+        assert len(result.skipped) == 1
+        assert result.skipped[0]["reason"] == "already_exists"
+        mock_sonarr.lookup_series.assert_not_called()
+        mock_sonarr.bulk_add_series.assert_not_called()
+
+    @patch("listarr.services.import_service.time")
+    @patch("listarr.services.import_service.tmdb_service")
+    @patch("listarr.services.import_service.sonarr_service")
+    def test_retries_duplicate_tmdb_id_after_failed_lookup(self, mock_sonarr, mock_tmdb, mock_time, app):
+        """WR-04 regression: _import_series must mirror _import_movies -- seen_ids is only
+        marked after a successful Sonarr lookup, so a TMDB duplicate whose first
+        occurrence fails lookup is retried on its second occurrence rather than being
+        short-circuited as 'duplicate_in_batch' for an item that was never queued."""
+        mock_sonarr.get_existing_series_tvdb_ids.return_value = set()
+        mock_sonarr.get_exclusions.return_value = set()
+        mock_tmdb.get_tvdb_id_from_tmdb.return_value = 1001
+
+        # First lookup for tvdb_id 1001 fails, second occurrence succeeds.
+        mock_sonarr.lookup_series.side_effect = [
+            None,
+            {
+                "tvdbId": 1001,
+                "title": "Series 1001",
+                "titleSlug": "series-1001",
+                "year": 2020,
+                "images": [],
+                "seasons": [],
+            },
+        ]
+        mock_sonarr.bulk_add_series.return_value = [{"tvdbId": 1001, "title": "Series 1001"}]
+
+        with app.app_context():
+            items = [
+                {"id": 1, "name": "Series 1"},
+                {"id": 1, "name": "Series 1"},
+            ]
+            settings = {
+                "root_folder": "/tv",
+                "quality_profile_id": 1,
+                "monitored": True,
+                "search_on_add": True,
+                "season_folder": True,
+                "monitor_mode": "all",
+                "tags": [],
+            }
+
+            from listarr.services.import_service import _import_series
+
+            result = _import_series(items, "http://sonarr", "key", settings, "tmdb_key")
+
+            # Second occurrence must be retried (lookup called twice), not skipped as
+            # duplicate_in_batch.
+            assert mock_sonarr.lookup_series.call_count == 2
+            assert not any(item["reason"] == "duplicate_in_batch" for item in result.skipped)
+            assert len(result.failed) == 1
+            assert result.failed[0]["reason"] == "not_found_in_sonarr"
+            assert len(result.added) == 1
+
+
+class TestSeriesMonitoredReadBack:
+    """Test-only Sonarr read-back matrix for addOptions.monitor behaviour."""
+
+    READ_BACK_CASES = (
+        (
+            "all",
+            _series_fixture(
+                monitored=True,
+                monitored_seasons={1, 2, 3},
+                monitored_episodes={(1, 1), (1, 2), (2, 1), (2, 2), (3, 1), (3, 2)},
+            ),
+            True,
+            {1, 2, 3},
+            {(1, 1), (1, 2), (2, 1), (2, 2), (3, 1), (3, 2)},
+        ),
+        (
+            "firstSeason",
+            _series_fixture(
+                monitored=True,
+                monitored_seasons={1},
+                monitored_episodes={(1, 1), (1, 2)},
+            ),
+            True,
+            {1},
+            {(1, 1), (1, 2)},
+        ),
+        (
+            "lastSeason",
+            _series_fixture(
+                monitored=True,
+                monitored_seasons={3},
+                monitored_episodes={(3, 1), (3, 2)},
+            ),
+            True,
+            {3},
+            {(3, 1), (3, 2)},
+        ),
+        (
+            "pilot",
+            _series_fixture(
+                monitored=True,
+                monitored_seasons=set(),
+                monitored_episodes={(1, 1)},
+            ),
+            True,
+            set(),
+            {(1, 1)},
+        ),
+        (
+            "none",
+            _series_fixture(
+                monitored=False,
+                monitored_seasons=set(),
+                monitored_episodes=set(),
+            ),
+            False,
+            set(),
+            set(),
+        ),
+    )
+
+    @pytest.mark.parametrize(
+        ("monitor_mode", "series_doc", "series_monitored", "season_numbers", "episodes"),
+        READ_BACK_CASES,
+    )
+    @patch("listarr.services.sonarr_service.http_session")
+    def test_seasons_monitored_read_back_matrix(
+        self, mock_session, monitor_mode, series_doc, series_monitored, season_numbers, episodes
+    ):
+        """Pinned expectation from EpisodeMonitoredService for each monitor token."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = series_doc
+        mock_session.get.return_value = mock_response
+
+        returned = _mock_sonarr_series_get(mock_session, "http://sonarr", "key", 5001)
+
+        monitored_seasons = {season["seasonNumber"] for season in returned["seasons"] if season["monitored"]}
+        monitored_episodes = {
+            (episode["seasonNumber"], episode["episodeNumber"])
+            for episode in returned["episodes"]
+            if episode["monitored"]
+        }
+
+        if monitor_mode == "pilot":
+            # Sonarr pilot mode leaves every season unmonitored and watches only S1E1.
+            assert monitored_seasons == set()
+            assert monitored_episodes == {(1, 1)}
+        if monitor_mode == "none":
+            # Sonarr none mode forces series monitored false and leaves no episode monitored.
+            assert returned["monitored"] is False
+            assert monitored_seasons == set()
+            assert monitored_episodes == set()
+
+        assert returned["monitored"] is series_monitored
+        assert monitored_seasons == season_numbers
+        assert monitored_episodes == episodes
+        mock_session.get.assert_called_once_with(
+            "http://sonarr/api/v3/series/5001",
+            headers={"X-Api-Key": "key"},
+            timeout=30,
+        )
