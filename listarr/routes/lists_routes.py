@@ -180,6 +180,11 @@ def _wizard_defaults_payload(service, import_settings, season_folder_default=Non
     return payload
 
 
+def _clamp_list_limit(limit_val):
+    """Clamp a parsed list-size limit to the supported [1, 500] range."""
+    return max(1, min(500, limit_val))
+
+
 def _form_to_monitor_mode(value):
     """Convert a submitted Sonarr monitor-mode string to its stored value or None.
 
@@ -376,7 +381,7 @@ def edit_list(list_id):
             if limit_str:
                 try:
                     limit_val = int(limit_str)
-                    list_obj.limit = max(1, min(500, limit_val))
+                    list_obj.limit = _clamp_list_limit(limit_val)
                 except ValueError:
                     pass  # Keep existing value on invalid input
 
@@ -827,7 +832,7 @@ def wizard_submit():
         limit_val = int(raw_limit)
     except (TypeError, ValueError):
         return jsonify({"success": False, "message": "limit must be an integer"}), 400
-    limit_val = max(1, min(500, limit_val))
+    limit_val = _clamp_list_limit(limit_val)
 
     # Determine tmdb_list_type
     if preset and preset not in ["custom", ""]:

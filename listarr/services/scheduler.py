@@ -439,15 +439,11 @@ def reconcile_scheduler_jobs(tz_name, *, blocking=True) -> ReconcileResult:
                 # validate, a migration, ...) must land in `unbuildable`, not be
                 # silently scheduled on the wrong day the way CR-01's route-level
                 # gap allowed.
-                if not validate_cron_expression(row.schedule_cron, tz=target)["valid"]:
+                validation = validate_cron_expression(row.schedule_cron, tz=target)
+                if not validation["valid"]:
                     unbuildable[row.id] = row.schedule_cron
                     continue
-                try:
-                    desired[job_id] = CronTrigger.from_crontab(
-                        _posix_cron_to_apscheduler(row.schedule_cron), timezone=target
-                    )
-                except (ValueError, KeyError):
-                    unbuildable[row.id] = row.schedule_cron
+                desired[job_id] = validation["trigger"]
 
             live_ids = {job.id for job in scheduler.get_jobs() if job.id.startswith("list_")}
             applied = 0
@@ -817,9 +813,11 @@ def validate_cron_expression(cron_expr, tz=None):
             - error (str or None): Error message if invalid
             - description (str): Human-readable description
             - next_runs (list): Next 3 run times as ISO strings
+            - trigger (CronTrigger or None): The built, cross-checked trigger when valid,
+              so callers (e.g. reconcile_scheduler_jobs) do not need to rebuild it.
             next_runs values use isoformat() with UTC offset when the scheduler timezone is non-UTC.
     """
-    result = {"valid": False, "error": None, "description": "", "next_runs": []}
+    result = {"valid": False, "error": None, "description": "", "next_runs": [], "trigger": None}
 
     try:
         # Validate with cronsim
@@ -846,17 +844,16 @@ def validate_cron_expression(cron_expr, tz=None):
             result["description"] = cron_expr
 
         # Get next 3 run times using advance()
-        next_runs = []
         next_run_dts = []
         for _ in range(3):
             cron.advance()
             dt = cron.dt
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=scheduler_tz)
-            next_runs.append(dt.isoformat())
             next_run_dts.append(dt)
             # Move forward 1 second to get the next occurrence
             cron.tick()
+        next_runs = [dt.isoformat() for dt in next_run_dts]
 
         # cronsim and APScheduler do not accept the same grammar. An expression cronsim
         # parses but CronTrigger cannot build (e.g. "0 2 L * *") must be rejected here so
@@ -888,6 +885,7 @@ def validate_cron_expression(cron_expr, tz=None):
             aps_dt = aps_dt + timedelta(seconds=1)
 
         result["next_runs"] = next_runs
+        result["trigger"] = trigger
         result["valid"] = True
 
     except (ValueError, KeyError, CronSimError, StopIteration) as e:
