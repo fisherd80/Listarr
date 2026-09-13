@@ -311,9 +311,25 @@ def edit_list(list_id):
 
     if request.method == "POST" and form.validate_on_submit():
         try:
+            # CR-01: validate before touching the row at all. A cron that is
+            # syntactically buildable but semantically wrong (e.g. a mixed
+            # digit/name day-of-week list) must never reach the database --
+            # schedule_list() below validates internally too, but by then the
+            # commit has already happened and its failure was only logged, so
+            # a bad cron silently sat in the DB until reconcile_scheduler_jobs()
+            # picked it up on a timezone change and scheduled it anyway.
+            new_cron = form.schedule_cron.data or None
+            if new_cron:
+                cron_validation = validate_cron_expression(new_cron)
+                if not cron_validation["valid"]:
+                    flash(f"Invalid cron expression: {cron_validation['error']}", "error")
+                    return render_template(
+                        "edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags
+                    )
+
             list_obj.name = form.name.data
             list_obj.is_active = form.is_active.data
-            list_obj.schedule_cron = form.schedule_cron.data or None
+            list_obj.schedule_cron = new_cron
 
             # Handle quality profile (store as int or None)
             qp_value = form.override_quality_profile.data
@@ -787,6 +803,21 @@ def wizard_submit():
     if not service or service not in ["radarr", "sonarr"]:
         return jsonify({"success": False, "message": "Invalid service"}), 400
 
+    # CR-01: validate schedule_cron before it ever touches the database. This endpoint
+    # (shared by the custom builder and preset wizard) previously committed the raw
+    # cron string first and only logged schedule_list()'s validation failure afterward,
+    # so a syntactically-buildable-but-wrong cron (e.g. a mixed digit/name day-of-week
+    # list) could persist silently and later reach reconcile_scheduler_jobs() on a
+    # timezone change, firing on the wrong day with no cross-check on that path.
+    new_cron = (schedule.get("cron") or "").strip() or None
+    if new_cron:
+        cron_validation = validate_cron_expression(new_cron)
+        if not cron_validation["valid"]:
+            return (
+                jsonify({"success": False, "message": f"Invalid cron expression: {cron_validation['error']}"}),
+                400,
+            )
+
     # Validate and clamp limit (list size) at the API boundary, mirroring edit_list's
     # bounds-checking (CR-01). filters comes directly from the request JSON body, so an
     # unbounded/non-numeric limit must be rejected here rather than surfacing later as an
@@ -870,7 +901,7 @@ def wizard_submit():
             # This endpoint is shared by the custom builder and the preset wizard; the preset
             # wizard sends no monitor_mode, so this resolves to None (D-11). Allow-listed here.
             list_obj.sonarr_monitor_mode = _form_to_monitor_mode(import_settings.get("monitor_mode"))
-            list_obj.schedule_cron = schedule.get("cron") or None
+            list_obj.schedule_cron = new_cron
             list_obj.is_active = schedule.get("is_active", True)
         else:
             # Create mode
@@ -889,7 +920,7 @@ def wizard_submit():
                 # Shared endpoint (custom builder + preset wizard); presets send no
                 # monitor_mode so this is deliberately None (D-11). Explicit kwarg for clarity.
                 sonarr_monitor_mode=_form_to_monitor_mode(import_settings.get("monitor_mode")),
-                schedule_cron=schedule.get("cron") or None,
+                schedule_cron=new_cron,
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
             )
