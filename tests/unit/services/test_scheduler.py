@@ -10,11 +10,13 @@ Tests cover:
 """
 
 import zoneinfo
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from apscheduler.triggers.cron import CronTrigger
+from cronsim import CronSim
 from sqlalchemy.exc import OperationalError
 
 from listarr import db
@@ -22,6 +24,7 @@ from listarr.models.app_config_model import AppConfig, get_app_config
 from listarr.services import scheduler as sched
 from listarr.services.scheduler import (
     _get_scheduler_timezone,
+    _posix_cron_to_apscheduler,
     _run_scheduled_import,
     get_next_run_time,
     schedule_list,
@@ -44,12 +47,14 @@ class TestRunScheduledImportHealthCheck:
     @patch("listarr.services.scheduler.is_scheduler_paused")
     @patch("listarr.services.scheduler.submit_job")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_service_not_configured(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_submit_job,
         mock_is_paused,
@@ -68,7 +73,7 @@ class TestRunScheduledImportHealthCheck:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig.query.filter_by to return None (no config)
         mock_query = MagicMock()
@@ -81,59 +86,116 @@ class TestRunScheduledImportHealthCheck:
         # Assert submit_job was NOT called
         mock_submit_job.assert_not_called()
 
+    @patch("listarr.services.scheduler.is_list_running")
+    @patch("listarr.services.scheduler.validate_api_key")
+    @patch("listarr.services.scheduler.decrypt_data")
+    @patch("listarr.services.scheduler.is_scheduler_paused")
+    @patch("listarr.services.scheduler.submit_job")
+    @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
+    @patch("listarr.services.scheduler.ServiceConfig")
+    @patch("listarr.services.scheduler._app")
+    def test_swallows_value_error_from_submit_job_race(
+        self,
+        mock_app,
+        mock_service_config_class,
+        mock_session_get,
+        mock_list_class,
+        mock_submit_job,
+        mock_is_paused,
+        mock_decrypt,
+        mock_validate_api_key,
+        mock_is_list_running,
+    ):
+        """WR-02 regression: submit_job()'s check-then-create race raises ValueError when
+        a job is already submitted for this list between the is_list_running() check and
+        the lock acquisition. _run_scheduled_import must swallow this (log and return)
+        rather than letting it propagate out and crash the scheduler thread."""
+        mock_app.app_context.return_value.__enter__ = MagicMock()
+        mock_app.app_context.return_value.__exit__ = MagicMock()
+        mock_is_paused.return_value = False
+
+        mock_list_obj = MagicMock()
+        mock_list_obj.id = 1
+        mock_list_obj.name = "Test List"
+        mock_list_obj.target_service = "RADARR"
+        mock_list_obj.is_active = True
+        mock_session_get.return_value = mock_list_obj
+
+        mock_service_config = MagicMock()
+        mock_service_config.api_key_encrypted = "encrypted"
+        mock_service_config.base_url = "http://localhost:7878"
+        mock_query = MagicMock()
+        mock_query.first.return_value = mock_service_config
+        mock_service_config_class.query.filter_by.return_value = mock_query
+
+        mock_decrypt.return_value = "radarr_key"
+        mock_validate_api_key.return_value = True
+        mock_is_list_running.return_value = False
+        mock_submit_job.side_effect = ValueError("job already submitted for this list")
+
+        # Must not raise -- the exception is caught and logged, not propagated.
+        _run_scheduled_import(1)
+
+        mock_submit_job.assert_called_once()
+
 
 class TestGetNextRunTimeFallback:
     """Tests for get_next_run_time() fallback in non-scheduler workers."""
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_when_list_not_found(self, mock_list_class):
+    def test_returns_none_when_list_not_found(self, mock_list_class, mock_session_get):
         """Returns None when list doesn't exist in database."""
-        # Setup List.query.get to return None
-        mock_list_class.query.get.return_value = None
+        # Setup db.session.get to return None
+        mock_session_get.return_value = None
 
         result = get_next_run_time(999)
 
         assert result is None
-        mock_list_class.query.get.assert_called_once_with(999)
+        mock_session_get.assert_called_once_with(mock_list_class, 999)
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_when_no_schedule(self, mock_list_class):
+    def test_returns_none_when_no_schedule(self, mock_list_class, mock_session_get):
         """Returns None when list has no cron schedule."""
         # Setup list without schedule
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = None
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
         assert result is None
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_when_list_inactive(self, mock_list_class):
+    def test_returns_none_when_list_inactive(self, mock_list_class, mock_session_get):
         """Returns None when list is inactive."""
         # Setup inactive list with schedule
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "0 0 * * *"
         mock_list_obj.is_active = False
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
         assert result is None
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_calculates_next_run_from_cron(self, mock_list_class):
+    def test_calculates_next_run_from_cron(self, mock_list_class, mock_session_get):
         """Calculates next run time from cron expression when scheduler is None."""
         # Setup list with valid cron expression
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "0 0 * * *"  # Daily at midnight
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
@@ -146,14 +208,15 @@ class TestGetNextRunTimeFallback:
         assert result > datetime.now(timezone.utc)
 
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_returns_none_on_invalid_cron(self, mock_list_class):
+    def test_returns_none_on_invalid_cron(self, mock_list_class, mock_session_get):
         """Returns None when cron expression is invalid."""
         # Setup list with invalid cron
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "invalid cron"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
@@ -177,12 +240,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.is_scheduler_paused")
     @patch("listarr.services.scheduler.submit_job")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_service_api_key_missing(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_submit_job,
         mock_is_paused,
@@ -201,7 +266,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "SONARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig with no API key
         mock_service_config = MagicMock()
@@ -222,12 +287,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.validate_api_key")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_service_unreachable(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_validate,
@@ -249,7 +316,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig with valid encrypted key
         mock_service_config = MagicMock()
@@ -283,12 +350,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.validate_api_key")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_proceeds_when_service_reachable(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_validate,
@@ -310,7 +379,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig with valid encrypted key
         mock_service_config = MagicMock()
@@ -345,12 +414,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.submit_job")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_decrypt_fails(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_submit_job,
@@ -370,7 +441,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "RADARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig
         mock_service_config = MagicMock()
@@ -394,12 +465,14 @@ class TestGetNextRunTimeFallback:
     @patch("listarr.services.scheduler.validate_api_key")
     @patch("listarr.services.scheduler.decrypt_data")
     @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.ServiceConfig")
     @patch("listarr.services.scheduler._app")
     def test_skips_when_validate_raises_exception(
         self,
         mock_app,
         mock_service_config_class,
+        mock_session_get,
         mock_list_class,
         mock_decrypt,
         mock_validate,
@@ -420,7 +493,7 @@ class TestGetNextRunTimeFallback:
         mock_list_obj.name = "Test List"
         mock_list_obj.target_service = "SONARR"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         # Setup ServiceConfig
         mock_service_config = MagicMock()
@@ -488,14 +561,15 @@ class TestSchedulerTimezone:
 
     @patch.dict("os.environ", {"TZ": "America/New_York"})
     @patch("listarr.services.scheduler._scheduler", None)
+    @patch("listarr.services.scheduler.db.session.get")
     @patch("listarr.services.scheduler.List")
-    def test_get_next_run_time_fallback_uses_scheduler_timezone(self, mock_list_class):
+    def test_get_next_run_time_fallback_uses_scheduler_timezone(self, mock_list_class, mock_session_get):
         """get_next_run_time() fallback returns a datetime in scheduler timezone."""
         # Setup list with valid cron expression
         mock_list_obj = MagicMock()
         mock_list_obj.schedule_cron = "0 9 * * 1"
         mock_list_obj.is_active = True
-        mock_list_class.query.get.return_value = mock_list_obj
+        mock_session_get.return_value = mock_list_obj
 
         result = get_next_run_time(1)
 
@@ -516,6 +590,17 @@ class TestSchedulerTimezone:
             assert next_run[-6] in {"+", "-"}
 
     @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_returns_cron_trigger_for_reconcile(self):
+        """15-09: pins the internal-only 'trigger' contract reconcile_scheduler_jobs() depends
+        on -- a future "just delete the trigger key" fix to the da25d1e JSON-serialization bug
+        must not silently break reconcile_scheduler_jobs()'s `desired[job_id] = validation["trigger"]`.
+        """
+        result = validate_cron_expression("0 9 * * mon,thu")
+
+        assert result["valid"] is True
+        assert isinstance(result["trigger"], CronTrigger)
+
+    @patch("listarr.services.scheduler._scheduler", None)
     def test_validate_cron_expression_rejects_cronsim_valid_but_unbuildable(self):
         """A cron cronsim accepts but CronTrigger.from_crontab rejects is invalid here, so
         it can never be stored on a list and reach the reconcile as an unbuildable row."""
@@ -524,6 +609,155 @@ class TestSchedulerTimezone:
         assert result["valid"] is False
         assert result["error"]
         assert result["next_runs"] == []
+
+    @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_rejects_fire_date_mismatch(self):
+        """WR-01: a trigger that *builds* successfully is not proof it fires on the
+        right days -- CR-02/CR-03/CR-04 each built successfully while firing on the
+        wrong days. This exercises the safety net directly by forcing
+        `_posix_cron_to_apscheduler` to return a deliberately wrong (but buildable)
+        translation, simulating a future translation regression: the cross-check
+        against cronsim's fire dates must reject it rather than reporting valid=True
+        with a next_runs preview that does not match what would actually fire."""
+        with patch.object(sched, "_posix_cron_to_apscheduler", return_value="0 2 * * 2"):
+            result = validate_cron_expression("0 2 * * 1")
+
+        assert result["valid"] is False
+        assert result["error"]
+        assert "mismatch" in result["error"].lower()
+        assert result["next_runs"] == []
+
+    def test_posix_cron_to_apscheduler_translates_stepless_range(self):
+        """Stepless day-of-week ranges/lists are enumerated and rendered as an
+        unambiguous, deduplicated comma list of day names (Iteration 2 rewrite: the
+        translator now always emits a fully enumerated name list rather than trying
+        to preserve range/step syntax -- see the module docstring history of
+        CR-02/CR-03/CR-04 for why the previous approaches kept regressing)."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1-5") == "0 2 * * mon,tue,wed,thu,fri"
+        assert _posix_cron_to_apscheduler("0 2 * * 1") == "0 2 * * mon"
+
+    def test_posix_cron_to_apscheduler_name_range_left_unchanged(self):
+        """A day-of-week field already expressed with day *names* (no digits) is
+        passed through unchanged -- it is already unambiguous, and this function's
+        digit-based term parser does not understand name syntax. Note this does not
+        cover 'mon-fri/2' (a name range combined with a step): APScheduler silently
+        drops the step in that case, which is a separate, pre-existing, documented
+        limitation this rewrite does not attempt to fix, since there are no digits
+        here for the translator to even engage with."""
+        assert _posix_cron_to_apscheduler("0 2 * * mon-fri") == "0 2 * * mon-fri"
+
+    def test_posix_cron_to_apscheduler_unparseable_field_falls_through(self):
+        """A field with digits in a shape `_parse_posix_dow_term` cannot parse (e.g.
+        a malformed step) is passed through unchanged rather than raising -- letting
+        APScheduler's own parser decide whether to accept or reject it."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1/0") == "0 2 * * 1/0"
+
+    def test_posix_cron_to_apscheduler_translates_mixed_digit_name_list(self):
+        """WR-01 regression: a day-of-week field mixing digits and day names (e.g.
+        '1,mon', the exact CR-01 exploit string) must translate correctly instead
+        of the whole field being rejected/passed through untranslated. '1' is
+        POSIX Monday and 'mon' is also Monday, so the enumerated, deduplicated
+        result is just 'mon'."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1,mon") == "0 2 * * mon"
+        # Mixed list with genuinely distinct days, name first this time.
+        assert _posix_cron_to_apscheduler("0 2 * * mon,3") == "0 2 * * mon,wed"
+
+    def test_posix_cron_to_apscheduler_name_case_insensitive(self):
+        """Day names resolve case-insensitively, matching cronsim's own upper-casing
+        of the whole expression before parsing."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1,Mon") == "0 2 * * mon"
+        assert _posix_cron_to_apscheduler("0 2 * * 1,MON") == "0 2 * * mon"
+
+    @pytest.mark.parametrize(
+        "posix_expr",
+        [
+            "0 2 * * 1-5/2",  # numeric range+step: POSIX Mon-Fri every 2nd day -> Mon/Wed/Fri
+            "0 2 * * 1,3,5/2",  # numeric list+step: same days expressed as a list
+            "0 2 * * 0,2,4/3",  # numeric list+step including POSIX Sunday (digit 0)
+            "0 2 * * 1-5/2,6",  # CR-04: stepped segment + trailing bare day in one field
+            "0 2 * * 1/2,3/2",  # CR-04: two independently-stepped segments in one field
+            "0 2 * * */2",  # CR-02 (this round): bare wildcard-step, N=2
+            "0 2 * * */3",  # bare wildcard-step, N=3 (7 % 3 != 0)
+            "0 2 * * */2,1",  # CR-02 (this round): wildcard-step leading a comma list
+            "0 2 * * 0",  # day 0 (Sunday)
+            "0 2 * * 7",  # day 7 (also Sunday -- POSIX alias)
+            "0 2 * * 0,7",  # both Sunday aliases in one field, must dedupe
+            "0 2 * * 2-5",  # plain numeric range, no step
+            "0 2 * * 1,4",  # plain numeric list, no step
+        ],
+    )
+    def test_translated_cron_fire_dates_match_cronsim(self, posix_expr):
+        """The translated field must fire on exactly the same dates cronsim (POSIX
+        semantics, what /api/cron/validate previews to the user) computes. This
+        asserts actual computed fire *dates* from a real built CronTrigger, not just
+        string equality or trigger buildability -- the class of check that let
+        CR-02/CR-03/CR-04 (and this round's CR-01/CR-02) slip through repeatedly."""
+        translated = _posix_cron_to_apscheduler(posix_expr)
+        trigger = CronTrigger.from_crontab(translated)
+
+        start = datetime(2026, 1, 1)
+
+        cronsim_dates = []
+        c = CronSim(posix_expr, start)
+        for _ in range(12):
+            cronsim_dates.append(next(c).date())
+
+        aps_dates = []
+        dt = start
+        for _ in range(12):
+            dt = trigger.get_next_fire_time(None, dt)
+            aps_dates.append(dt.date())
+            dt += timedelta(seconds=1)
+
+        assert aps_dates == cronsim_dates
+
+    @pytest.mark.parametrize(
+        "posix_expr",
+        [
+            "0 2 * * 1-5/2",
+            "0 2 * * 1,3,5/2",
+            "0 2 * * 0,2,4/3",
+            "0 2 * * 1-5/2,6",  # CR-01 flagship regression: comma list with a stepped member
+            "0 2 * * 1/2,3/2",
+            "0 2 * * */2",  # CR-02 (this round): bare wildcard-step
+            "0 2 * * */3",
+            "0 2 * * */2,1",  # CR-02 (this round): wildcard-step leading a comma list
+            "0 2 * * 0",
+            "0 2 * * 7",
+            "0 2 * * 0,7",
+            "0 2 * * 1-5",
+            "0 2 * * 1",
+            "0 2 * * *",
+        ],
+    )
+    def test_validate_cron_expression_end_to_end_accepts_regression_cases(self, posix_expr):
+        """CR-01/CR-02 (this round): validate_cron_expression() itself -- not just
+        `_posix_cron_to_apscheduler` or `CronTrigger.from_crontab` called directly --
+        must accept every one of these previously-regressing expressions without
+        raising and without a fire-date mismatch. The earlier fixer's own tests only
+        ever called the lower-level translation helper directly, which is exactly
+        why the CR-01 crash (in cron_descriptor.get_description, a code path only
+        validate_cron_expression's own try/except reaches) was invisible to them."""
+        with patch("listarr.services.scheduler._scheduler", None):
+            result = validate_cron_expression(posix_expr)
+
+        assert result["valid"] is True, result["error"]
+        assert result["error"] is None
+        assert len(result["next_runs"]) == 3
+
+    def test_validate_cron_expression_does_not_crash_on_comma_step_dow(self):
+        """CR-01 regression: `get_description()` (from cron_descriptor) raises
+        `cron_descriptor.Exception.FormatError` -- not a ValueError/KeyError -- for a
+        comma-separated day-of-week field where a member carries a step, e.g.
+        '1-5/2,6'. That exception must be caught so validate_cron_expression()
+        degrades to showing the raw expression as its description instead of
+        propagating an unhandled 500 out to /api/cron/validate,
+        /api/schedule/<id>/update, and schedule_list()."""
+        with patch("listarr.services.scheduler._scheduler", None):
+            result = validate_cron_expression("0 2 * * 1-5/2,6")
+
+        assert result["valid"] is True
+        assert result["description"]  # falls back to the raw expression, but must not crash
 
 
 @pytest.mark.unit
@@ -869,6 +1103,39 @@ class TestReconcileSchedulerJobs:
             assert result.applied == 2
             assert result.unbuildable == {bad: "0 2 L * *"}
             assert {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list} == set(good)
+
+    def test_mistranslated_but_buildable_row_caught_by_defense_in_depth(self, app, monkeypatch):
+        """WR-02 regression: a cron that builds a trigger successfully but whose
+        translation is actually wrong (the CR-01 failure class -- fixed for the
+        real translator, but reconcile must not rely on that alone) must be
+        rejected by the same fire-date cross-check validate_cron_expression() uses,
+        not silently scheduled just because CronTrigger.from_crontab did not raise.
+        The bad row's cron is deliberately distinct from the good rows' so the
+        patched translator can target it by exact input string, not call order."""
+        with app.app_context():
+            good = [self._make_list("0 2 * * 1") for _ in range(2)]
+            bad = self._make_list("0 2 * * 4")  # Thursday; translation corrupted below
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+
+            real_translate = sched._posix_cron_to_apscheduler
+
+            def corrupt_only_bad(cron_expr):
+                if cron_expr == "0 2 * * 4":
+                    # Simulate a translation bug: builds fine, but actually fires
+                    # on Friday instead of Thursday.
+                    return "0 2 * * fri"
+                return real_translate(cron_expr)
+
+            with patch.object(sched, "_posix_cron_to_apscheduler", side_effect=corrupt_only_bad):
+                result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.unbuildable == {bad: "0 2 * * 4"}
+            applied_ids = {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list}
+            assert bad not in applied_ids
+            assert set(good) <= applied_ids
 
     def test_no_scheduler_reports_backlog_without_raising(self, app, monkeypatch):
         with app.app_context():

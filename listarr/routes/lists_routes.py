@@ -44,6 +44,12 @@ from listarr.services.tmdb_cache import (
 )
 from listarr.utils.time_utils import format_past_time, format_relative_time
 
+# da25d1e regression guard: validate_cron_expression() also returns an internal-only,
+# non-JSON-serializable "trigger" (an apscheduler CronTrigger) for reconcile_scheduler_jobs()'s
+# use. /api/cron/validate must only ever serialize this whitelist of scalar keys -- never
+# jsonify() the raw result dict -- or any future internal key added to it can 500 the endpoint.
+_CRON_VALIDATE_JSON_KEYS = ("valid", "error", "description", "next_runs")
+
 # Preset display metadata - single source of truth for wizard UI text
 PRESET_METADATA = {
     "trending_movies": {
@@ -180,6 +186,11 @@ def _wizard_defaults_payload(service, import_settings, season_folder_default=Non
     return payload
 
 
+def _clamp_list_limit(limit_val):
+    """Clamp a parsed list-size limit to the supported [1, 500] range."""
+    return max(1, min(500, limit_val))
+
+
 def _form_to_monitor_mode(value):
     """Convert a submitted Sonarr monitor-mode string to its stored value or None.
 
@@ -199,6 +210,17 @@ def _monitor_mode_to_form(value):
     is not echoed back into the form unvalidated.
     """
     return normalize_monitor_mode(value, default="")
+
+
+def _format_last_run_result(items_added, items_skipped):
+    """Canonical last-run result summary formatter ("N added / M skipped" shorthand).
+
+    This is the ONLY place this string format may be produced. Both `lists_page`
+    (server-rendered page load) and `get_list_status` (polled endpoint consumed by
+    `updateRowLastRun()` in lists.js) call this helper so the two can never drift
+    apart (15-11 / T-15-11-03).
+    """
+    return f"{items_added or 0} add / {items_skipped or 0} skip"
 
 
 @bp.route("/lists")
@@ -221,7 +243,7 @@ def lists_page():
         list_obj.last_run_at_iso = list_obj.last_run_at.isoformat() if list_obj.last_run_at else None
         recent_job = Job.query.filter_by(list_id=list_obj.id).order_by(Job.started_at.desc()).first()
         if recent_job and recent_job.status == "completed":
-            list_obj.last_run_result = f"{recent_job.items_added or 0} add / {recent_job.items_skipped or 0} skip"
+            list_obj.last_run_result = _format_last_run_result(recent_job.items_added, recent_job.items_skipped)
         else:
             list_obj.last_run_result = None
 
@@ -257,7 +279,7 @@ def get_lists_api():
 @bp.route("/lists/edit/<int:list_id>", methods=["GET", "POST"])
 @login_required
 def edit_list(list_id):
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
     service_type = list_obj.target_service  # RADARR or SONARR
 
     # Get service config for fetching options
@@ -311,9 +333,25 @@ def edit_list(list_id):
 
     if request.method == "POST" and form.validate_on_submit():
         try:
+            # CR-01: validate before touching the row at all. A cron that is
+            # syntactically buildable but semantically wrong (e.g. a mixed
+            # digit/name day-of-week list) must never reach the database --
+            # schedule_list() below validates internally too, but by then the
+            # commit has already happened and its failure was only logged, so
+            # a bad cron silently sat in the DB until reconcile_scheduler_jobs()
+            # picked it up on a timezone change and scheduled it anyway.
+            new_cron = form.schedule_cron.data or None
+            if new_cron:
+                cron_validation = validate_cron_expression(new_cron)
+                if not cron_validation["valid"]:
+                    flash(f"Invalid cron expression: {cron_validation['error']}", "error")
+                    return render_template(
+                        "edit_list.html", form=form, list=list_obj, service_type=service_type, tags=tags
+                    )
+
             list_obj.name = form.name.data
             list_obj.is_active = form.is_active.data
-            list_obj.schedule_cron = form.schedule_cron.data or None
+            list_obj.schedule_cron = new_cron
 
             # Handle quality profile (store as int or None)
             qp_value = form.override_quality_profile.data
@@ -360,7 +398,7 @@ def edit_list(list_id):
             if limit_str:
                 try:
                     limit_val = int(limit_str)
-                    list_obj.limit = max(1, min(500, limit_val))
+                    list_obj.limit = _clamp_list_limit(limit_val)
                 except ValueError:
                     pass  # Keep existing value on invalid input
 
@@ -449,7 +487,7 @@ def delete_list(list_id):
         success: bool
         message: string
     """
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
 
     try:
         list_name = list_obj.name
@@ -490,7 +528,7 @@ def list_wizard():
 
     # Edit mode - load existing list
     if list_id:
-        list_obj = List.query.get_or_404(list_id)
+        list_obj = db.get_or_404(List, list_id)
 
         # Determine if it's a preset or custom list
         is_preset = list_obj.tmdb_list_type not in ["discovery", "custom"]
@@ -584,7 +622,7 @@ def list_wizard():
 @bp.route("/lists/toggle/<int:list_id>", methods=["POST"])
 @login_required
 def toggle_list(list_id):
-    list_obj = List.query.get_or_404(list_id)
+    list_obj = db.get_or_404(List, list_id)
 
     try:
         # Toggle the is_active field
@@ -787,6 +825,32 @@ def wizard_submit():
     if not service or service not in ["radarr", "sonarr"]:
         return jsonify({"success": False, "message": "Invalid service"}), 400
 
+    # CR-01: validate schedule_cron before it ever touches the database. This endpoint
+    # (shared by the custom builder and preset wizard) previously committed the raw
+    # cron string first and only logged schedule_list()'s validation failure afterward,
+    # so a syntactically-buildable-but-wrong cron (e.g. a mixed digit/name day-of-week
+    # list) could persist silently and later reach reconcile_scheduler_jobs() on a
+    # timezone change, firing on the wrong day with no cross-check on that path.
+    new_cron = (schedule.get("cron") or "").strip() or None
+    if new_cron:
+        cron_validation = validate_cron_expression(new_cron)
+        if not cron_validation["valid"]:
+            return (
+                jsonify({"success": False, "message": f"Invalid cron expression: {cron_validation['error']}"}),
+                400,
+            )
+
+    # Validate and clamp limit (list size) at the API boundary, mirroring edit_list's
+    # bounds-checking (CR-01). filters comes directly from the request JSON body, so an
+    # unbounded/non-numeric limit must be rejected here rather than surfacing later as an
+    # unbounded TMDB fetch loop or a TypeError inside the background job.
+    raw_limit = filters.get("limit", 20)
+    try:
+        limit_val = int(raw_limit)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "limit must be an integer"}), 400
+    limit_val = _clamp_list_limit(limit_val)
+
     # Determine tmdb_list_type
     if preset and preset not in ["custom", ""]:
         tmdb_list_type = preset  # trending_movies, popular_tv, etc.
@@ -828,7 +892,7 @@ def wizard_submit():
                 else:
                     from listarr.services.sonarr_service import create_or_get_tag_id
 
-                tag_id = create_or_get_tag_id(base_url, api_key, tag_name.strip())
+                tag_id = create_or_get_tag_id(base_url, api_key, tag_name)
             except RequestException as e:
                 current_app.logger.error(f"Error creating/getting tag: {e}", exc_info=True)
                 return (
@@ -844,12 +908,12 @@ def wizard_submit():
     try:
         if list_id:
             # Edit mode
-            list_obj = List.query.get_or_404(list_id)
+            list_obj = db.get_or_404(List, list_id)
             list_obj.name = name
             list_obj.target_service = service.upper()
             list_obj.tmdb_list_type = tmdb_list_type
             list_obj.filters_json = filters_json
-            list_obj.limit = filters.get("limit", 20)
+            list_obj.limit = limit_val
             list_obj.override_quality_profile = import_settings.get("quality_profile_id")
             list_obj.override_root_folder = import_settings.get("root_folder")
             list_obj.override_tag_id = tag_id
@@ -859,7 +923,7 @@ def wizard_submit():
             # This endpoint is shared by the custom builder and the preset wizard; the preset
             # wizard sends no monitor_mode, so this resolves to None (D-11). Allow-listed here.
             list_obj.sonarr_monitor_mode = _form_to_monitor_mode(import_settings.get("monitor_mode"))
-            list_obj.schedule_cron = schedule.get("cron") or None
+            list_obj.schedule_cron = new_cron
             list_obj.is_active = schedule.get("is_active", True)
         else:
             # Create mode
@@ -868,7 +932,7 @@ def wizard_submit():
                 target_service=service.upper(),
                 tmdb_list_type=tmdb_list_type,
                 filters_json=filters_json,
-                limit=filters.get("limit", 20),
+                limit=limit_val,
                 override_quality_profile=import_settings.get("quality_profile_id"),
                 override_root_folder=import_settings.get("root_folder"),
                 override_tag_id=tag_id,
@@ -878,7 +942,7 @@ def wizard_submit():
                 # Shared endpoint (custom builder + preset wizard); presets send no
                 # monitor_mode so this is deliberately None (D-11). Explicit kwarg for clarity.
                 sonarr_monitor_mode=_form_to_monitor_mode(import_settings.get("monitor_mode")),
-                schedule_cron=schedule.get("cron") or None,
+                schedule_cron=new_cron,
                 is_active=schedule.get("is_active", True),
                 created_at=datetime.now(timezone.utc),
             )
@@ -1016,7 +1080,7 @@ def run_list_import(list_id):
     Returns 202 immediately while job runs in background.
     """
     # Fetch list by ID
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return (
             jsonify({"success": False, "message": f"List with ID {list_id} not found"}),
@@ -1052,7 +1116,8 @@ def validate_cron():
     if not expr:
         return jsonify({"valid": False, "error": "No expression provided", "description": "", "next_runs": []})
     result = validate_cron_expression(expr)
-    return jsonify(result)
+    payload = {key: result.get(key) for key in _CRON_VALIDATE_JSON_KEYS}
+    return jsonify(payload)
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])
@@ -1062,7 +1127,7 @@ def get_list_status(list_id):
     Get the status of a list import job for polling.
     Returns the most recent job status from database.
     """
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return jsonify({"error": f"List with ID {list_id} not found"}), 404
 
@@ -1075,6 +1140,8 @@ def get_list_status(list_id):
                 "list_id": list_id,
                 "status": "idle",
                 "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+                "last_run_formatted": format_past_time(list_obj.last_run_at),
+                "last_run_result": None,
             }
         )
 
@@ -1084,6 +1151,8 @@ def get_list_status(list_id):
         "list_id": list_id,
         "status": status if status in ["running", "completed", "failed"] else "idle",
         "last_run_at": list_obj.last_run_at.isoformat() if list_obj.last_run_at else None,
+        "last_run_formatted": format_past_time(list_obj.last_run_at),
+        "last_run_result": None,
     }
 
     # Include result/error info based on status
@@ -1096,6 +1165,9 @@ def get_list_status(list_id):
                 "failed_count": job_info.get("items_failed", 0),
             }
         }
+        response["last_run_result"] = _format_last_run_result(
+            job_info.get("items_added"), job_info.get("items_skipped")
+        )
     elif status == "failed":
         response["error"] = job_info.get("error_message", "Unknown error")
 
@@ -1291,7 +1363,7 @@ def update_schedule(list_id):
     """
     from listarr.services.scheduler import schedule_list, unschedule_list, validate_cron_expression
 
-    list_obj = List.query.get(list_id)
+    list_obj = db.session.get(List, list_id)
     if not list_obj:
         return jsonify({"success": False, "message": "List not found"}), 404
 

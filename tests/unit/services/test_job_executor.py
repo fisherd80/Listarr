@@ -198,7 +198,7 @@ class TestSubmitJob:
             job_id = submit_job(5, "Test List", app, triggered_by="manual")
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job is not None
                 assert job.list_id == 5
                 assert job.list_name == "Test List"
@@ -216,7 +216,7 @@ class TestSubmitJob:
             job_id = submit_job(6, "Scheduled List", app, triggered_by="scheduled")
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job is not None
                 assert job.triggered_by == "scheduled"
 
@@ -284,7 +284,7 @@ class TestJobLifecycle:
             job_id = submit_job(8, "Test", app)
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job.items_found == 0
                 assert job.items_added == 0
                 assert job.items_skipped == 0
@@ -301,7 +301,7 @@ class TestJobLifecycle:
             job_id = submit_job(9, "Test", app)
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job.retry_count == 0
 
     def test_job_has_started_at_timestamp(self, app):
@@ -315,7 +315,7 @@ class TestJobLifecycle:
             job_id = submit_job(10, "Test", app)
 
             with app.app_context():
-                job = Job.query.get(job_id)
+                job = db.session.get(Job, job_id)
                 assert job.started_at is not None
                 assert isinstance(job.started_at, datetime)
 
@@ -430,8 +430,9 @@ class TestIdleTimeout:
         with _stop_events_lock:
             _stop_events[job_id] = stop_event
 
-        # Call _monitor_idle (should trigger immediately)
-        _monitor_idle(job_id, tracker, monitor_stop)
+        # Call _monitor_idle without waiting the production 30s check interval.
+        with patch("listarr.services.job_executor.IDLE_CHECK_INTERVAL", 0):
+            _monitor_idle(job_id, tracker, monitor_stop)
 
         # stop_event should be set
         assert stop_event.is_set()
@@ -463,15 +464,16 @@ class TestImportStopEvent:
 
         tmdb_items = [{"id": 1, "title": "Test Movie"}]
 
-        result = _import_movies(
-            tmdb_items,
-            "http://localhost:7878",
-            "fake_key",
-            settings,
-            "tmdb_key",
-            stop_event=stop_event,
-            activity_tracker=None,
-        )
+        with patch("listarr.services.radarr_service.get_exclusions", return_value=set()):
+            result = _import_movies(
+                tmdb_items,
+                "http://localhost:7878",
+                "fake_key",
+                settings,
+                "tmdb_key",
+                stop_event=stop_event,
+                activity_tracker=None,
+            )
 
         # Should have stopped immediately (no processing)
         assert result.total == 0
@@ -498,7 +500,10 @@ class TestImportStopEvent:
             {"id": 200, "title": "Movie 2"},
         ]
 
-        with patch("listarr.services.radarr_service.get_existing_movie_tmdb_ids") as mock_existing:
+        with (
+            patch("listarr.services.radarr_service.get_exclusions", return_value=set()),
+            patch("listarr.services.radarr_service.get_existing_movie_tmdb_ids") as mock_existing,
+        ):
             # Return all IDs to skip (triggers activity update)
             mock_existing.return_value = {100, 200}
 
@@ -542,15 +547,16 @@ class TestImportStopEvent:
 
         tmdb_items = [{"id": 1, "name": "Test Series"}]
 
-        result = _import_series(
-            tmdb_items,
-            "http://localhost:8989",
-            "fake_key",
-            settings,
-            "tmdb_key",
-            stop_event=stop_event,
-            activity_tracker=None,
-        )
+        with patch("listarr.services.sonarr_service.get_exclusions", return_value=set()):
+            result = _import_series(
+                tmdb_items,
+                "http://localhost:8989",
+                "fake_key",
+                settings,
+                "tmdb_key",
+                stop_event=stop_event,
+                activity_tracker=None,
+            )
 
         # Should have stopped immediately (no processing)
         assert result.total == 0

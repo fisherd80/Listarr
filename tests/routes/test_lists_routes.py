@@ -17,6 +17,7 @@ Tests cover:
 - GET /lists/<id>/status - Get job status
 """
 
+import json
 import re
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -115,6 +116,24 @@ class TestListsPage:
         assert "Today" in body
         assert "Never Run" in body
         assert 'data-timestamp=""' in body
+
+    @patch("listarr.routes.lists_routes.get_next_run_time")
+    def test_lists_page_row_has_last_run_data_hooks(self, mock_next_run, client, db_session):
+        """15-11: last-run and result cells carry data hooks the poller updates in place."""
+        mock_next_run.return_value = None
+
+        lst = make_list(name="Hooked Row List", last_run_at=datetime.now(timezone.utc))
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get("/lists")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "data-last-run-cell" in body
+        assert "data-last-run-result" in body
+        # The last-run cell still carries its data-timestamp attribute.
+        assert re.search(r'data-last-run-cell\s+data-timestamp="[^"]+"', body)
 
     @patch("listarr.routes.lists_routes.get_next_run_time")
     def test_shows_next_run_for_active_scheduled_list(self, mock_next_run, client, db_session):
@@ -269,6 +288,23 @@ class TestCreateList:
         for token in (b"all", b"firstSeason", b"lastSeason", b"pilot", b"none"):
             assert b'<option value="' + token + b'"' not in body
 
+    def test_live_create_js_treats_non_ok_cron_validate_response_as_failure(self, client):
+        """15-09: a 500/404 from /api/cron/validate must not be mistaken for
+        "invalid expression with no message" -- the response.ok guard routes any
+        HTTP-level failure into the existing .catch() error-handling arm."""
+        response = client.get("/static/js/create.js")
+
+        assert response.status_code == 200
+        assert b"response.ok" in response.data
+
+    def test_live_create_js_shows_visible_error_on_cron_validate_failure(self, client):
+        """15-09: a failed cron validation request must surface a visible message,
+        not silently blank the description while leaving Save disabled."""
+        response = client.get("/static/js/create.js")
+
+        assert response.status_code == 200
+        assert b"Could not validate cron expression. Check your connection and try again." in response.data
+
     def test_base_template_publishes_monitor_mode_choices(self, client):
         """The JSON block create.js reads must carry all five tokens and their labels."""
         response = client.get("/lists/create")
@@ -418,7 +454,7 @@ class TestEditListPOST:
         response = client.post(f"/lists/edit/{lst.id}", data=form_data, follow_redirects=True)
         assert response.status_code == 200
 
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.name == "New Name"
 
     @patch("listarr.routes.lists_routes.unschedule_list")
@@ -464,8 +500,38 @@ class TestEditListPOST:
         response = client.post(f"/lists/edit/{lst.id}", data=form_data)
         assert response.status_code == 200
         # Name should not have changed
-        unchanged = List.query.get(lst.id)
+        unchanged = db.session.get(List, lst.id)
         assert unchanged.name == "Valid Name"
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_rejects_invalid_cron_and_does_not_persist(self, mock_schedule, mock_unschedule, client, db_session):
+        """CR-01 regression: a cron that cronsim accepts as valid syntax but that
+        APScheduler's CronTrigger cannot build ('0 2 L * *' -- the day-of-month
+        'last day' modifier cronsim supports but CronTrigger does not) must be
+        rejected before the row is committed, not silently persisted and only
+        logged as a scheduling failure."""
+        lst = make_list(name="Bad Cron Test", schedule_cron=None)
+        db.session.add(lst)
+        db.session.commit()
+
+        form_data = {
+            "name": "Bad Cron Test",
+            "is_active": "y",
+            "schedule_cron": "0 2 L * *",
+            "override_quality_profile": "",
+            "override_root_folder": "",
+            "override_tag": "",
+            "override_monitored": "",
+            "override_search_on_add": "",
+            "override_season_folder": "",
+        }
+        response = client.post(f"/lists/edit/{lst.id}", data=form_data)
+        assert response.status_code == 200
+
+        unchanged = db.session.get(List, lst.id)
+        assert unchanged.schedule_cron is None
+        mock_schedule.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +557,7 @@ class TestDeleteList:
         assert "Delete Me" in data["message"]
 
         # Verify deleted
-        assert List.query.get(list_id) is None
+        assert db.session.get(List, list_id) is None
 
     def test_returns_404_for_missing_list(self, client):
         """Returns 404 for non-existent list."""
@@ -630,7 +696,7 @@ class TestToggleList:
         assert data["success"] is True
         assert data["is_active"] is False
 
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.is_active is False
 
     @patch("listarr.routes.lists_routes.unschedule_list")
@@ -895,7 +961,7 @@ class TestWizardSubmit:
         data = response.get_json()
         assert data["success"] is True
 
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.name == "Updated Wizard Name"
         assert updated.tmdb_list_type == "popular_movies"
 
@@ -910,6 +976,61 @@ class TestWizardSubmit:
         data = response.get_json()
         assert data["success"] is False
         assert "Name" in data["message"]
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_rejects_invalid_cron_on_create_and_does_not_persist(
+        self, mock_schedule, mock_unschedule, client, db_session
+    ):
+        """CR-01 regression: create mode must reject a cron that is valid syntax
+        but that CronTrigger cannot build ('0 2 L * *') before any row is
+        inserted."""
+        payload = {
+            "name": "Wizard Bad Cron",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {},
+            "import_settings": {},
+            "schedule": {"cron": "0 2 L * *", "is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "Invalid cron" in data["message"]
+
+        assert List.query.filter_by(name="Wizard Bad Cron").first() is None
+        mock_schedule.assert_not_called()
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_rejects_invalid_cron_on_edit_and_does_not_persist(
+        self, mock_schedule, mock_unschedule, client, db_session
+    ):
+        """CR-01 regression: edit mode must reject a cron that is valid syntax
+        but that CronTrigger cannot build ('0 2 L * *') before the existing row
+        is mutated."""
+        lst = make_list(name="Wizard Edit Bad Cron", schedule_cron=None)
+        db.session.add(lst)
+        db.session.commit()
+
+        payload = {
+            "list_id": lst.id,
+            "name": "Wizard Edit Bad Cron",
+            "service": "radarr",
+            "preset": "popular_movies",
+            "filters": {},
+            "import_settings": {},
+            "schedule": {"cron": "0 2 L * *", "is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+
+        unchanged = db.session.get(List, lst.id)
+        assert unchanged.schedule_cron is None
+        mock_schedule.assert_not_called()
 
     def test_validates_service_required(self, client, db_session):
         """Missing service returns 400."""
@@ -944,6 +1065,66 @@ class TestWizardSubmit:
         assert response.status_code == 400
         data = response.get_json()
         assert data["success"] is False
+
+    def test_rejects_non_numeric_limit(self, client, db_session):
+        """CR-01 regression: a non-numeric filters.limit must be rejected with 400,
+        not raise a TypeError deeper in the request handling."""
+        payload = {
+            "name": "Bad Limit List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {"limit": "not-a-number"},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "limit" in data["message"]
+        assert List.query.filter_by(name="Bad Limit List").first() is None
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_clamps_huge_limit_to_upper_bound(self, mock_schedule, mock_unschedule, client, db_session):
+        """CR-01 regression: an unbounded huge filters.limit is clamped to 500, not used
+        as-is (which would otherwise drive an unbounded TMDB fetch loop)."""
+        payload = {
+            "name": "Huge Limit List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {"limit": 999999},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+        lst = List.query.filter_by(name="Huge Limit List").first()
+        assert lst.limit == 500
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_clamps_negative_limit_to_lower_bound(self, mock_schedule, mock_unschedule, client, db_session):
+        """CR-01 regression: a negative filters.limit is clamped up to 1, not passed
+        through as a negative value."""
+        payload = {
+            "name": "Negative Limit List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {"limit": -5},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+        lst = List.query.filter_by(name="Negative Limit List").first()
+        assert lst.limit == 1
 
     @patch("listarr.routes.lists_routes.unschedule_list")
     @patch("listarr.routes.lists_routes.schedule_list")
@@ -1420,6 +1601,144 @@ class TestGetListStatus:
         data = response.get_json()
         assert data["last_run_at"] is None
 
+    @patch("listarr.routes.lists_routes.get_job_status")
+    def test_completed_status_includes_last_run_formatted_and_result(self, mock_status, client, db_session):
+        """15-11: /status returns last_run_formatted and last_run_result on completion."""
+        mock_status.return_value = {
+            "status": "completed",
+            "items_found": 20,
+            "items_added": 17,
+            "items_skipped": 3,
+            "items_failed": 0,
+        }
+        run_time = datetime.now(timezone.utc)
+        lst = make_list(name="Formatted Completed List", last_run_at=run_time)
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/status")
+        data = response.get_json()
+        assert data["last_run_formatted"] == "Today"
+        assert data["last_run_result"] == "17 add / 3 skip"
+        # Pre-existing keys unchanged
+        assert data["status"] == "completed"
+        assert data["last_run_at"] is not None
+        assert data["result"]["summary"]["total"] == 20
+
+    @patch("listarr.routes.lists_routes.get_job_status")
+    def test_failed_status_clears_last_run_result(self, mock_status, client, db_session):
+        """A failed run must not carry a stale/previous result summary."""
+        mock_status.return_value = {
+            "status": "failed",
+            "error_message": "TMDB API unavailable",
+        }
+        lst = make_list(name="Formatted Failed List", last_run_at=datetime.now(timezone.utc))
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/status")
+        data = response.get_json()
+        assert data["last_run_result"] is None
+        assert data["error"] == "TMDB API unavailable"
+
+    @patch("listarr.routes.lists_routes.get_job_status")
+    def test_never_run_list_has_none_last_run_formatted_and_result(self, mock_status, client, db_session):
+        """The early no-job-info return path also carries the new keys, both None."""
+        mock_status.return_value = None
+        lst = make_list(name="Never Run Formatted")
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get(f"/lists/{lst.id}/status")
+        data = response.get_json()
+        assert data["last_run_formatted"] is None
+        assert data["last_run_result"] is None
+
+    def test_last_run_result_format_matches_lists_page_render(self, client, db_session):
+        """Format-parity guard (T-15-11-03): the status endpoint's last_run_result must be
+        byte-identical to what lists_page renders for the same list's most recent job."""
+        from flask import template_rendered
+
+        recorded = []
+
+        def record(sender, template, context, **extra):
+            recorded.append((template, context))
+
+        lst = make_list(name="Parity List")
+        db.session.add(lst)
+        db.session.commit()
+
+        job = Job(
+            list_id=lst.id,
+            status="completed",
+            started_at=datetime.now(timezone.utc),
+            items_added=17,
+            items_skipped=3,
+        )
+        db.session.add(job)
+        db.session.commit()
+        # last_run_at is set separately from the job in real usage (job_executor updates it);
+        # set it here so the page render shows "Today" like the status endpoint will.
+        lst.last_run_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        from flask import current_app
+
+        template_rendered.connect(record, current_app._get_current_object())
+        try:
+            page_response = client.get("/lists")
+        finally:
+            template_rendered.disconnect(record, current_app._get_current_object())
+
+        assert page_response.status_code == 200
+        assert len(recorded) == 1
+        _, context = recorded[0]
+        page_lists = {item.id: item for item in context["lists"]}
+        page_result = page_lists[lst.id].last_run_result
+
+        status_response = client.get(f"/lists/{lst.id}/status")
+        status_data = status_response.get_json()
+
+        assert page_result == "17 add / 3 skip"
+        assert status_data["last_run_result"] == page_result
+
+
+class TestListsJsAssetContract:
+    """15-11: served lists.js must consume the new /status fields via updateRowLastRun()."""
+
+    def test_live_lists_js_wires_update_row_last_run(self, client):
+        response = client.get("/static/js/lists.js")
+
+        assert response.status_code == 200
+        assert b"updateRowLastRun" in response.data
+        assert b"data-last-run-result" in response.data
+        assert b"last_run_formatted" in response.data
+
+    def test_toggle_switch_uses_semantic_color_classes(self, client):
+        """UI-REVIEW 15 fix 2: toggle must not set raw hex/rgb colors via inline style."""
+        response = client.get("/static/js/lists.js")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "applyToggleStyle" in body
+        assert "#ffffff" not in body
+        assert "rgb(var(--color-primary-rgb))" not in body
+        assert "classList.add('bg-primary', 'border-primary')" in body
+        assert "classList.add('bg-text-muted', 'border-border-subtle')" in body
+
+    def test_lists_page_icon_only_controls_have_aria_label(self, client):
+        """UI-REVIEW 15 fix 3: role=switch toggle and overflow menu need accessible names."""
+        lst = make_list(name="Aria Toggle Guard")
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get("/lists")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert 'aria-label="Disable Aria Toggle Guard"' in body
+        assert 'aria-label="Actions for Aria Toggle Guard"' in body
+
 
 # ---------------------------------------------------------------------------
 # Schedule API tests (migrated from test_schedule_routes.py)
@@ -1695,7 +2014,7 @@ class TestUpdateSchedule:
         assert "status" in data
 
         # Verify DB updated
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.schedule_cron == "0 0 * * *"
 
     @patch("listarr.services.scheduler.validate_cron_expression")
@@ -1716,7 +2035,7 @@ class TestUpdateSchedule:
         assert data["schedule_cron"] == ""
 
         # Verify DB cleared
-        updated = List.query.get(lst.id)
+        updated = db.session.get(List, lst.id)
         assert updated.schedule_cron is None
 
     @patch("listarr.services.scheduler.validate_cron_expression")
@@ -1806,6 +2125,62 @@ class TestUpdateSchedule:
             json={"schedule_cron": ""},
         )
         mock_unschedule.assert_called_once_with(lst.id)
+
+
+class TestValidateCronEndpoint:
+    """15-09: regression guard for the da25d1e /api/cron/validate 500.
+
+    validate_cron_expression() returns an internal-only, non-JSON-serializable
+    "trigger" key on valid results. These tests pin the exact JSON contract the
+    route must expose so a future internal key added to the result dict fails a
+    test here instead of 500ing in production.
+    """
+
+    _EXPECTED_KEYS = {"valid", "error", "description", "next_runs"}
+
+    def test_valid_expression_returns_200_with_description_and_next_runs(self, client):
+        """UAT test 3 regression guard: a valid custom cron no longer 500s."""
+        response = client.get("/api/cron/validate?expr=0 9 * * mon,thu")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["valid"] is True
+        assert isinstance(data["description"], str)
+        assert data["description"] != ""
+        assert len(data["next_runs"]) == 3
+
+    def test_valid_expression_response_never_contains_trigger(self, client):
+        """The internal trigger object must never reach the client."""
+        response = client.get("/api/cron/validate?expr=0 9 * * mon,thu")
+
+        data = response.get_json()
+        assert "trigger" not in data
+
+    def test_valid_expression_response_is_json_serializable_with_exact_key_set(self, client):
+        """Serializability + exact key-set guard: a future internal key fails here, not in prod."""
+        response = client.get("/api/cron/validate?expr=0 9 * * mon,thu")
+
+        data = response.get_json()
+        json.dumps(data)  # must not raise
+        assert set(data.keys()) == self._EXPECTED_KEYS
+
+    def test_cronsim_valid_but_apscheduler_unbuildable_expression_returns_200(self, client):
+        """A cronsim-valid but APScheduler-unbuildable cron is reported invalid, not a 500."""
+        response = client.get("/api/cron/validate?expr=0 2 L * *")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["valid"] is False
+        assert data["error"]
+        assert set(data.keys()) == self._EXPECTED_KEYS
+
+    def test_empty_expression_returns_unchanged_shape(self, client):
+        """The empty-expression early return shape must not change."""
+        response = client.get("/api/cron/validate?expr=")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {"valid": False, "error": "No expression provided", "description": "", "next_runs": []}
 
 
 # ---------------------------------------------------------------------------
@@ -2005,6 +2380,18 @@ class TestCsrfProtectionLists:
         response = client_with_csrf.post("/api/schedule/1/update", json={})
         assert response.status_code == 400
 
+    def test_non_ajax_csrf_failure_renders_400_html_template(self, client_with_csrf):
+        """WR-03 regression: a non-AJAX request with a missing/invalid CSRF token must
+        render the dedicated errors/400.html template (session-expired messaging), not
+        the JSON error branch or the generic 404 template. Sending form data (not JSON,
+        no X-Requested-With header) exercises the non-AJAX branch of csrf_error()."""
+        response = client_with_csrf.post("/lists/edit/1", data={})
+
+        assert response.status_code == 400
+        assert response.content_type.startswith("text/html")
+        body = response.get_data(as_text=True)
+        assert "session has expired" in body.lower()
+
 
 class TestWizardAndEditCoverage:
     """
@@ -2155,7 +2542,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode == token
+        assert db.session.get(List, lst.id).sonarr_monitor_mode == token
 
     def test_wtforms_edit_blank_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Edit Blank List", target_service="SONARR", tmdb_list_type="discovery")
@@ -2169,7 +2556,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     @pytest.mark.parametrize("bad", ["latestSeason", "'; DROP TABLE lists; --"])
     def test_wtforms_edit_rejected_monitor_mode_persists_null_no_500(self, _sched, _unsched, bad, client, db_session):
@@ -2183,7 +2570,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     # NOTE (WR-02): the CR-01 defect lives entirely in edit_list.html JavaScript - a
     # disabled <select> is dropped from the POST body. The project has no JS test
@@ -2210,7 +2597,7 @@ class TestMonitorModeListRoundTrip:
         body.pop("sonarr_monitor_mode")  # disabled control -> not submitted by the browser
         resp = client.post(f"/lists/edit/{lst.id}", data=body, follow_redirects=True)
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     def test_wtforms_edit_unmonitored_route_persists_mode_when_field_present_in_body(
         self, _sched, _unsched, client, db_session
@@ -2233,7 +2620,7 @@ class TestMonitorModeListRoundTrip:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode == "firstSeason"
+        assert db.session.get(List, lst.id).sonarr_monitor_mode == "firstSeason"
 
     def test_wtforms_edit_get_hydrates_stored_monitor_mode(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Hydrate List", target_service="SONARR", tmdb_list_type="discovery")
@@ -2274,7 +2661,7 @@ class TestMonitorModeListRoundTrip:
         }
         resp = client.post("/lists/wizard/submit", json=payload)
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode == "lastSeason"
+        assert db.session.get(List, lst.id).sonarr_monitor_mode == "lastSeason"
 
     def test_wizard_edit_branch_absent_monitor_mode_persists_null(self, _sched, _unsched, client, db_session):
         lst = make_list(name="Wizard Edit Null List", target_service="SONARR", tmdb_list_type="discovery")
@@ -2293,7 +2680,7 @@ class TestMonitorModeListRoundTrip:
         }
         resp = client.post("/lists/wizard/submit", json=payload)
         assert resp.status_code == 200
-        assert List.query.get(lst.id).sonarr_monitor_mode is None
+        assert db.session.get(List, lst.id).sonarr_monitor_mode is None
 
     def test_wizard_create_branch_custom_builder_persists_monitor_mode(self, _sched, _unsched, client, db_session):
         payload = {

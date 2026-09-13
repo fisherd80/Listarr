@@ -208,7 +208,7 @@ def _execute_job(job_id, list_id, stop_event, activity_tracker, app):
             _mark_job_completed(job_id, result, start_time)
 
             # Update list's last_run_at
-            list_obj = List.query.get(list_id)
+            list_obj = db.session.get(List, list_id)
             if list_obj:
                 list_obj.last_run_at = datetime.now(timezone.utc)
                 db.session.commit()
@@ -222,7 +222,7 @@ def _execute_job(job_id, list_id, stop_event, activity_tracker, app):
 
 def _mark_job_completed(job_id, result, start_time):
     """Mark job as completed with results."""
-    job = Job.query.get(job_id)
+    job = db.session.get(Job, job_id)
     if not job:
         logger.error(f"Job {job_id} not found when marking completed")
         return
@@ -249,7 +249,7 @@ def _mark_job_completed(job_id, result, start_time):
 
 def _mark_job_failed(job_id, error_message, error_details, start_time=None):
     """Mark job as failed with error info."""
-    job = Job.query.get(job_id)
+    job = db.session.get(Job, job_id)
     if not job:
         logger.error(f"Job {job_id} not found when marking failed")
         return
@@ -269,7 +269,7 @@ def _mark_job_failed(job_id, error_message, error_details, start_time=None):
 
 def _mark_job_timeout(job_id, result, start_time):
     """Mark job as failed due to timeout, preserving partial results."""
-    job = Job.query.get(job_id)
+    job = db.session.get(Job, job_id)
     if not job:
         logger.error(f"Job {job_id} not found when marking timeout")
         return

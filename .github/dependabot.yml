@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # pip: requirements.txt (runtime) + requirements-dev.txt (dev/lint/test tooling)
+  # in the repo root, per D-10; keeps the 15-05 full-freeze current.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      dependencies:
+        update-types: ["minor", "patch"]
+
+  # docker: tracks the digest-pinned ARG PYTHON_BASE in Dockerfile (plan 15-06,
+  # D-06), so the immutable base-image pin doesn't rot silently.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      dependencies:
+        update-types: ["minor", "patch"]
+
+  # github-actions: tracks the SHA-pinned actions used in
+  # .github/workflows/listarr-ci.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      dependencies:
+        update-types: ["minor", "patch"]

@@ -164,6 +164,34 @@ function updateStatusBadge(row, status, text) {
   badge.textContent = text;
 }
 
+/**
+ * Refresh a row's last-run time and result cells from a /status poll response,
+ * so the Lists page reflects an import's outcome without a manual reload (15-11).
+ * @param {HTMLElement} row - the <tr> element
+ * @param {Object} data - the parsed JSON body from GET /lists/<id>/status
+ */
+function updateRowLastRun(row, data) {
+  if (!row) { return; }
+
+  var emDash = '—';
+
+  var lastRunCell = row.querySelector('[data-last-run-cell]');
+  if (lastRunCell) {
+    lastRunCell.textContent = data.last_run_formatted || emDash;
+    lastRunCell.setAttribute('data-timestamp', data.last_run_at || '');
+    if (typeof applyAppTzTooltips === 'function') {
+      applyAppTzTooltips(row);
+    }
+  }
+
+  var resultCell = row.querySelector('[data-last-run-result]');
+  if (resultCell) {
+    resultCell.textContent = data.last_run_result || emDash;
+  }
+
+  row.setAttribute('data-last-run', data.last_run_at || '');
+}
+
 // ---------------------
 // Toggle switch
 // ---------------------
@@ -174,19 +202,17 @@ function updateStatusBadge(row, status, text) {
  * @param {boolean} isActive - whether the list is active
  */
 function applyToggleStyle(btn, isActive) {
+  // Knob is always white via the template's static `bg-white` class — no JS override needed.
   var knob = btn.querySelector('span');
-  if (knob) {
-    knob.style.backgroundColor = '#ffffff'; // always white — visible on both active (teal) and inactive (gray) tracks
-  }
   if (isActive) {
-    btn.style.backgroundColor = 'rgb(var(--color-primary-rgb))'; // teal fill when enabled
-    btn.style.borderColor = 'rgb(var(--color-primary-rgb))';
+    btn.classList.remove('bg-text-muted', 'border-border-subtle');
+    btn.classList.add('bg-primary', 'border-primary');
     if (knob) {
       knob.style.transform = 'translateX(16px)'; // translate-x-4
     }
   } else {
-    btn.style.backgroundColor = 'var(--color-text-muted)'; // mid-gray when disabled
-    btn.style.borderColor = 'var(--color-border)'; // visible outline in both modes
+    btn.classList.remove('bg-primary', 'border-primary');
+    btn.classList.add('bg-text-muted', 'border-border-subtle');
     if (knob) {
       knob.style.transform = 'translateX(0)';
     }
@@ -384,6 +410,7 @@ function pollJobStatus(listId) {
           if (row) {
             var isActive = row.getAttribute('data-status') === 'enabled';
             updateStatusBadge(row, isActive ? 'enabled' : 'disabled', isActive ? 'Enabled' : 'Disabled');
+            updateRowLastRun(row, data);
           }
         } else if (data.status === 'error' || data.status === 'failed') {
           clearInterval(activePollers[listId]);
@@ -391,6 +418,7 @@ function pollJobStatus(listId) {
           removeRunningJob(listId);
           if (row) {
             updateStatusBadge(row, 'error', 'Error');
+            updateRowLastRun(row, data);
             setTimeout(function () {
               var isActive = row.getAttribute('data-status') === 'enabled';
               updateStatusBadge(row, isActive ? 'enabled' : 'disabled', isActive ? 'Enabled' : 'Disabled');

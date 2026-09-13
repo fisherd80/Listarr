@@ -5,6 +5,29 @@ All notable changes to Listarr are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [2.2.DEV-4] - 2026-09-13
+
+_Development checkpoint on `develop` — not a release. Fourth and final phase of the v2.2 milestone (Settings, Import Control & Maintenance)._
+
+### Added
+
+- `scripts/docker-smoke.sh` — 5 credential-free image checks (boot, healthcheck, non-root user, writable instance dir, ZoneInfo availability), wired into CI as a `docker-validate` job
+- `.github/dependabot.yml` — weekly, grouped-minor/patch Dependabot config for pip, Docker, and GitHub Actions ecosystems
+- A single "Clear List" / "Clear All" control on the Activity page that adapts its label and POST target to the current List filter selection, replacing the previous separate buttons
+
+### Changed
+
+- Full runtime and dev dependency freeze — every transitive package pinned by exact version in `requirements.txt` and `requirements-dev.txt`, audited clean with `pip-audit`
+- Docker base image pinned by digest via a single `PYTHON_BASE` build arg
+- SQLAlchemy legacy `Query.get()` usage migrated to `db.session.get()`; SQLAlchemy legacy-API warnings promoted to test failures
+- The Lists page now updates its last-run timestamp, result text, and add/skip/fail counts in place when a job completes, instead of requiring a manual refresh
+- `ruff` and `bandit` version pins now carry an explicit lockstep cross-reference between `requirements-dev.txt` and `.pre-commit-config.yaml`
+
+### Fixed
+
+- `GET /api/cron/validate` no longer 500s on any valid custom cron expression — the internal-only `CronTrigger` object is no longer serialized into the JSON response
+- The list create/edit form's Save button no longer gets stuck disabled after a cron-validation transport error; the failure is now surfaced to the user instead of silently blocking Save
+
 ## [2.2.DEV-3] - 2026-09-10
 
 _Development checkpoint on `develop` — not a release. Third phase of the v2.2 milestone (Settings, Import Control & Maintenance)._

@@ -6,17 +6,17 @@ Manages APScheduler for automated list imports with cron schedules.
 import atexit
 import logging
 import os
-import re
 import threading
 import zoneinfo
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.util import astimezone
 from cron_descriptor import get_description
+from cron_descriptor.Exception import FormatException, MissingFieldException, WrongArgumentException
 from cronsim import CronSim
 from cronsim.cronsim import CronSimError
 from cryptography.fernet import InvalidToken
@@ -70,28 +70,178 @@ class ReconcileResult:
     pending: int = 0
 
 
-# POSIX cron uses 0=Sunday; APScheduler's CronTrigger uses 0=Monday internally.
-# Converting to name strings avoids the ambiguity entirely.
-_POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
+# POSIX cron uses 0=Sunday (and 7 as an alias for Sunday); APScheduler's CronTrigger
+# uses 0=Monday internally and has no numeric alias for a second Sunday value.
+# Name strings ('sun', 'mon', ...) are unambiguous in both systems, so translation
+# always renders its output as day names -- see `_posix_dow_field_to_apscheduler_names`.
+_POSIX_DOW_NAMES = {0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"}
+
+# POSIX day-of-week numeric range is 0-7 inclusive (0 and 7 both mean Sunday). This
+# mirrors cronsim's own `RANGES` table for the day-of-week field so that a value or
+# step here is always in the same domain cronsim itself would validate.
+_POSIX_DOW_RANGE = range(0, 8)
+
+# WR-01: cronsim resolves a day-of-week token as either a digit or one of these
+# three-letter names -- it upper-cases the whole expression before parsing (see
+# `CronSim.__init__`) and looks the result up in its own `SYMBOLIC_DAYS` table,
+# which is index-for-index identical to `_POSIX_DOW_NAMES` above (0=SUN..6=SAT).
+# Reusing that same mapping here (rather than re-deriving it) means a name token
+# resolves to *exactly* the POSIX day number cronsim would use, so a term like
+# "mon" or a mixed list like "1,mon" can be folded into the same digit-based
+# enumeration `_parse_posix_dow_term` already does for bare numbers/ranges/steps,
+# instead of the whole field being rejected as untranslatable (the WR-01 gap:
+# `_posix_dow_field_to_apscheduler_names` used to raise as soon as any one
+# comma-separated term wasn't purely numeric, silently degrading a valid POSIX
+# cron -- which cronsim itself accepts -- into "translation mismatch").
+_POSIX_DOW_NAME_TO_NUM = {name.upper(): num for num, name in _POSIX_DOW_NAMES.items()}
+
+
+def _dow_token_to_int(token: str) -> int:
+    """Resolve a single day-of-week token (digit or three-letter name, case
+    insensitive) to its POSIX day number (0-7), mirroring cronsim's `Field.int()`
+    for the DOW field. Raises ValueError if the token is neither."""
+    if token.isdigit():
+        value = int(token)
+        if value not in _POSIX_DOW_RANGE:
+            raise ValueError(f"Bad day-of-week value: {token!r}")
+        return value
+
+    name = token.upper()
+    if name in _POSIX_DOW_NAME_TO_NUM:
+        return _POSIX_DOW_NAME_TO_NUM[name]
+
+    raise ValueError(f"Bad day-of-week value: {token!r}")
+
+
+def _parse_posix_dow_term(term: str) -> set[int]:
+    """Parse a single comma-free POSIX day-of-week term into the set of POSIX day
+    numbers it matches, folded to 0-6 (7 folded into 0, since both mean Sunday).
+
+    This intentionally re-implements the same enumeration rules cronsim's
+    `Field.DOW.parse()` uses for '*', ranges ('a-b'), steps ('term/n'), and bare
+    values (each of digit or name) -- by computing the *exact same set of
+    matching days* cronsim would compute (rather than trying to preserve or
+    re-derive an equivalent APScheduler step/range expression), the translated
+    output can never diverge from cronsim's fire-date computation. This is the
+    root-cause fix for CR-02/CR-03/CR-04, which each regressed by trying to keep
+    some form of APScheduler step/range syntax in sync with POSIX semantics
+    instead of just enumerating the matched days directly.
+
+    Raises ValueError for a term this function does not understand (e.g.
+    malformed syntax); callers should treat that as "translation does not
+    apply" and let APScheduler's own parser accept or reject the original field.
+    """
+    base, _, step_str = term.partition("/")
+    step: int | None = None
+    if step_str:
+        if not step_str.isdigit() or int(step_str) == 0:
+            raise ValueError(f"Bad day-of-week step: {term!r}")
+        step = int(step_str)
+
+    if base == "*":
+        items = set(_POSIX_DOW_RANGE)
+    elif "-" in base:
+        start_str, end_str = base.split("-", 1)
+        start, end = _dow_token_to_int(start_str), _dow_token_to_int(end_str)
+        if end < start:
+            raise ValueError(f"Bad day-of-week range: {term!r}")
+        items = set(range(start, end + 1))
+    else:
+        items = {_dow_token_to_int(base)}
+
+    if step is not None:
+        # Mirrors cronsim exactly: a single starting value steps from itself to the
+        # end of the whole POSIX range (0-7); a multi-value base (from a range or
+        # '*') is sorted and every step-th member is kept.
+        if len(items) == 1:
+            (start,) = items
+            items = set(range(start, max(_POSIX_DOW_RANGE) + 1)[::step])
+        else:
+            items = set(sorted(items)[::step])
+
+    return {d % 7 for d in items}
+
+
+def _posix_dow_field_to_apscheduler_names(dow: str) -> str:
+    """Expand a full POSIX day-of-week field (comma list of terms, each possibly a
+    wildcard, range, and/or step) into the exact set of matching days and render it
+    as an unambiguous, deduplicated comma list of APScheduler day names.
+
+    Always emitting the fully enumerated set as names -- never a range or step
+    expression -- means this can never hit either of the two APScheduler pitfalls
+    that caused CR-02/CR-03/CR-04: APScheduler's day-of-week step semantics operate
+    on its own 0=Monday numbering (easy to get subtly wrong when translating from
+    POSIX's 0=Sunday), and APScheduler silently drops a step suffix once a field has
+    been rendered as day *names*. Neither applies here because the enumeration
+    happens in POSIX-space (matching cronsim term-for-term) before any APScheduler
+    syntax is produced, and the output is always a plain name list with no step.
+
+    WR-01: each comma-separated term may independently be a digit or a
+    three-letter day name (or a range/step built from either), so a mixed list
+    like '1,mon' translates correctly instead of being rejected outright --
+    `_parse_posix_dow_term` resolves both digit and name tokens to the same
+    POSIX day-number domain before this function ever renders output syntax.
+
+    Raises ValueError if any comma-separated term is not understood at all
+    (e.g. malformed syntax -- see `_parse_posix_dow_term`); callers should
+    fall back to leaving the field untranslated in that case.
+    """
+    days: set[int] = set()
+    for term in dow.split(","):
+        days |= _parse_posix_dow_term(term.strip())
+    # Cosmetic only: order Monday..Sunday so the rendered field reads naturally.
+    ordered = sorted(days, key=lambda d: (d + 6) % 7)
+    return ",".join(_POSIX_DOW_NAMES[d] for d in ordered)
 
 
 def _posix_cron_to_apscheduler(cron_expr):
-    """Translate POSIX day-of-week numbers to name strings before handing to APScheduler.
+    """Translate a POSIX day-of-week field to APScheduler's day-name syntax before
+    handing the expression off to APScheduler.
 
-    APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python weekday),
-    while POSIX cron uses 0=Sunday. '0 2 * * 1' would fire Tuesday in APScheduler
-    but Monday in every standard cron tool. Name strings ('mon', 'tue', …) are
-    unambiguous in both systems.
+    APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python
+    weekday), while POSIX cron uses 0=Sunday (with 7 as an alias for Sunday too).
+    '0 2 * * 1' would fire Tuesday in APScheduler but Monday in every standard cron
+    tool. The day-of-week field is fully enumerated in POSIX-space (mirroring
+    cronsim's own semantics for '*', ranges, steps, and comma lists in any
+    combination -- see `_posix_dow_field_to_apscheduler_names`) and always rendered
+    as a plain comma list of day names, which is unambiguous in both systems and
+    carries no step/range syntax that could silently diverge between them.
 
-    Wildcards and step-only expressions (*/N) are left unchanged.
+    A day-of-week field is left completely unchanged if it is a bare '*' (already
+    unambiguous), or if it contains no digits at all -- a pure day-*name* field
+    like 'mon-fri' is already unambiguous in both systems and is intentionally
+    skipped: note that combining a name range with a step, e.g. 'mon-fri/2', is
+    a separate, pre-existing APScheduler limitation (it silently drops the step)
+    that this early skip does not attempt to fix, since no digit is present to
+    trigger translation. WR-01: a field that mixes digits *and* names, e.g.
+    '1,mon', does contain a digit and is translated -- `_parse_posix_dow_term`
+    resolves each term (digit or name) independently, so this no longer falls
+    back to passthrough as it used to. If `_posix_dow_field_to_apscheduler_names`
+    still cannot parse a digit-containing field (genuinely malformed syntax), the
+    field is passed through as-is and APScheduler's own parser will accept or
+    reject it.
     """
     parts = cron_expr.split()
     if len(parts) != 5:
         return cron_expr
     dow = parts[4]
-    if dow == "*" or dow.startswith("*/") or not any(c.isdigit() for c in dow):
+    # IN-01: "needs translation" is decided purely by "contains a digit" -- correct
+    # today because a pure day-*name* field (e.g. 'mon-fri') is already unambiguous
+    # and every other shape that matters (bare number, range, step, or any mix of
+    # digits and names) contains at least one digit. This guard is coupled to
+    # `_parse_posix_dow_term` / `_dow_token_to_int` accepting both digit and name
+    # tokens: if DOW support is ever extended with a shape that has no digit but
+    # still needs POSIX->APScheduler translation (e.g. cronsim's 'L'/'#' modifiers,
+    # which this translator does not attempt), this guard would skip it silently
+    # and it would fall through to APScheduler's own (differently-semantic) parser.
+    # Anyone adding such a shape must revisit this condition, not just the parser.
+    if dow == "*" or not any(c.isdigit() for c in dow):
         return cron_expr
-    parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), dow)
+
+    try:
+        parts[4] = _posix_dow_field_to_apscheduler_names(dow)
+    except ValueError:
+        return cron_expr
     return " ".join(parts)
 
 
@@ -281,12 +431,19 @@ def reconcile_scheduler_jobs(tz_name, *, blocking=True) -> ReconcileResult:
             unbuildable: dict[int, str] = {}
             for row in rows:
                 job_id = f"list_{row.id}"
-                try:
-                    desired[job_id] = CronTrigger.from_crontab(
-                        _posix_cron_to_apscheduler(row.schedule_cron), timezone=target
-                    )
-                except (ValueError, KeyError):
+                # WR-02: do not trust "CronTrigger.from_crontab built a trigger" as a
+                # proxy for "the translation is correct". validate_cron_expression()
+                # runs the same fire-date cross-check schedule_list() relies on at
+                # save time; a row that reaches here without ever having passed that
+                # check (direct DB edit, a future write path that forgets to
+                # validate, a migration, ...) must land in `unbuildable`, not be
+                # silently scheduled on the wrong day the way CR-01's route-level
+                # gap allowed.
+                validation = validate_cron_expression(row.schedule_cron, tz=target)
+                if not validation["valid"]:
                     unbuildable[row.id] = row.schedule_cron
+                    continue
+                desired[job_id] = validation["trigger"]
 
             live_ids = {job.id for job in scheduler.get_jobs() if job.id.startswith("list_")}
             applied = 0
@@ -462,7 +619,7 @@ def _run_scheduled_import(list_id):
                 return
 
             # Get list details
-            list_obj = List.query.get(list_id)
+            list_obj = db.session.get(List, list_id)
             if not list_obj:
                 logger.error(f"List {list_id} not found, removing from schedule")
                 unschedule_list(list_id)
@@ -502,7 +659,19 @@ def _run_scheduled_import(list_id):
             logger.info(f"Starting scheduled import for list {list_id} ({list_obj.name})")
             submit_job(list_id, list_obj.name, _app, triggered_by="scheduled")
 
-        except (OperationalError, RequestException) as e:
+        except (OperationalError, RequestException, ValueError) as e:
+            # WR-07: ValueError here is scoped to submit_job()'s check-then-create race by
+            # construction, not by the tuple alone -- the inner try/except a few lines above
+            # already intercepts and returns early on any ValueError from decrypt_data() /
+            # validate_api_key(), so by the time control reaches submit_job() the only
+            # remaining source of ValueError in this block is submit_job() itself performing
+            # its own independent check-then-create under _submit_lock and raising this if a
+            # job is already submitted for this list in the window between the
+            # is_list_running() check above and the lock acquisition (WR-02) -- an
+            # already-anticipated race, documented in job_executor.py. Do not assume this
+            # clause covers *any* ValueError raised anywhere in the outer try; if new code is
+            # added between the inner try/except and submit_job(), give it its own handling
+            # rather than relying on this comment alone.
             logger.error(f"Error running scheduled import for list {list_id}: {e}", exc_info=True)
 
 
@@ -608,7 +777,7 @@ def get_next_run_time(list_id):
     # This ensures next-run calculation works on non-scheduler Gunicorn workers
     try:
         # Query list from database to get cron expression
-        list_obj = List.query.get(list_id)
+        list_obj = db.session.get(List, list_id)
         if not list_obj or not list_obj.schedule_cron or not list_obj.is_active:
             return None
 
@@ -625,12 +794,18 @@ def get_next_run_time(list_id):
         return None
 
 
-def validate_cron_expression(cron_expr):
+def validate_cron_expression(cron_expr, tz=None):
     """
     Validate a cron expression and provide details.
 
     Args:
         cron_expr: Cron expression string (e.g., "0 0 * * *")
+        tz: Optional tzinfo to validate against. Defaults to the resolved app/
+            scheduler timezone (`_get_scheduler_timezone()`) when omitted. WR-02:
+            `reconcile_scheduler_jobs()` passes its own resolved reconcile-target
+            timezone explicitly here, since that is the zone the trigger is about
+            to be built in -- it must not depend on (or be coupled to) whatever
+            the live global scheduler's current timezone happens to be.
 
     Returns:
         dict with:
@@ -638,44 +813,82 @@ def validate_cron_expression(cron_expr):
             - error (str or None): Error message if invalid
             - description (str): Human-readable description
             - next_runs (list): Next 3 run times as ISO strings
+            - trigger (CronTrigger or None): The built, cross-checked trigger, present only on
+              valid results, so callers (e.g. reconcile_scheduler_jobs) do not need to rebuild
+              it. INTERNAL-ONLY: this is not JSON-serializable. Any route that returns this
+              result dict to a client (e.g. /api/cron/validate) MUST whitelist the keys it
+              serializes and never jsonify() the raw dict, or it will 500 (da25d1e regression).
             next_runs values use isoformat() with UTC offset when the scheduler timezone is non-UTC.
     """
-    result = {"valid": False, "error": None, "description": "", "next_runs": []}
+    result = {"valid": False, "error": None, "description": "", "next_runs": [], "trigger": None}
 
     try:
         # Validate with cronsim
-        scheduler_tz = _get_scheduler_timezone()
-        cron = CronSim(cron_expr, datetime.now(scheduler_tz))
+        scheduler_tz = tz if tz is not None else _get_scheduler_timezone()
+        now = datetime.now(scheduler_tz)
+        cron = CronSim(cron_expr, now)
 
         # Get human-readable description
+        # CR-01: get_description() is called with the raw, untranslated cron_expr (it
+        # has its own POSIX-semantics parser and does not need or want the
+        # APScheduler-translated form). For syntax it does not understand -- e.g. a
+        # comma-separated day-of-week list where a member carries a step, such as
+        # '1-5/2,6' -- cron_descriptor raises FormatException (or, on other inputs,
+        # MissingFieldException / WrongArgumentException), none of which are
+        # ValueError/KeyError subclasses. A human-readable description is a nice-to-
+        # have, not load-bearing for validity, so any of these fall back to showing
+        # the raw expression instead of propagating and crashing the whole
+        # validation call (and, transitively, the /api/cron/validate and
+        # /api/schedule/<id>/update routes that call this function directly).
         try:
             description = get_description(cron_expr)
             result["description"] = description
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, FormatException, MissingFieldException, WrongArgumentException):
             result["description"] = cron_expr
 
         # Get next 3 run times using advance()
-        next_runs = []
+        next_run_dts = []
         for _ in range(3):
             cron.advance()
             dt = cron.dt
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=scheduler_tz)
-            next_runs.append(dt.isoformat())
+            next_run_dts.append(dt)
             # Move forward 1 second to get the next occurrence
             cron.tick()
+        next_runs = [dt.isoformat() for dt in next_run_dts]
 
         # cronsim and APScheduler do not accept the same grammar. An expression cronsim
         # parses but CronTrigger cannot build (e.g. "0 2 L * *") must be rejected here so
         # it can never be stored on a list and reach the reconcile as an unbuildable row.
         try:
-            CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expr))
+            trigger = CronTrigger.from_crontab(_posix_cron_to_apscheduler(cron_expr), timezone=scheduler_tz)
         except (ValueError, KeyError):
             result["error"] = "Cron expression is valid syntax but builds no scheduler trigger"
             result["description"] = "Invalid cron expression"
             return result
 
+        # WR-01: a trigger that *builds* successfully is not proof it fires on the
+        # right days -- CR-02/CR-03/CR-04 each built a trigger successfully while
+        # actually firing on different days than cronsim's POSIX-semantics preview.
+        # Cross-check the built trigger's actual next fire times against the
+        # cronsim-derived `next_runs` already shown to the user; a mismatch means
+        # the POSIX->APScheduler translation is wrong for this expression and it
+        # must be rejected here, before it can be stored and silently mis-fire.
+        aps_dt = now
+        for expected_dt in next_run_dts:
+            aps_dt = trigger.get_next_fire_time(None, aps_dt)
+            if aps_dt is None or aps_dt != expected_dt:
+                result["error"] = (
+                    "Cron expression translation mismatch: the scheduler would fire at different times than shown above"
+                )
+                result["description"] = "Invalid cron expression"
+                result["next_runs"] = []
+                return result
+            aps_dt = aps_dt + timedelta(seconds=1)
+
         result["next_runs"] = next_runs
+        result["trigger"] = trigger
         result["valid"] = True
 
     except (ValueError, KeyError, CronSimError, StopIteration) as e:

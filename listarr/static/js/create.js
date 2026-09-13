@@ -697,7 +697,12 @@ function validateCronExpression(expr, descEl, panelName) {
 
   var encoded = encodeURIComponent(expr);
   fetch('/api/cron/validate?expr=' + encoded, { signal: cronValidateAbortController.signal })
-    .then(function (response) { return response.json(); })
+    .then(function (response) {
+      if (!response.ok) {
+        throw new Error('Cron validation request failed with status ' + response.status);
+      }
+      return response.json();
+    })
     .then(function (data) {
       cronValidateAbortController = null;
       if (data.valid && data.description) {
@@ -715,7 +720,9 @@ function validateCronExpression(expr, descEl, panelName) {
     })
     .catch(function (err) {
       if (err.name !== 'AbortError') {
-        descEl.textContent = '';
+        cronValidateAbortController = null;
+        descEl.textContent = 'Could not validate cron expression. Check your connection and try again.';
+        descEl.className = 'text-xs text-error';
         if (panelName) { setCronValid(panelName, false); }
       }
     });

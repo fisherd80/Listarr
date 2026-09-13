@@ -14,6 +14,7 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
 
+  # keep rev in lockstep with requirements-dev.txt ruff== pin (MNT-05 / D-06b)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.2
     hooks:
