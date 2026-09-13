@@ -787,6 +787,17 @@ def wizard_submit():
     if not service or service not in ["radarr", "sonarr"]:
         return jsonify({"success": False, "message": "Invalid service"}), 400
 
+    # Validate and clamp limit (list size) at the API boundary, mirroring edit_list's
+    # bounds-checking (CR-01). filters comes directly from the request JSON body, so an
+    # unbounded/non-numeric limit must be rejected here rather than surfacing later as an
+    # unbounded TMDB fetch loop or a TypeError inside the background job.
+    raw_limit = filters.get("limit", 20)
+    try:
+        limit_val = int(raw_limit)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "limit must be an integer"}), 400
+    limit_val = max(1, min(500, limit_val))
+
     # Determine tmdb_list_type
     if preset and preset not in ["custom", ""]:
         tmdb_list_type = preset  # trending_movies, popular_tv, etc.
@@ -849,7 +860,7 @@ def wizard_submit():
             list_obj.target_service = service.upper()
             list_obj.tmdb_list_type = tmdb_list_type
             list_obj.filters_json = filters_json
-            list_obj.limit = filters.get("limit", 20)
+            list_obj.limit = limit_val
             list_obj.override_quality_profile = import_settings.get("quality_profile_id")
             list_obj.override_root_folder = import_settings.get("root_folder")
             list_obj.override_tag_id = tag_id
@@ -868,7 +879,7 @@ def wizard_submit():
                 target_service=service.upper(),
                 tmdb_list_type=tmdb_list_type,
                 filters_json=filters_json,
-                limit=filters.get("limit", 20),
+                limit=limit_val,
                 override_quality_profile=import_settings.get("quality_profile_id"),
                 override_root_folder=import_settings.get("root_folder"),
                 override_tag_id=tag_id,
