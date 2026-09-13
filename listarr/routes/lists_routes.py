@@ -44,6 +44,12 @@ from listarr.services.tmdb_cache import (
 )
 from listarr.utils.time_utils import format_past_time, format_relative_time
 
+# da25d1e regression guard: validate_cron_expression() also returns an internal-only,
+# non-JSON-serializable "trigger" (an apscheduler CronTrigger) for reconcile_scheduler_jobs()'s
+# use. /api/cron/validate must only ever serialize this whitelist of scalar keys -- never
+# jsonify() the raw result dict -- or any future internal key added to it can 500 the endpoint.
+_CRON_VALIDATE_JSON_KEYS = ("valid", "error", "description", "next_runs")
+
 # Preset display metadata - single source of truth for wizard UI text
 PRESET_METADATA = {
     "trending_movies": {
@@ -1099,7 +1105,8 @@ def validate_cron():
     if not expr:
         return jsonify({"valid": False, "error": "No expression provided", "description": "", "next_runs": []})
     result = validate_cron_expression(expr)
-    return jsonify(result)
+    payload = {key: result.get(key) for key in _CRON_VALIDATE_JSON_KEYS}
+    return jsonify(payload)
 
 
 @bp.route("/lists/<int:list_id>/status", methods=["GET"])

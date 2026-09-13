@@ -17,6 +17,7 @@ Tests cover:
 - GET /lists/<id>/status - Get job status
 """
 
+import json
 import re
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -1951,6 +1952,62 @@ class TestUpdateSchedule:
             json={"schedule_cron": ""},
         )
         mock_unschedule.assert_called_once_with(lst.id)
+
+
+class TestValidateCronEndpoint:
+    """15-09: regression guard for the da25d1e /api/cron/validate 500.
+
+    validate_cron_expression() returns an internal-only, non-JSON-serializable
+    "trigger" key on valid results. These tests pin the exact JSON contract the
+    route must expose so a future internal key added to the result dict fails a
+    test here instead of 500ing in production.
+    """
+
+    _EXPECTED_KEYS = {"valid", "error", "description", "next_runs"}
+
+    def test_valid_expression_returns_200_with_description_and_next_runs(self, client):
+        """UAT test 3 regression guard: a valid custom cron no longer 500s."""
+        response = client.get("/api/cron/validate?expr=0 9 * * mon,thu")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["valid"] is True
+        assert isinstance(data["description"], str)
+        assert data["description"] != ""
+        assert len(data["next_runs"]) == 3
+
+    def test_valid_expression_response_never_contains_trigger(self, client):
+        """The internal trigger object must never reach the client."""
+        response = client.get("/api/cron/validate?expr=0 9 * * mon,thu")
+
+        data = response.get_json()
+        assert "trigger" not in data
+
+    def test_valid_expression_response_is_json_serializable_with_exact_key_set(self, client):
+        """Serializability + exact key-set guard: a future internal key fails here, not in prod."""
+        response = client.get("/api/cron/validate?expr=0 9 * * mon,thu")
+
+        data = response.get_json()
+        json.dumps(data)  # must not raise
+        assert set(data.keys()) == self._EXPECTED_KEYS
+
+    def test_cronsim_valid_but_apscheduler_unbuildable_expression_returns_200(self, client):
+        """A cronsim-valid but APScheduler-unbuildable cron is reported invalid, not a 500."""
+        response = client.get("/api/cron/validate?expr=0 2 L * *")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["valid"] is False
+        assert data["error"]
+        assert set(data.keys()) == self._EXPECTED_KEYS
+
+    def test_empty_expression_returns_unchanged_shape(self, client):
+        """The empty-expression early return shape must not change."""
+        response = client.get("/api/cron/validate?expr=")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {"valid": False, "error": "No expression provided", "description": "", "next_runs": []}
 
 
 # ---------------------------------------------------------------------------

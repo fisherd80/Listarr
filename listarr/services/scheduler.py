@@ -813,8 +813,11 @@ def validate_cron_expression(cron_expr, tz=None):
             - error (str or None): Error message if invalid
             - description (str): Human-readable description
             - next_runs (list): Next 3 run times as ISO strings
-            - trigger (CronTrigger or None): The built, cross-checked trigger when valid,
-              so callers (e.g. reconcile_scheduler_jobs) do not need to rebuild it.
+            - trigger (CronTrigger or None): The built, cross-checked trigger, present only on
+              valid results, so callers (e.g. reconcile_scheduler_jobs) do not need to rebuild
+              it. INTERNAL-ONLY: this is not JSON-serializable. Any route that returns this
+              result dict to a client (e.g. /api/cron/validate) MUST whitelist the keys it
+              serializes and never jsonify() the raw dict, or it will 500 (da25d1e regression).
             next_runs values use isoformat() with UTC offset when the scheduler timezone is non-UTC.
     """
     result = {"valid": False, "error": None, "description": "", "next_runs": [], "trigger": None}

@@ -590,6 +590,17 @@ class TestSchedulerTimezone:
             assert next_run[-6] in {"+", "-"}
 
     @patch("listarr.services.scheduler._scheduler", None)
+    def test_validate_cron_expression_returns_cron_trigger_for_reconcile(self):
+        """15-09: pins the internal-only 'trigger' contract reconcile_scheduler_jobs() depends
+        on -- a future "just delete the trigger key" fix to the da25d1e JSON-serialization bug
+        must not silently break reconcile_scheduler_jobs()'s `desired[job_id] = validation["trigger"]`.
+        """
+        result = validate_cron_expression("0 9 * * mon,thu")
+
+        assert result["valid"] is True
+        assert isinstance(result["trigger"], CronTrigger)
+
+    @patch("listarr.services.scheduler._scheduler", None)
     def test_validate_cron_expression_rejects_cronsim_valid_but_unbuildable(self):
         """A cron cronsim accepts but CronTrigger.from_crontab rejects is invalid here, so
         it can never be stored on a list and reach the reconcile as an unbuildable row."""
