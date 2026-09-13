@@ -75,8 +75,24 @@ class ReconcileResult:
 _POSIX_DOW_NAMES = {"0": "sun", "1": "mon", "2": "tue", "3": "wed", "4": "thu", "5": "fri", "6": "sat", "7": "sun"}
 
 
+def _shift_posix_dow_digits(field: str) -> str:
+    """Shift POSIX day-of-week digits (0=Sun, ..., 6=Sat, 7=Sun) to APScheduler's
+    numbering (0=Mon, ..., 6=Sun), leaving separators (',', '-') untouched.
+
+    CR-03: a step-suffixed numeric field was previously left completely untranslated,
+    which kept the step honored but reintroduced the exact 0=Sunday(POSIX) vs
+    0=Monday(APScheduler) indexing ambiguity this module exists to eliminate --
+    e.g. POSIX '1-5/2' (Mon/Wed/Fri) built an APScheduler trigger that actually
+    fired Tue/Thu/Sat. Shifting each digit by (d + 6) % 7 maps POSIX Sunday=0 to
+    APScheduler Sunday=6, POSIX Monday=1 to APScheduler Monday=0, etc., so the
+    numeric field keeps its step suffix *and* fires on the correct days.
+    """
+    return re.sub(r"\b([0-7])\b", lambda m: str((int(m.group(1)) + 6) % 7), field)
+
+
 def _posix_cron_to_apscheduler(cron_expr):
-    """Translate POSIX day-of-week numbers to name strings before handing to APScheduler.
+    """Translate POSIX day-of-week numbers to APScheduler's numbering before handing
+    off to APScheduler.
 
     APScheduler's CronTrigger treats numeric day-of-week as 0=Monday (Python weekday),
     while POSIX cron uses 0=Sunday. '0 2 * * 1' would fire Tuesday in APScheduler
@@ -89,10 +105,14 @@ def _posix_cron_to_apscheduler(cron_expr):
     range/list has been translated to day *names* -- 'mon-fri/2' builds without error
     but behaves identically to 'mon-fri' (verified against the installed apscheduler
     version), which fires the job on every day in the range instead of every Nth day.
-    The equivalent *numeric* form ('1-5/2') is honored correctly. So when a step suffix
-    is present, the day-of-week field is left entirely numeric/untranslated -- only the
-    bare, step-less case is translated to names to resolve the 0=Sunday vs 0=Monday
-    ambiguity.
+    So when a step suffix is present, the field is kept numeric (not translated to
+    names) to keep the step honored.
+
+    CR-03: keeping a step-suffixed field numeric is not enough on its own -- the
+    digits still need to be shifted from POSIX's 0=Sunday numbering to APScheduler's
+    0=Monday numbering (see `_shift_posix_dow_digits`), otherwise every fire date is
+    off by a day versus the POSIX-semantics validation preview. Only the bare,
+    step-less case is translated to day *names* to resolve the same ambiguity.
     """
     parts = cron_expr.split()
     if len(parts) != 5:
@@ -102,10 +122,11 @@ def _posix_cron_to_apscheduler(cron_expr):
         return cron_expr
     field, _, step = dow.partition("/")
     if step:
-        # Do not translate: APScheduler silently drops a step suffix once the field
-        # becomes a day *name* range/list, so leave the field numeric to keep the step
-        # honored. Numeric day-of-week with a step still parses and fires correctly.
-        return cron_expr
+        # Keep the field numeric (not day names) so APScheduler doesn't silently drop
+        # the step (CR-02), but shift the digits to APScheduler's 0=Monday numbering
+        # so the field still fires on the correct POSIX-equivalent days (CR-03).
+        parts[4] = f"{_shift_posix_dow_digits(field)}/{step}"
+        return " ".join(parts)
     parts[4] = re.sub(r"\b([0-7])\b", lambda m: _POSIX_DOW_NAMES.get(m.group(1), m.group(1)), field)
     return " ".join(parts)
 

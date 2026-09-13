@@ -10,12 +10,13 @@ Tests cover:
 """
 
 import zoneinfo
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 from apscheduler.triggers.cron import CronTrigger
+from cronsim import CronSim
 from sqlalchemy.exc import OperationalError
 
 from listarr import db
@@ -601,9 +602,13 @@ class TestSchedulerTimezone:
     def test_posix_cron_to_apscheduler_keeps_step_numeric(self):
         """CR-02: a day-of-week range/list combined with a step must NOT be translated
         to day names -- APScheduler silently drops the step once the field is a name
-        range/list, so the numeric form must be preserved to keep the step honored."""
-        assert _posix_cron_to_apscheduler("0 2 * * 1-5/2") == "0 2 * * 1-5/2"
-        assert _posix_cron_to_apscheduler("0 2 * * 1,3,5/2") == "0 2 * * 1,3,5/2"
+        range/list, so the numeric form must be preserved to keep the step honored.
+
+        CR-03: the numeric digits are also shifted from POSIX's 0=Sunday numbering to
+        APScheduler's 0=Monday numbering (d -> (d + 6) % 7), so '1-5/2' (POSIX Mon-Fri)
+        becomes '0-4/2' (APScheduler Mon-Fri), not a bare untranslated round-trip."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1-5/2") == "0 2 * * 0-4/2"
+        assert _posix_cron_to_apscheduler("0 2 * * 1,3,5/2") == "0 2 * * 0,2,4/2"
 
     def test_posix_cron_to_apscheduler_translates_stepless_range(self):
         """Stepless day-of-week ranges/lists still get translated to unambiguous names."""
@@ -611,16 +616,49 @@ class TestSchedulerTimezone:
         assert _posix_cron_to_apscheduler("0 2 * * 1") == "0 2 * * mon"
 
     def test_range_step_cron_fires_on_correct_days(self):
-        """CR-02 regression: the built CronTrigger's actual day_of_week field must match
-        cronsim's fire-date semantics for a range+step expression, not silently drop the
-        step. Previously 'mon-fri/2' built successfully but behaved like 'mon-fri'
-        (fired every day), which this test would have caught."""
+        """CR-02 regression: the built CronTrigger's actual day_of_week field must not
+        silently drop the step suffix. Previously 'mon-fri/2' built successfully but
+        behaved like 'mon-fri' (fired every day), which this test would have caught."""
         translated = _posix_cron_to_apscheduler("0 2 * * 1-5/2")
         trigger = CronTrigger.from_crontab(translated)
 
         dow_field = str(trigger.fields[trigger.FIELD_NAMES.index("day_of_week")])
-        assert dow_field == "1-5/2"
+        assert dow_field == "0-4/2"
         assert "mon-fri" not in dow_field
+
+    @pytest.mark.parametrize(
+        "posix_expr",
+        [
+            "0 2 * * 1-5/2",  # range+step: POSIX Mon-Fri every 2nd day -> Mon/Wed/Fri
+            "0 2 * * 1,3,5/2",  # list+step: same days expressed as a list
+            "0 2 * * 0,2,4/3",  # list+step including POSIX Sunday (digit 0)
+        ],
+    )
+    def test_range_step_cron_fire_dates_match_cronsim(self, posix_expr):
+        """CR-03 regression: a numeric day-of-week field combined with a step must fire
+        on the same days cronsim (POSIX semantics, what /api/cron/validate previews to
+        the user) computes -- not shifted by the 0=Sunday(POSIX) vs 0=Monday(APScheduler)
+        indexing mismatch. This asserts actual computed fire *dates*, not just the built
+        trigger's field string, which is what let the CR-03 regression slip through the
+        earlier (string-only) version of this test."""
+        translated = _posix_cron_to_apscheduler(posix_expr)
+        trigger = CronTrigger.from_crontab(translated)
+
+        start = datetime(2026, 1, 1)
+
+        cronsim_dates = []
+        c = CronSim(posix_expr, start)
+        for _ in range(8):
+            cronsim_dates.append(next(c).date())
+
+        aps_dates = []
+        dt = start
+        for _ in range(8):
+            dt = trigger.get_next_fire_time(None, dt)
+            aps_dates.append(dt.date())
+            dt += timedelta(seconds=1)
+
+        assert aps_dates == cronsim_dates
 
 
 @pytest.mark.unit
