@@ -85,6 +85,59 @@ class TestRunScheduledImportHealthCheck:
         # Assert submit_job was NOT called
         mock_submit_job.assert_not_called()
 
+    @patch("listarr.services.scheduler.is_list_running")
+    @patch("listarr.services.scheduler.validate_api_key")
+    @patch("listarr.services.scheduler.decrypt_data")
+    @patch("listarr.services.scheduler.is_scheduler_paused")
+    @patch("listarr.services.scheduler.submit_job")
+    @patch("listarr.services.scheduler.List")
+    @patch("listarr.services.scheduler.db.session.get")
+    @patch("listarr.services.scheduler.ServiceConfig")
+    @patch("listarr.services.scheduler._app")
+    def test_swallows_value_error_from_submit_job_race(
+        self,
+        mock_app,
+        mock_service_config_class,
+        mock_session_get,
+        mock_list_class,
+        mock_submit_job,
+        mock_is_paused,
+        mock_decrypt,
+        mock_validate_api_key,
+        mock_is_list_running,
+    ):
+        """WR-02 regression: submit_job()'s check-then-create race raises ValueError when
+        a job is already submitted for this list between the is_list_running() check and
+        the lock acquisition. _run_scheduled_import must swallow this (log and return)
+        rather than letting it propagate out and crash the scheduler thread."""
+        mock_app.app_context.return_value.__enter__ = MagicMock()
+        mock_app.app_context.return_value.__exit__ = MagicMock()
+        mock_is_paused.return_value = False
+
+        mock_list_obj = MagicMock()
+        mock_list_obj.id = 1
+        mock_list_obj.name = "Test List"
+        mock_list_obj.target_service = "RADARR"
+        mock_list_obj.is_active = True
+        mock_session_get.return_value = mock_list_obj
+
+        mock_service_config = MagicMock()
+        mock_service_config.api_key_encrypted = "encrypted"
+        mock_service_config.base_url = "http://localhost:7878"
+        mock_query = MagicMock()
+        mock_query.first.return_value = mock_service_config
+        mock_service_config_class.query.filter_by.return_value = mock_query
+
+        mock_decrypt.return_value = "radarr_key"
+        mock_validate_api_key.return_value = True
+        mock_is_list_running.return_value = False
+        mock_submit_job.side_effect = ValueError("job already submitted for this list")
+
+        # Must not raise -- the exception is caught and logged, not propagated.
+        _run_scheduled_import(1)
+
+        mock_submit_job.assert_called_once()
+
 
 class TestGetNextRunTimeFallback:
     """Tests for get_next_run_time() fallback in non-scheduler workers."""

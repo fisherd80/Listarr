@@ -945,6 +945,66 @@ class TestWizardSubmit:
         data = response.get_json()
         assert data["success"] is False
 
+    def test_rejects_non_numeric_limit(self, client, db_session):
+        """CR-01 regression: a non-numeric filters.limit must be rejected with 400,
+        not raise a TypeError deeper in the request handling."""
+        payload = {
+            "name": "Bad Limit List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {"limit": "not-a-number"},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "limit" in data["message"]
+        assert List.query.filter_by(name="Bad Limit List").first() is None
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_clamps_huge_limit_to_upper_bound(self, mock_schedule, mock_unschedule, client, db_session):
+        """CR-01 regression: an unbounded huge filters.limit is clamped to 500, not used
+        as-is (which would otherwise drive an unbounded TMDB fetch loop)."""
+        payload = {
+            "name": "Huge Limit List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {"limit": 999999},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+        lst = List.query.filter_by(name="Huge Limit List").first()
+        assert lst.limit == 500
+
+    @patch("listarr.routes.lists_routes.unschedule_list")
+    @patch("listarr.routes.lists_routes.schedule_list")
+    def test_clamps_negative_limit_to_lower_bound(self, mock_schedule, mock_unschedule, client, db_session):
+        """CR-01 regression: a negative filters.limit is clamped up to 1, not passed
+        through as a negative value."""
+        payload = {
+            "name": "Negative Limit List",
+            "service": "radarr",
+            "preset": "trending_movies",
+            "filters": {"limit": -5},
+            "import_settings": {},
+            "schedule": {"is_active": True},
+        }
+        response = client.post("/lists/wizard/submit", json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+
+        lst = List.query.filter_by(name="Negative Limit List").first()
+        assert lst.limit == 1
+
     @patch("listarr.routes.lists_routes.unschedule_list")
     @patch("listarr.routes.lists_routes.schedule_list")
     def test_sets_discovery_type_for_custom_preset(self, mock_schedule, mock_unschedule, client, db_session):
@@ -2004,6 +2064,18 @@ class TestCsrfProtectionLists:
     def test_api_schedule_update_rejects_no_csrf(self, client_with_csrf):
         response = client_with_csrf.post("/api/schedule/1/update", json={})
         assert response.status_code == 400
+
+    def test_non_ajax_csrf_failure_renders_400_html_template(self, client_with_csrf):
+        """WR-03 regression: a non-AJAX request with a missing/invalid CSRF token must
+        render the dedicated errors/400.html template (session-expired messaging), not
+        the JSON error branch or the generic 404 template. Sending form data (not JSON,
+        no X-Requested-With header) exercises the non-AJAX branch of csrf_error()."""
+        response = client_with_csrf.post("/lists/edit/1", data={})
+
+        assert response.status_code == 400
+        assert response.content_type.startswith("text/html")
+        body = response.get_data(as_text=True)
+        assert "session has expired" in body.lower()
 
 
 class TestWizardAndEditCoverage:
