@@ -87,102 +87,73 @@ class TestActivityPage:
         response = client.get("/activity")
         assert response.status_code == 200
 
-    def test_activity_page_has_clear_all_button(self, client):
-        """Activity page exposes the Clear All control in the header."""
+    def test_activity_page_has_single_clear_button(self, client):
+        """Activity page exposes exactly one merged clear-history control in the header."""
         response = client.get("/activity")
         html = response.get_data(as_text=True)
 
-        assert 'id="clear-all-btn"' in html
-        assert 'type="button"' in html
-        assert "Clear All" in html
-        assert "bg-error" in html
-        assert "hover:bg-error/90" in html
-        assert "text-white" in html
+        assert html.count('id="clear-activity-btn"') == 1
+        assert 'id="clear-list-btn"' not in html
+        assert 'id="clear-all-btn"' not in html
 
-    def test_activity_page_has_clear_list_button(self, client):
-        """Activity page exposes a disabled, per-list Clear List control in the header."""
-        response = client.get("/activity")
-        html = response.get_data(as_text=True)
+        button_start = html.index('id="clear-activity-btn"')
+        tag_start = html.rfind("<button", 0, button_start)
+        tag_end = html.index(">", button_start)
+        button_tag = html[tag_start:tag_end]
 
-        assert 'id="clear-list-btn"' in html
-        assert 'type="button"' in html
-        assert "Clear List" in html
-
-        clear_list_start = html.index('id="clear-list-btn"')
-        clear_all_start = html.index('id="clear-all-btn"')
-        clear_list_tag_start = html.rfind("<button", 0, clear_list_start)
-        clear_list_tag_end = html.index(">", clear_list_start)
-        clear_list_tag = html[clear_list_tag_start:clear_list_tag_end]
-
-        assert "disabled" in clear_list_tag
-        # Clear List must appear before Clear All so the destructive global action stays rightmost.
-        assert clear_list_start < clear_all_start
+        assert 'type="button"' in button_tag
+        assert "bg-error" in button_tag
+        assert "hover:bg-error/90" in button_tag
+        assert "text-white" in button_tag
+        assert "disabled" not in button_tag
 
 
 class TestActivityPageJavaScript:
     """Static contract tests for Activity page JavaScript behavior."""
 
-    def test_clear_all_activity_function_contract(self):
-        """clearAllActivity confirms, posts with CSRF, handles JSON, and refreshes."""
+    def test_clear_activity_function_contract(self):
+        """clearActivity confirms, dispatches by filter scope, posts with CSRF, and refreshes."""
         source = Path("listarr/static/js/jobs.js").read_text()
 
-        function_start = source.index("async function clearAllActivity()")
+        function_start = source.index("async function clearActivity()")
         init_start = source.index("function initJobsPage()")
-        clear_all_source = source[function_start:init_start]
+        clear_activity_source = source[function_start:init_start]
 
-        assert "window.confirm(" in clear_all_source
-        assert 'fetch("/api/activity/clear"' in clear_all_source
-        assert '"X-CSRFToken": getCsrfToken()' in clear_all_source
-        assert clear_all_source.index("if (!response.ok)") < clear_all_source.index("var data = await response.json()")
-        assert "if (data.deleted_count > 0)" in clear_all_source
-        assert '"No historical records to clear"' in clear_all_source
-        assert "loadJobs()" in clear_all_source
-
-    def test_init_jobs_page_wires_clear_all_button(self):
-        """initJobsPage wires the Clear All click listener."""
-        source = Path("listarr/static/js/jobs.js").read_text()
-        init_source = source[source.index("function initJobsPage()") :]
-
-        assert 'document.getElementById("clear-all-btn")' in init_source
-        assert 'addEventListener("click", clearAllActivity)' in init_source
-
-    def test_clear_list_activity_function_contract(self):
-        """clearListActivity confirms, posts with CSRF to the per-list endpoint, and refreshes."""
-        source = Path("listarr/static/js/jobs.js").read_text()
-
-        function_start = source.index("async function clearListActivity()")
-        clear_all_start = source.index("async function clearAllActivity()")
-        clear_list_source = source[function_start:clear_all_start]
-
-        assert "window.confirm(" in clear_list_source
-        assert 'fetch("/api/activity/clear/"' in clear_list_source
-        assert '"X-CSRFToken": getCsrfToken()' in clear_list_source
-        assert clear_list_source.index("if (!response.ok)") < clear_list_source.index(
+        assert "window.confirm(" in clear_activity_source
+        assert 'fetch("/api/activity/clear"' in clear_activity_source
+        assert 'fetch("/api/activity/clear/"' in clear_activity_source
+        assert '"X-CSRFToken": getCsrfToken()' in clear_activity_source
+        assert clear_activity_source.index("if (!response.ok)") < clear_activity_source.index(
             "var data = await response.json()"
         )
-        assert "loadJobs()" in clear_list_source
+        assert "loadJobs()" in clear_activity_source
 
-    def test_init_jobs_page_wires_clear_list_button(self):
-        """initJobsPage wires the Clear List click listener."""
+        assert "clearListActivity" not in source
+        assert "clearAllActivity" not in source
+
+    def test_init_jobs_page_wires_clear_activity_button(self):
+        """initJobsPage wires the single merged clear-activity click listener."""
         source = Path("listarr/static/js/jobs.js").read_text()
         init_source = source[source.index("function initJobsPage()") :]
 
-        assert 'document.getElementById("clear-list-btn")' in init_source
-        assert 'addEventListener("click", clearListActivity)' in init_source
+        assert 'document.getElementById("clear-activity-btn")' in init_source
+        assert 'addEventListener("click", clearActivity)' in init_source
+        assert "clear-list-btn" not in init_source
+        assert "clear-all-btn" not in init_source
 
-    def test_update_clear_list_button_referenced_by_load_lists_and_filters(self):
-        """updateClearListButton is invoked from loadLists and applyFilters so state cannot drift."""
+    def test_update_clear_activity_button_referenced_by_load_lists_and_filters(self):
+        """updateClearActivityButton is invoked from loadLists and applyFilters so state cannot drift."""
         source = Path("listarr/static/js/jobs.js").read_text()
 
         load_lists_start = source.index("async function loadLists()")
         load_jobs_start = source.index("async function loadJobs()")
         load_lists_source = source[load_lists_start:load_jobs_start]
-        assert "updateClearListButton()" in load_lists_source
+        assert "updateClearActivityButton()" in load_lists_source
 
         apply_filters_start = source.index("function applyFilters()")
         go_to_page_start = source.index("function goToPage(")
         apply_filters_source = source[apply_filters_start:go_to_page_start]
-        assert "updateClearListButton()" in apply_filters_source
+        assert "updateClearActivityButton()" in apply_filters_source
 
     def test_render_job_row_uses_deleted_badge_for_deleted_lists(self):
         """renderJobRow renders Deleted only for explicit list_deleted true."""
