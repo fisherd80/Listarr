@@ -19,7 +19,16 @@
         View import run history across all lists.
       </p>
     </div>
-    <div>
+    <div class="flex items-center gap-2">
+      <button
+        id="clear-list-btn"
+        type="button"
+        disabled
+        title="Clear history for the list selected in the List filter"
+        class="px-4 py-2 text-sm font-medium rounded border border-border-subtle text-text-base bg-bg-panel hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Clear List
+      </button>
       <button
         id="clear-all-btn"
         type="button"
