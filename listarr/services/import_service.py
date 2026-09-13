@@ -567,7 +567,6 @@ def _import_series(
             if activity_tracker:
                 activity_tracker.update()
             continue
-        seen_ids.add(tmdb_id)
 
         # Translate TMDB ID to TVDB ID
         tvdb_id = tmdb_service.get_tvdb_id_from_tmdb(tmdb_id, tmdb_api_key)
@@ -647,6 +646,10 @@ def _import_series(
 
         batch.append(payload)
         batch_meta.append({"tmdb_id": tmdb_id, "tvdb_id": tvdb_id, "title": title})
+        # WR-04: mark seen_ids only after a successful lookup (mirrors _import_movies), so a
+        # TMDB duplicate whose first occurrence fails lookup is retried rather than
+        # short-circuited as "duplicate_in_batch" for an item that was never queued.
+        seen_ids.add(tmdb_id)
 
         # Flush batch if full
         if len(batch) >= BATCH_SIZE:
