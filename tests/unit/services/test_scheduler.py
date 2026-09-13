@@ -641,6 +641,22 @@ class TestSchedulerTimezone:
         APScheduler's own parser decide whether to accept or reject it."""
         assert _posix_cron_to_apscheduler("0 2 * * 1/0") == "0 2 * * 1/0"
 
+    def test_posix_cron_to_apscheduler_translates_mixed_digit_name_list(self):
+        """WR-01 regression: a day-of-week field mixing digits and day names (e.g.
+        '1,mon', the exact CR-01 exploit string) must translate correctly instead
+        of the whole field being rejected/passed through untranslated. '1' is
+        POSIX Monday and 'mon' is also Monday, so the enumerated, deduplicated
+        result is just 'mon'."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1,mon") == "0 2 * * mon"
+        # Mixed list with genuinely distinct days, name first this time.
+        assert _posix_cron_to_apscheduler("0 2 * * mon,3") == "0 2 * * mon,wed"
+
+    def test_posix_cron_to_apscheduler_name_case_insensitive(self):
+        """Day names resolve case-insensitively, matching cronsim's own upper-casing
+        of the whole expression before parsing."""
+        assert _posix_cron_to_apscheduler("0 2 * * 1,Mon") == "0 2 * * mon"
+        assert _posix_cron_to_apscheduler("0 2 * * 1,MON") == "0 2 * * mon"
+
     @pytest.mark.parametrize(
         "posix_expr",
         [
@@ -1076,6 +1092,39 @@ class TestReconcileSchedulerJobs:
             assert result.applied == 2
             assert result.unbuildable == {bad: "0 2 L * *"}
             assert {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list} == set(good)
+
+    def test_mistranslated_but_buildable_row_caught_by_defense_in_depth(self, app, monkeypatch):
+        """WR-02 regression: a cron that builds a trigger successfully but whose
+        translation is actually wrong (the CR-01 failure class -- fixed for the
+        real translator, but reconcile must not rely on that alone) must be
+        rejected by the same fire-date cross-check validate_cron_expression() uses,
+        not silently scheduled just because CronTrigger.from_crontab did not raise.
+        The bad row's cron is deliberately distinct from the good rows' so the
+        patched translator can target it by exact input string, not call order."""
+        with app.app_context():
+            good = [self._make_list("0 2 * * 1") for _ in range(2)]
+            bad = self._make_list("0 2 * * 4")  # Thursday; translation corrupted below
+            scheduler = MagicMock()
+            scheduler.get_jobs.return_value = []
+            monkeypatch.setattr(sched, "_scheduler", scheduler)
+            monkeypatch.setattr(sched, "_app", app)
+
+            real_translate = sched._posix_cron_to_apscheduler
+
+            def corrupt_only_bad(cron_expr):
+                if cron_expr == "0 2 * * 4":
+                    # Simulate a translation bug: builds fine, but actually fires
+                    # on Friday instead of Thursday.
+                    return "0 2 * * fri"
+                return real_translate(cron_expr)
+
+            with patch.object(sched, "_posix_cron_to_apscheduler", side_effect=corrupt_only_bad):
+                result = sched.reconcile_scheduler_jobs("Europe/London")
+
+            assert result.unbuildable == {bad: "0 2 * * 4"}
+            applied_ids = {int(c.kwargs["id"][5:]) for c in scheduler.add_job.call_args_list}
+            assert bad not in applied_ids
+            assert set(good) <= applied_ids
 
     def test_no_scheduler_reports_backlog_without_raising(self, app, monkeypatch):
         with app.app_context():

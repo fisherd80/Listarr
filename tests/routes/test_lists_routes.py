@@ -470,9 +470,11 @@ class TestEditListPOST:
     @patch("listarr.routes.lists_routes.unschedule_list")
     @patch("listarr.routes.lists_routes.schedule_list")
     def test_rejects_invalid_cron_and_does_not_persist(self, mock_schedule, mock_unschedule, client, db_session):
-        """CR-01 regression: a cron that builds a trigger but fires on the wrong day
-        (mixed digit/name day-of-week list) must be rejected before the row is
-        committed, not silently persisted and only logged as a scheduling failure."""
+        """CR-01 regression: a cron that cronsim accepts as valid syntax but that
+        APScheduler's CronTrigger cannot build ('0 2 L * *' -- the day-of-month
+        'last day' modifier cronsim supports but CronTrigger does not) must be
+        rejected before the row is committed, not silently persisted and only
+        logged as a scheduling failure."""
         lst = make_list(name="Bad Cron Test", schedule_cron=None)
         db.session.add(lst)
         db.session.commit()
@@ -480,7 +482,7 @@ class TestEditListPOST:
         form_data = {
             "name": "Bad Cron Test",
             "is_active": "y",
-            "schedule_cron": "0 2 * * 1,mon",
+            "schedule_cron": "0 2 L * *",
             "override_quality_profile": "",
             "override_root_folder": "",
             "override_tag": "",
@@ -944,15 +946,16 @@ class TestWizardSubmit:
     def test_rejects_invalid_cron_on_create_and_does_not_persist(
         self, mock_schedule, mock_unschedule, client, db_session
     ):
-        """CR-01 regression: create mode must reject a buildable-but-wrong cron
-        (mixed digit/name day-of-week list) before any row is inserted."""
+        """CR-01 regression: create mode must reject a cron that is valid syntax
+        but that CronTrigger cannot build ('0 2 L * *') before any row is
+        inserted."""
         payload = {
             "name": "Wizard Bad Cron",
             "service": "radarr",
             "preset": "trending_movies",
             "filters": {},
             "import_settings": {},
-            "schedule": {"cron": "0 2 * * 1,mon", "is_active": True},
+            "schedule": {"cron": "0 2 L * *", "is_active": True},
         }
         response = client.post("/lists/wizard/submit", json=payload)
         assert response.status_code == 400
@@ -968,8 +971,9 @@ class TestWizardSubmit:
     def test_rejects_invalid_cron_on_edit_and_does_not_persist(
         self, mock_schedule, mock_unschedule, client, db_session
     ):
-        """CR-01 regression: edit mode must reject a buildable-but-wrong cron
-        (mixed digit/name day-of-week list) before the existing row is mutated."""
+        """CR-01 regression: edit mode must reject a cron that is valid syntax
+        but that CronTrigger cannot build ('0 2 L * *') before the existing row
+        is mutated."""
         lst = make_list(name="Wizard Edit Bad Cron", schedule_cron=None)
         db.session.add(lst)
         db.session.commit()
@@ -981,7 +985,7 @@ class TestWizardSubmit:
             "preset": "popular_movies",
             "filters": {},
             "import_settings": {},
-            "schedule": {"cron": "0 2 * * 1,mon", "is_active": True},
+            "schedule": {"cron": "0 2 L * *", "is_active": True},
         }
         response = client.post("/lists/wizard/submit", json=payload)
         assert response.status_code == 400
