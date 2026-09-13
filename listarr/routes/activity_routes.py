@@ -62,7 +62,7 @@ def get_activity():
     result = []
     for job in pagination.items:
         job_dict = job.to_dict()
-        list_obj = List.query.get(job.list_id) if job.list_id else None
+        list_obj = db.session.get(List, job.list_id) if job.list_id else None
         job_dict["target_service"] = list_obj.target_service if list_obj else None
         job_dict["list_deleted"] = job.list_id is not None and list_obj is None
         result.append(job_dict)
@@ -86,7 +86,7 @@ def get_activity_detail(job_id):
     Returns:
         JSON with job info and items array
     """
-    job = Job.query.get_or_404(job_id)
+    job = db.get_or_404(Job, job_id)
 
     job_dict = job.to_dict()
 
@@ -110,14 +110,14 @@ def rerun_activity(job_id):
         400 if job is not failed or list is missing/inactive
         404 if job not found
     """
-    job = Job.query.get_or_404(job_id)
+    job = db.get_or_404(Job, job_id)
 
     # Only allow rerun of failed jobs
     if job.status != "failed":
         return jsonify({"success": False, "message": "Can only rerun failed jobs"}), 400
 
     # Check if list still exists (guard against NULL list_id)
-    list_obj = List.query.get(job.list_id) if job.list_id else None
+    list_obj = db.session.get(List, job.list_id) if job.list_id else None
     if not list_obj:
         return jsonify({"success": False, "message": "List no longer exists"}), 400
 
@@ -160,19 +160,21 @@ def rerun_activity(job_id):
         return jsonify({"success": False, "message": "Failed to start job"}), 500
 
 
-@bp.route("/api/activity/clear", methods=["POST"])
-@login_required
-def clear_all_activity():
-    """
-    Clear all job history (global).
+def _clear_jobs(list_id=None):
+    """Delete completed/failed jobs (and their JobItems), optionally scoped to one list.
 
-    Only clears completed and failed jobs, not running ones.
+    Shared by clear_all_activity and clear_list_activity (IN-02) so the two near-identical
+    bulk-delete implementations can't drift out of sync on future bug fixes. Running jobs
+    are never touched.
 
     Returns:
-        JSON with count of deleted jobs
+        Count of jobs deleted.
     """
     # Get IDs of jobs to delete (not running)
-    jobs_to_delete = Job.query.filter(Job.status.in_(["completed", "failed"])).all()
+    query = Job.query.filter(Job.status.in_(["completed", "failed"]))
+    if list_id is not None:
+        query = query.filter(Job.list_id == list_id)
+    jobs_to_delete = query.all()
     job_ids = [job.id for job in jobs_to_delete]
 
     if job_ids:
@@ -184,7 +186,22 @@ def clear_all_activity():
 
     db.session.commit()
 
-    return jsonify({"success": True, "deleted_count": len(job_ids)})
+    return len(job_ids)
+
+
+@bp.route("/api/activity/clear", methods=["POST"])
+@login_required
+def clear_all_activity():
+    """
+    Clear all job history (global).
+
+    Only clears completed and failed jobs, not running ones.
+
+    Returns:
+        JSON with count of deleted jobs
+    """
+    deleted_count = _clear_jobs()
+    return jsonify({"success": True, "deleted_count": deleted_count})
 
 
 @bp.route("/api/activity/clear/<int:list_id>", methods=["POST"])
@@ -198,20 +215,8 @@ def clear_list_activity(list_id):
     Returns:
         JSON with count of deleted jobs
     """
-    # Get IDs of jobs to delete (not running)
-    jobs_to_delete = Job.query.filter(Job.list_id == list_id, Job.status.in_(["completed", "failed"])).all()
-    job_ids = [job.id for job in jobs_to_delete]
-
-    if job_ids:
-        # Delete job items first (explicit cascade for bulk delete)
-        JobItem.query.filter(JobItem.job_id.in_(job_ids)).delete(synchronize_session=False)
-
-        # Then delete jobs
-        Job.query.filter(Job.id.in_(job_ids)).delete(synchronize_session=False)
-
-    db.session.commit()
-
-    return jsonify({"success": True, "deleted_count": len(job_ids)})
+    deleted_count = _clear_jobs(list_id=list_id)
+    return jsonify({"success": True, "deleted_count": deleted_count})
 
 
 @bp.route("/api/activity/running")

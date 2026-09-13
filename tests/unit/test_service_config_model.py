@@ -111,7 +111,7 @@ class TestServiceConfigModel:
             db.session.commit()
 
             # Query again to verify
-            updated = ServiceConfig.query.get(config_id)
+            updated = db.session.get(ServiceConfig, config_id)
             assert updated.api_key_encrypted == "new_key"
             assert updated.last_test_status == "success"
             assert updated.last_tested_at is not None
@@ -129,7 +129,7 @@ class TestServiceConfigModel:
             db.session.commit()
 
             # Verify deleted
-            found = ServiceConfig.query.get(config_id)
+            found = db.session.get(ServiceConfig, config_id)
             assert found is None
 
     def test_service_field_is_required(self, app):

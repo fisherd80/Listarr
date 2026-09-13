@@ -38,5 +38,8 @@ class MediaImportSettings(db.Model):
     monitored = db.Column(db.Boolean, default=True)
     search_on_add = db.Column(db.Boolean, default=True)
     season_folder = db.Column(db.Boolean, default=True)
+    # Sonarr Import Default monitor mode. The Python-side default fires only on ORM INSERT;
+    # existing rows are backfilled by the DDL DEFAULT 'all' in _ensure_sonarr_monitor_mode_columns.
+    sonarr_monitor_mode = db.Column(db.String(16), default="all")
 
     default_tag_id = db.Column(db.Integer)  # Radarr/Sonarr service tag ID

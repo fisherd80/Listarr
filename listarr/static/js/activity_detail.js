@@ -95,7 +95,11 @@
     metaRow.appendChild(makeEl('span', null, '\u2022'));
     metaRow.appendChild(makeEl('span', null, triggerLabel));
     metaRow.appendChild(makeEl('span', null, '\u2022'));
-    metaRow.appendChild(makeEl('span', null, timestamp));
+    // IN-03: built as a node rather than swept, so set the app-timezone tooltip here.
+    var timestampEl = makeEl('span', null, timestamp);
+    var timestampTooltip = appTzTooltip(job.started_at);
+    if (timestampTooltip) { timestampEl.title = timestampTooltip; }
+    metaRow.appendChild(timestampEl);
 
     // Counts row
     var countsRow = makeEl('div', 'flex flex-wrap gap-x-3 gap-y-1');

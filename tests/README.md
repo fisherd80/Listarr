@@ -104,8 +104,7 @@ def test_encryption_roundtrip(temp_instance_path):
 Default `app` fixture has CSRF disabled. Use `app_with_csrf` fixture for tests that need CSRF protection:
 
 ```python
-def test_form_submit_requires_csrf_token(app_with_csrf, client):
-    ...
+def test_form_submit_requires_csrf_token(app_with_csrf, client): ...
 ```
 
 ## Test Coverage by Component

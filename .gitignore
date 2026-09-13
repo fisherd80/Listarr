@@ -206,3 +206,4 @@ CLAUDE.md
 
 .ruff_cache
 sync.ffs_db
+.codegraph/
