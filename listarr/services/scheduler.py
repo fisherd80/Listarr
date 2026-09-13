@@ -518,10 +518,18 @@ def _run_scheduled_import(list_id):
             submit_job(list_id, list_obj.name, _app, triggered_by="scheduled")
 
         except (OperationalError, RequestException, ValueError) as e:
-            # ValueError: submit_job() performs its own independent check-then-create under
-            # _submit_lock and raises this if a job is already submitted for this list in the
-            # window between the is_list_running() check above and the lock acquisition
-            # (WR-02) -- an already-anticipated race, documented in job_executor.py.
+            # WR-07: ValueError here is scoped to submit_job()'s check-then-create race by
+            # construction, not by the tuple alone -- the inner try/except a few lines above
+            # already intercepts and returns early on any ValueError from decrypt_data() /
+            # validate_api_key(), so by the time control reaches submit_job() the only
+            # remaining source of ValueError in this block is submit_job() itself performing
+            # its own independent check-then-create under _submit_lock and raising this if a
+            # job is already submitted for this list in the window between the
+            # is_list_running() check above and the lock acquisition (WR-02) -- an
+            # already-anticipated race, documented in job_executor.py. Do not assume this
+            # clause covers *any* ValueError raised anywhere in the outer try; if new code is
+            # added between the inner try/except and submit_job(), give it its own handling
+            # rather than relying on this comment alone.
             logger.error(f"Error running scheduled import for list {list_id}: {e}", exc_info=True)
 
 
