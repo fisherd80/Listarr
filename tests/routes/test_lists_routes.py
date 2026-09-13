@@ -118,6 +118,24 @@ class TestListsPage:
         assert 'data-timestamp=""' in body
 
     @patch("listarr.routes.lists_routes.get_next_run_time")
+    def test_lists_page_row_has_last_run_data_hooks(self, mock_next_run, client, db_session):
+        """15-11: last-run and result cells carry data hooks the poller updates in place."""
+        mock_next_run.return_value = None
+
+        lst = make_list(name="Hooked Row List", last_run_at=datetime.now(timezone.utc))
+        db.session.add(lst)
+        db.session.commit()
+
+        response = client.get("/lists")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "data-last-run-cell" in body
+        assert "data-last-run-result" in body
+        # The last-run cell still carries its data-timestamp attribute.
+        assert re.search(r'data-last-run-cell\s+data-timestamp="[^"]+"', body)
+
+    @patch("listarr.routes.lists_routes.get_next_run_time")
     def test_shows_next_run_for_active_scheduled_list(self, mock_next_run, client, db_session):
         """Lists with schedule_cron and is_active get next run time computed."""
         from datetime import timedelta
@@ -1683,6 +1701,18 @@ class TestGetListStatus:
 
         assert page_result == "17 add / 3 skip"
         assert status_data["last_run_result"] == page_result
+
+
+class TestListsJsAssetContract:
+    """15-11: served lists.js must consume the new /status fields via updateRowLastRun()."""
+
+    def test_live_lists_js_wires_update_row_last_run(self, client):
+        response = client.get("/static/js/lists.js")
+
+        assert response.status_code == 200
+        assert b"updateRowLastRun" in response.data
+        assert b"data-last-run-result" in response.data
+        assert b"last_run_formatted" in response.data
 
 
 # ---------------------------------------------------------------------------

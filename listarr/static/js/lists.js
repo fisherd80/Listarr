@@ -164,6 +164,34 @@ function updateStatusBadge(row, status, text) {
   badge.textContent = text;
 }
 
+/**
+ * Refresh a row's last-run time and result cells from a /status poll response,
+ * so the Lists page reflects an import's outcome without a manual reload (15-11).
+ * @param {HTMLElement} row - the <tr> element
+ * @param {Object} data - the parsed JSON body from GET /lists/<id>/status
+ */
+function updateRowLastRun(row, data) {
+  if (!row) { return; }
+
+  var emDash = '—';
+
+  var lastRunCell = row.querySelector('[data-last-run-cell]');
+  if (lastRunCell) {
+    lastRunCell.textContent = data.last_run_formatted || emDash;
+    lastRunCell.setAttribute('data-timestamp', data.last_run_at || '');
+    if (typeof applyAppTzTooltips === 'function') {
+      applyAppTzTooltips(row);
+    }
+  }
+
+  var resultCell = row.querySelector('[data-last-run-result]');
+  if (resultCell) {
+    resultCell.textContent = data.last_run_result || emDash;
+  }
+
+  row.setAttribute('data-last-run', data.last_run_at || '');
+}
+
 // ---------------------
 // Toggle switch
 // ---------------------
@@ -384,6 +412,7 @@ function pollJobStatus(listId) {
           if (row) {
             var isActive = row.getAttribute('data-status') === 'enabled';
             updateStatusBadge(row, isActive ? 'enabled' : 'disabled', isActive ? 'Enabled' : 'Disabled');
+            updateRowLastRun(row, data);
           }
         } else if (data.status === 'error' || data.status === 'failed') {
           clearInterval(activePollers[listId]);
@@ -391,6 +420,7 @@ function pollJobStatus(listId) {
           removeRunningJob(listId);
           if (row) {
             updateStatusBadge(row, 'error', 'Error');
+            updateRowLastRun(row, data);
             setTimeout(function () {
               var isActive = row.getAttribute('data-status') === 'enabled';
               updateStatusBadge(row, isActive ? 'enabled' : 'disabled', isActive ? 'Enabled' : 'Disabled');
