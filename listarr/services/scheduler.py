@@ -509,7 +509,11 @@ def _run_scheduled_import(list_id):
             logger.info(f"Starting scheduled import for list {list_id} ({list_obj.name})")
             submit_job(list_id, list_obj.name, _app, triggered_by="scheduled")
 
-        except (OperationalError, RequestException) as e:
+        except (OperationalError, RequestException, ValueError) as e:
+            # ValueError: submit_job() performs its own independent check-then-create under
+            # _submit_lock and raises this if a job is already submitted for this list in the
+            # window between the is_list_running() check above and the lock acquisition
+            # (WR-02) -- an already-anticipated race, documented in job_executor.py.
             logger.error(f"Error running scheduled import for list {list_id}: {e}", exc_info=True)
 
 
