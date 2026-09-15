@@ -8,7 +8,7 @@ SQLAlchemy==2.0.52
 
 # Forms and CSRF Protection
 Flask-WTF==1.3.0
-WTForms==3.2.1
+WTForms==3.2.2
 
 # Authentication
 Flask-Login==0.6.3
@@ -32,7 +32,7 @@ APScheduler==3.11.3  # IN-08: exact pin is load-bearing. scheduler.py assigns Ba
 cronsim==2.7
 cron-descriptor==2.1.0
 # IANA tz database for zoneinfo on Windows / Alpine (no system /usr/share/zoneinfo)
-tzdata==2026.3
+tzdata==2026.4
 
 # --- transitive deps, pinned for reproducibility (see .planning/phases/15-maintenance-finish/15-NOTES.md section 2) ---
 blinker==1.9.0
